@@ -7,9 +7,7 @@
 
 GoML is a high-performance machine learning library written in pure Go, designed for backend services and real-time inference applications.
 
-GoMLは、バックエンドサービスとリアルタイム推論アプリケーション向けに設計された、純粋なGo言語で書かれた高性能機械学習ライブラリです。
-
-## ✨ Features / 特徴
+## ✨ Features
 
 - 🚀 **High Performance** - CPU-parallel processing with automatic optimization
 - 📚 **scikit-learn-like API** - Intuitive and familiar interface design
@@ -18,13 +16,13 @@ GoMLは、バックエンドサービスとリアルタイム推論アプリケ�
 - 🧪 **Well Tested** - 91% test coverage for core modules
 - 📊 **Built-in Metrics** - MSE, RMSE, MAE, R²Score, MAPE, and more
 
-## 📦 Installation / インストール
+## 📦 Installation
 
 ```bash
 go get github.com/YuminosukeSato/GoML
 ```
 
-## 🚀 Quick Start / クイックスタート
+## 🚀 Quick Start
 
 ```go
 package main
@@ -61,7 +59,7 @@ func main() {
 }
 ```
 
-## 📊 Performance Benchmarks / パフォーマンス
+## 📊 Performance Benchmarks
 
 Benchmarked on Apple M2 Max:
 
@@ -72,21 +70,21 @@ Benchmarked on Apple M2 Max:
 | 10,000×20 | 4.5ms | 3.4MB | 57 |
 | 50,000×50 | 65.9ms | 41.2MB | 61 |
 
-### Parallel Processing / 並列処理
+### Parallel Processing
 
 - Automatic parallelization for datasets with >1000 rows
 - CPU core detection and optimal worker allocation
 - Thread-safe operations with sync.WaitGroup
 
-## 🛠️ Implemented Features / 実装済み機能
+## 🛠️ Implemented Features
 
-### Models / モデル
+### Models
 - ✅ Linear Regression
 - 🚧 Logistic Regression (coming soon)
 - 🚧 Random Forest (coming soon)
 - 🚧 Gradient Boosting (coming soon)
 
-### Metrics / 評価指標
+### Metrics
 - ✅ Mean Squared Error (MSE)
 - ✅ Root Mean Squared Error (RMSE)
 - ✅ Mean Absolute Error (MAE)
@@ -94,15 +92,15 @@ Benchmarked on Apple M2 Max:
 - ✅ Mean Absolute Percentage Error (MAPE)
 - ✅ Explained Variance Score
 
-### Core Features / コア機能
+### Core Features
 - ✅ Tensor operations (wrapper for gonum/mat)
 - ✅ Parallel processing utilities
 - ✅ Comprehensive error handling
 - ✅ Model interfaces (Fitter, Predictor, Transformer)
 
-## 📚 Documentation / ドキュメント
+## 📚 Documentation
 
-### Package Structure / パッケージ構造
+### Package Structure
 
 ```
 goml/
@@ -116,7 +114,7 @@ goml/
 └── examples/       # Usage examples
 ```
 
-### Examples / 使用例
+### Examples
 
 Check out the [examples](./examples) directory for more detailed usage:
 
@@ -124,7 +122,7 @@ Check out the [examples](./examples) directory for more detailed usage:
 - [Iris Dataset Regression](./examples/iris_regression/main.go)
 - [Error Handling Demo](./examples/error_demo/main.go)
 
-## 🧪 Testing / テスト
+## 🧪 Testing
 
 Run tests:
 ```bash
@@ -141,7 +139,7 @@ Check coverage:
 go test -cover ./...
 ```
 
-## 🤝 Contributing / コントリビューション
+## 🤝 Contributing
 
 Contributions are welcome! Please feel free to submit a Pull Request.
 
@@ -151,7 +149,7 @@ Contributions are welcome! Please feel free to submit a Pull Request.
 4. Push to the branch (`git push origin feature/AmazingFeature`)
 5. Open a Pull Request
 
-## 📈 Roadmap / ロードマップ
+## 📈 Roadmap
 
 - [ ] More ML algorithms (Decision Trees, SVM, Neural Networks)
 - [ ] Model serialization and deserialization
@@ -160,17 +158,17 @@ Contributions are welcome! Please feel free to submit a Pull Request.
 - [ ] AutoML capabilities
 - [ ] More preprocessing utilities
 
-## 📝 License / ライセンス
+## 📝 License
 
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 
-## 🙏 Acknowledgments / 謝辞
+## 🙏 Acknowledgments
 
 - [gonum](https://www.gonum.org/) - Numerical libraries for Go
 - [cockroachdb/errors](https://github.com/cockroachdb/errors) - Enhanced error handling
 - scikit-learn - API design inspiration
 
-## 📧 Contact / 連絡先
+## 📧 Contact
 
 - GitHub: [@YuminosukeSato](https://github.com/YuminosukeSato)
 - Repository: [https://github.com/YuminosukeSato/GoML](https://github.com/YuminosukeSato/GoML)
