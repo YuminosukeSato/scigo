@@ -25,6 +25,7 @@ SciGo brings the power and familiarity of scikit-learn to the Go ecosystem, offe
 
 - 🔥 **Blazing Fast**: Native Go implementation with built-in parallelization
 - 🎯 **scikit-learn Compatible**: Familiar Fit/Predict API for easy migration
+- 📖 **Well Documented**: Complete API documentation with examples on [pkg.go.dev](https://pkg.go.dev/github.com/YuminosukeSato/scigo)
 - 🌊 **Streaming Support**: Online learning algorithms for real-time data
 - 🚀 **Zero Heavy Dependencies**: Pure Go implementation (only scientific essentials)
 - 📊 **Comprehensive**: Regression, classification, clustering, and more
@@ -37,6 +38,8 @@ go get github.com/YuminosukeSato/scigo
 ```
 
 ## 🚀 Quick Start
+
+> 💡 **Tip**: For complete API documentation with examples, visit [pkg.go.dev/scigo](https://pkg.go.dev/github.com/YuminosukeSato/scigo)
 
 ```go
 package main
@@ -80,6 +83,40 @@ func main() {
 }
 ```
 
+## 📚 API Documentation
+
+[![GoDoc](https://pkg.go.dev/badge/github.com/YuminosukeSato/scigo)](https://pkg.go.dev/github.com/YuminosukeSato/scigo)
+
+### 📖 Package Documentation
+
+| Package | Description | Go Doc |
+|---------|-------------|--------|
+| **preprocessing** | Data preprocessing utilities (StandardScaler, MinMaxScaler, OneHotEncoder) | [![GoDoc](https://pkg.go.dev/badge/github.com/YuminosukeSato/scigo/preprocessing)](https://pkg.go.dev/github.com/YuminosukeSato/scigo/preprocessing) |
+| **linear** | Linear machine learning algorithms (LinearRegression) | [![GoDoc](https://pkg.go.dev/badge/github.com/YuminosukeSato/scigo/linear)](https://pkg.go.dev/github.com/YuminosukeSato/scigo/linear) |
+| **metrics** | Model evaluation metrics (MSE, RMSE, MAE, R², MAPE) | [![GoDoc](https://pkg.go.dev/badge/github.com/YuminosukeSato/scigo/metrics)](https://pkg.go.dev/github.com/YuminosukeSato/scigo/metrics) |
+| **core/model** | Base model abstractions and interfaces | [![GoDoc](https://pkg.go.dev/badge/github.com/YuminosukeSato/scigo/core/model)](https://pkg.go.dev/github.com/YuminosukeSato/scigo/core/model) |
+
+### 📋 Complete API Examples
+
+The documentation includes comprehensive examples for all major APIs. Visit the Go Doc links above or use `go doc` locally:
+
+```bash
+# View package documentation
+go doc github.com/YuminosukeSato/scigo/preprocessing
+go doc github.com/YuminosukeSato/scigo/linear
+go doc github.com/YuminosukeSato/scigo/metrics
+
+# View specific function documentation
+go doc github.com/YuminosukeSato/scigo/preprocessing.StandardScaler.Fit
+go doc github.com/YuminosukeSato/scigo/linear.LinearRegression.Predict
+go doc github.com/YuminosukeSato/scigo/metrics.MSE
+
+# Run example tests
+go test -v ./preprocessing -run Example
+go test -v ./linear -run Example
+go test -v ./metrics -run Example
+```
+
 ## 📚 Algorithms
 
 ### Supervised Learning
@@ -89,6 +126,11 @@ func main() {
 - ✅ **SGD Regressor** - Stochastic Gradient Descent for large-scale learning
 - ✅ **SGD Classifier** - Linear classifiers with SGD training
 - ✅ **Passive-Aggressive** - Online learning for classification and regression
+
+### Data Preprocessing
+- ✅ **StandardScaler** - Standardizes features by removing mean and scaling to unit variance
+- ✅ **MinMaxScaler** - Scales features to a given range (e.g., [0,1] or [-1,1])
+- ✅ **OneHotEncoder** - Encodes categorical features as one-hot numeric arrays
 
 #### Tree-based Models
 - 🚧 Random Forest (Coming Soon)
@@ -167,9 +209,15 @@ scigo/
 
 ## 📊 Metrics
 
-Comprehensive evaluation metrics included:
+Comprehensive evaluation metrics with full documentation:
 
-- **Regression**: MSE, RMSE, MAE, R², MAPE, Explained Variance
+- **Regression Metrics**: 
+  - MSE (Mean Squared Error) - [`pkg.go.dev/metrics.MSE`](https://pkg.go.dev/github.com/YuminosukeSato/scigo/metrics#MSE)
+  - RMSE (Root Mean Squared Error) - [`pkg.go.dev/metrics.RMSE`](https://pkg.go.dev/github.com/YuminosukeSato/scigo/metrics#RMSE)  
+  - MAE (Mean Absolute Error) - [`pkg.go.dev/metrics.MAE`](https://pkg.go.dev/github.com/YuminosukeSato/scigo/metrics#MAE)
+  - R² (Coefficient of Determination) - [`pkg.go.dev/metrics.R2Score`](https://pkg.go.dev/github.com/YuminosukeSato/scigo/metrics#R2Score)
+  - MAPE (Mean Absolute Percentage Error) - [`pkg.go.dev/metrics.MAPE`](https://pkg.go.dev/github.com/YuminosukeSato/scigo/metrics#MAPE)
+  - Explained Variance Score - [`pkg.go.dev/metrics.ExplainedVarianceScore`](https://pkg.go.dev/github.com/YuminosukeSato/scigo/metrics#ExplainedVarianceScore)
 - **Classification**: Accuracy, Precision, Recall, F1-Score, ROC-AUC (coming)
 - **Clustering**: Silhouette Score, Davies-Bouldin Index (coming)
 
@@ -182,12 +230,24 @@ go test ./...
 # Run benchmarks
 go test -bench=. -benchmem ./...
 
-# Check coverage (91% for core modules)
+# Check coverage (76.7% overall coverage)
 go test -cover ./...
 
-# Run linter
-golangci-lint run
+# Run linter (errcheck, govet, ineffassign, staticcheck, unused, misspell)
+make lint-full
+
+# Run examples to see API usage
+go test -v ./preprocessing -run Example
+go test -v ./linear -run Example
+go test -v ./metrics -run Example
+go test -v ./core/model -run Example
 ```
+
+### Quality Gates
+- ✅ **Test Coverage**: 76.7% (target: 70%+)
+- ✅ **Linting**: golangci-lint with comprehensive checks
+- ✅ **Documentation**: Complete godoc for all public APIs
+- ✅ **Examples**: Comprehensive example functions for all major APIs
 
 ## 📚 Examples
 
@@ -241,7 +301,20 @@ golangci-lint run
 
 ## 📖 Documentation
 
-- [API Documentation](https://pkg.go.dev/github.com/YuminosukeSato/scigo)
+### Core Documentation
+- **[API Documentation](https://pkg.go.dev/github.com/YuminosukeSato/scigo)** - Complete API reference with examples
+- **[Package Index](https://pkg.go.dev/github.com/YuminosukeSato/scigo?tab=subdirectories)** - Browse all packages
+
+### API Quick Reference
+| API | Package | Documentation |
+|-----|---------|---------------|
+| `StandardScaler` | preprocessing | [pkg.go.dev/preprocessing.StandardScaler](https://pkg.go.dev/github.com/YuminosukeSato/scigo/preprocessing#StandardScaler) |
+| `MinMaxScaler` | preprocessing | [pkg.go.dev/preprocessing.MinMaxScaler](https://pkg.go.dev/github.com/YuminosukeSato/scigo/preprocessing#MinMaxScaler) |
+| `OneHotEncoder` | preprocessing | [pkg.go.dev/preprocessing.OneHotEncoder](https://pkg.go.dev/github.com/YuminosukeSato/scigo/preprocessing#OneHotEncoder) |
+| `LinearRegression` | linear | [pkg.go.dev/linear.LinearRegression](https://pkg.go.dev/github.com/YuminosukeSato/scigo/linear#LinearRegression) |
+| `BaseEstimator` | core/model | [pkg.go.dev/model.BaseEstimator](https://pkg.go.dev/github.com/YuminosukeSato/scigo/core/model#BaseEstimator) |
+
+### Guides (Coming Soon)
 - [Migration from scikit-learn](docs/migration_guide.md)
 - [Streaming Guide](docs/streaming.md)
 - [Performance Tuning](docs/performance.md)

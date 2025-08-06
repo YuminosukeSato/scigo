@@ -1,3 +1,26 @@
+// Package preprocessing provides data preprocessing utilities for machine learning.
+//
+// This package implements scikit-learn compatible preprocessing components including:
+//
+//   - StandardScaler: Standardizes features by removing the mean and scaling to unit variance
+//   - MinMaxScaler: Transforms features by scaling each feature to a given range
+//   - OneHotEncoder: Encodes categorical features as one-hot numeric arrays
+//
+// All preprocessing components follow the scikit-learn API pattern with Fit, Transform, 
+// and FitTransform methods. They integrate seamlessly with the BaseEstimator pattern 
+// for consistent state management and serialization support.
+//
+// Example usage:
+//
+//	scaler := preprocessing.NewStandardScaler(true, true)
+//	err := scaler.Fit(trainingData)
+//	if err != nil {
+//		log.Fatal(err)
+//	}
+//	scaledData, err := scaler.Transform(testData)
+//
+// The package is designed for production machine learning pipelines with emphasis
+// on memory efficiency, thread safety, and compatibility with popular ML libraries.
 package preprocessing
 
 import (
@@ -5,7 +28,7 @@ import (
 	"math"
 
 	"github.com/YuminosukeSato/scigo/core/model"
-	"github.com/YuminosukeSato/scigo/pkg/errors"
+	scigoErrors "github.com/YuminosukeSato/scigo/pkg/errors"
 	"gonum.org/v1/gonum/mat"
 )
 
@@ -30,20 +53,27 @@ type StandardScaler struct {
 	WithStd bool
 }
 
-// NewStandardScaler は新しいStandardScalerを作成する
+// NewStandardScaler creates a new StandardScaler for feature standardization.
 //
-// パラメータ:
-//   - withMean: 平均を引くかどうか (デフォルト: true)
-//   - withStd: 標準偏差で割るかどうか (デフォルト: true)
+// StandardScaler transforms features by removing the mean and scaling to unit variance.
+// This is a common preprocessing step that ensures all features contribute equally
+// to machine learning algorithms and improves numerical stability.
 //
-// 戻り値:
-//   - *StandardScaler: 新しいStandardScalerインスタンス
+// Parameters:
+//   - withMean: whether to center the data at zero by removing the mean (default: true)
+//   - withStd: whether to scale the data to unit variance by dividing by standard deviation (default: true)
 //
-// 使用例:
+// Returns:
+//   - *StandardScaler: A new StandardScaler instance ready for fitting
 //
-//	scaler := preprocessing.NewStandardScaler(true, true)
-//	err := scaler.Fit(X)
-//	XScaled, err := scaler.Transform(X)
+// Example:
+//   // Standard z-score normalization (mean=0, std=1)
+//   scaler := preprocessing.NewStandardScaler(true, true)
+//   err := scaler.Fit(X_train)
+//   X_scaled, err := scaler.Transform(X_test)
+//
+//   // Scale only (keep original mean)
+//   scaler := preprocessing.NewStandardScaler(false, true)
 func NewStandardScaler(withMean, withStd bool) *StandardScaler {
 	return &StandardScaler{
 		WithMean: withMean,
@@ -56,17 +86,33 @@ func NewStandardScalerDefault() *StandardScaler {
 	return NewStandardScaler(true, true)
 }
 
-// Fit は訓練データから統計情報（平均、標準偏差）を計算する
+// Fit computes the statistics (mean and scale) from the training data.
 //
-// パラメータ:
-//   - X: 訓練データ (n_samples × n_features の行列)
+// This method calculates the feature-wise mean and standard deviation from the
+// provided training data, which will be used for future transformations.
+// The scaler must be fitted before calling Transform or InverseTransform.
 //
-// 戻り値:
-//   - error: エラーが発生した場合
-func (s *StandardScaler) Fit(X mat.Matrix) error {
+// Parameters:
+//   - X: Training data matrix of shape (n_samples, n_features)
+//
+// Returns:
+//   - error: nil if successful, otherwise an error describing the failure
+//
+// Errors:
+//   - ErrEmptyData: if X is empty
+//   - ErrDimensionMismatch: if X has inconsistent dimensions
+//
+// Example:
+//   scaler := preprocessing.NewStandardScaler(true, true)
+//   err := scaler.Fit(trainingData)
+//   if err != nil {
+//       log.Fatal(err)
+//   }
+func (s *StandardScaler) Fit(X mat.Matrix) (err error) {
+	defer scigoErrors.Recover(&err, "StandardScaler.Fit")
 	r, c := X.Dims()
 	if r == 0 || c == 0 {
-		return errors.NewModelError("StandardScaler.Fit", "empty data", errors.ErrEmptyData)
+		return scigoErrors.NewModelError("StandardScaler.Fit", "empty data", scigoErrors.ErrEmptyData)
 	}
 	
 	s.NFeatures = c
@@ -116,22 +162,37 @@ func (s *StandardScaler) Fit(X mat.Matrix) error {
 	return nil
 }
 
-// Transform は学習済みの統計情報を使ってデータを標準化する
+// Transform applies standardization to the input data using fitted statistics.
 //
-// パラメータ:
-//   - X: 変換するデータ
+// This method standardizes features by removing the mean and scaling to unit
+// variance using the statistics computed during the Fit phase. The transformation
+// formula is: X_scaled = (X - mean) / scale.
 //
-// 戻り値:
-//   - mat.Matrix: 標準化されたデータ
-//   - error: エラーが発生した場合
-func (s *StandardScaler) Transform(X mat.Matrix) (mat.Matrix, error) {
+// Parameters:
+//   - X: Input data matrix of shape (n_samples, n_features)
+//
+// Returns:
+//   - mat.Matrix: Standardized data matrix with same shape as input
+//   - error: nil if successful, otherwise an error describing the failure
+//
+// Errors:
+//   - ErrNotFitted: if the scaler hasn't been fitted yet
+//   - ErrDimensionMismatch: if X doesn't match the number of features from training
+//
+// Example:
+//   scaledData, err := scaler.Transform(testData)
+//   if err != nil {
+//       log.Fatal(err)
+//   }
+func (s *StandardScaler) Transform(X mat.Matrix) (_ mat.Matrix, err error) {
+	defer scigoErrors.Recover(&err, "StandardScaler.Transform")
 	if !s.IsFitted() {
-		return nil, errors.NewNotFittedError("StandardScaler", "Transform")
+		return nil, scigoErrors.NewNotFittedError("StandardScaler", "Transform")
 	}
 	
 	r, c := X.Dims()
 	if c != s.NFeatures {
-		return nil, errors.NewDimensionError("StandardScaler.Transform", s.NFeatures, c, 1)
+		return nil, scigoErrors.NewDimensionError("StandardScaler.Transform", s.NFeatures, c, 1)
 	}
 	
 	// 結果を格納する行列を作成
@@ -149,37 +210,66 @@ func (s *StandardScaler) Transform(X mat.Matrix) (mat.Matrix, error) {
 	return result, nil
 }
 
-// FitTransform は訓練データで学習し、同じデータを変換する
+// FitTransform fits the scaler and transforms the training data in one step.
 //
-// パラメータ:
-//   - X: 訓練・変換するデータ
+// This convenience method combines Fit and Transform operations, computing
+// statistics from the input data and immediately applying the transformation.
+// Equivalent to calling Fit(X) followed by Transform(X).
 //
-// 戻り値:
-//   - mat.Matrix: 標準化されたデータ
-//   - error: エラーが発生した場合
-func (s *StandardScaler) FitTransform(X mat.Matrix) (mat.Matrix, error) {
+// Parameters:
+//   - X: Training data matrix of shape (n_samples, n_features)
+//
+// Returns:
+//   - mat.Matrix: Standardized training data matrix
+//   - error: nil if successful, otherwise an error from either fitting or transformation
+//
+// Example:
+//   scaler := preprocessing.NewStandardScaler(true, true)
+//   scaledTraining, err := scaler.FitTransform(trainingData)
+//   if err != nil {
+//       log.Fatal(err)
+//   }
+//   // Now scaler is fitted and can transform new data
+//   scaledTest, err := scaler.Transform(testData)
+func (s *StandardScaler) FitTransform(X mat.Matrix) (_ mat.Matrix, err error) {
+	defer scigoErrors.Recover(&err, "StandardScaler.FitTransform")
 	if err := s.Fit(X); err != nil {
 		return nil, err
 	}
 	return s.Transform(X)
 }
 
-// InverseTransform は標準化されたデータを元のスケールに戻す
+// InverseTransform reverses the standardization transformation.
 //
-// パラメータ:
-//   - X: 標準化されたデータ
+// This method transforms standardized data back to the original scale using
+// the fitted statistics. The inverse transformation formula is:
+// X_orig = X_scaled * scale + mean.
 //
-// 戻り値:
-//   - mat.Matrix: 元のスケールに戻されたデータ
-//   - error: エラーが発生した場合
-func (s *StandardScaler) InverseTransform(X mat.Matrix) (mat.Matrix, error) {
+// Parameters:
+//   - X: Standardized data matrix of shape (n_samples, n_features)
+//
+// Returns:
+//   - mat.Matrix: Data matrix in original scale
+//   - error: nil if successful, otherwise an error describing the failure
+//
+// Errors:
+//   - ErrNotFitted: if the scaler hasn't been fitted yet
+//   - ErrDimensionMismatch: if X doesn't match the number of features from training
+//
+// Example:
+//   originalData, err := scaler.InverseTransform(scaledData)
+//   if err != nil {
+//       log.Fatal(err)
+//   }
+func (s *StandardScaler) InverseTransform(X mat.Matrix) (_ mat.Matrix, err error) {
+	defer scigoErrors.Recover(&err, "StandardScaler.InverseTransform")
 	if !s.IsFitted() {
-		return nil, errors.NewNotFittedError("StandardScaler", "InverseTransform")
+		return nil, scigoErrors.NewNotFittedError("StandardScaler", "InverseTransform")
 	}
 	
 	r, c := X.Dims()
 	if c != s.NFeatures {
-		return nil, errors.NewDimensionError("StandardScaler.InverseTransform", s.NFeatures, c, 1)
+		return nil, scigoErrors.NewDimensionError("StandardScaler.InverseTransform", s.NFeatures, c, 1)
 	}
 	
 	// 結果を格納する行列を作成
@@ -241,19 +331,25 @@ type MinMaxScaler struct {
 	FeatureRange [2]float64
 }
 
-// NewMinMaxScaler は新しいMinMaxScalerを作成する
+// NewMinMaxScaler creates a new MinMaxScaler for feature scaling.
 //
-// パラメータ:
-//   - featureRange: スケーリング後の範囲 [min, max] (デフォルト: [0, 1])
+// MinMaxScaler transforms features by scaling each feature to a given range.
+// The transformation is given by: X_scaled = (X - X.min) / (X.max - X.min) * (max - min) + min
 //
-// 戻り値:
-//   - *MinMaxScaler: 新しいMinMaxScalerインスタンス
+// Parameters:
+//   - featureRange: Target range for scaling [min, max] (typically [0, 1] or [-1, 1])
 //
-// 使用例:
+// Returns:
+//   - *MinMaxScaler: A new MinMaxScaler instance ready for fitting
 //
-//	scaler := preprocessing.NewMinMaxScaler([2]float64{0.0, 1.0})
-//	err := scaler.Fit(X)
-//	XScaled, err := scaler.Transform(X)
+// Example:
+//   // Scale to [0, 1] range
+//   scaler := preprocessing.NewMinMaxScaler([2]float64{0.0, 1.0})
+//   err := scaler.Fit(trainingData)
+//   scaledData, err := scaler.Transform(testData)
+//   
+//   // Scale to [-1, 1] range
+//   scaler := preprocessing.NewMinMaxScaler([2]float64{-1.0, 1.0})
 func NewMinMaxScaler(featureRange [2]float64) *MinMaxScaler {
 	return &MinMaxScaler{
 		FeatureRange: featureRange,
@@ -265,17 +361,32 @@ func NewMinMaxScalerDefault() *MinMaxScaler {
 	return NewMinMaxScaler([2]float64{0.0, 1.0})
 }
 
-// Fit は訓練データから最小値・最大値を計算する
+// Fit computes the minimum and maximum values for each feature from training data.
 //
-// パラメータ:
-//   - X: 訓練データ (n_samples × n_features の行列)
+// This method calculates the feature-wise minimum and maximum values that will be
+// used for scaling transformations. The scaler must be fitted before calling
+// Transform or InverseTransform.
 //
-// 戻り値:
-//   - error: エラーが発生した場合
-func (m *MinMaxScaler) Fit(X mat.Matrix) error {
+// Parameters:
+//   - X: Training data matrix of shape (n_samples, n_features)
+//
+// Returns:
+//   - error: nil if successful, otherwise an error describing the failure
+//
+// Errors:
+//   - ErrEmptyData: if X is empty
+//
+// Example:
+//   scaler := preprocessing.NewMinMaxScaler([2]float64{0.0, 1.0})
+//   err := scaler.Fit(trainingData)
+//   if err != nil {
+//       log.Fatal(err)
+//   }
+func (m *MinMaxScaler) Fit(X mat.Matrix) (err error) {
+	defer scigoErrors.Recover(&err, "MinMaxScaler.Fit")
 	r, c := X.Dims()
 	if r == 0 || c == 0 {
-		return errors.NewModelError("MinMaxScaler.Fit", "empty data", errors.ErrEmptyData)
+		return scigoErrors.NewModelError("MinMaxScaler.Fit", "empty data", scigoErrors.ErrEmptyData)
 	}
 	
 	m.NFeatures = c
@@ -322,22 +433,37 @@ func (m *MinMaxScaler) Fit(X mat.Matrix) error {
 	return nil
 }
 
-// Transform は学習済みの統計情報を使ってデータをスケーリングする
+// Transform scales input data to the fitted feature range.
 //
-// パラメータ:
-//   - X: 変換するデータ
+// This method transforms data using the minimum and maximum values computed during
+// the Fit phase. Each feature is independently scaled to the target range.
 //
-// 戻り値:
-//   - mat.Matrix: スケーリングされたデータ
-//   - error: エラーが発生した場合
-func (m *MinMaxScaler) Transform(X mat.Matrix) (mat.Matrix, error) {
+// Parameters:
+//   - X: Input data matrix of shape (n_samples, n_features)
+//
+// Returns:
+//   - mat.Matrix: Scaled data matrix with values in the target range
+//   - error: nil if successful, otherwise an error describing the failure
+//
+// Errors:
+//   - ErrNotFitted: if the scaler hasn't been fitted yet
+//   - ErrDimensionMismatch: if X doesn't match the number of features from training
+//
+// Example:
+//   scaledData, err := scaler.Transform(testData)
+//   if err != nil {
+//       log.Fatal(err)
+//   }
+//   // scaledData values are now in the range specified during NewMinMaxScaler
+func (m *MinMaxScaler) Transform(X mat.Matrix) (_ mat.Matrix, err error) {
+	defer scigoErrors.Recover(&err, "MinMaxScaler.Transform")
 	if !m.IsFitted() {
-		return nil, errors.NewNotFittedError("MinMaxScaler", "Transform")
+		return nil, scigoErrors.NewNotFittedError("MinMaxScaler", "Transform")
 	}
 	
 	r, c := X.Dims()
 	if c != m.NFeatures {
-		return nil, errors.NewDimensionError("MinMaxScaler.Transform", m.NFeatures, c, 1)
+		return nil, scigoErrors.NewDimensionError("MinMaxScaler.Transform", m.NFeatures, c, 1)
 	}
 	
 	// 結果を格納する行列を作成
@@ -358,37 +484,66 @@ func (m *MinMaxScaler) Transform(X mat.Matrix) (mat.Matrix, error) {
 	return result, nil
 }
 
-// FitTransform は訓練データで学習し、同じデータを変換する
+// FitTransform fits the scaler and transforms the training data in one step.
 //
-// パラメータ:
-//   - X: 訓練・変換するデータ
+// This convenience method combines Fit and Transform operations, computing
+// min/max statistics from the input data and immediately applying the scaling.
+// Equivalent to calling Fit(X) followed by Transform(X).
 //
-// 戻り値:
-//   - mat.Matrix: スケーリングされたデータ
-//   - error: エラーが発生した場合
-func (m *MinMaxScaler) FitTransform(X mat.Matrix) (mat.Matrix, error) {
+// Parameters:
+//   - X: Training data matrix of shape (n_samples, n_features)
+//
+// Returns:
+//   - mat.Matrix: Scaled training data matrix in the target range
+//   - error: nil if successful, otherwise an error from either fitting or transformation
+//
+// Example:
+//   scaler := preprocessing.NewMinMaxScaler([2]float64{0.0, 1.0})
+//   scaledTraining, err := scaler.FitTransform(trainingData)
+//   if err != nil {
+//       log.Fatal(err)
+//   }
+//   // Now scaler is fitted and can transform new data
+//   scaledTest, err := scaler.Transform(testData)
+func (m *MinMaxScaler) FitTransform(X mat.Matrix) (_ mat.Matrix, err error) {
+	defer scigoErrors.Recover(&err, "MinMaxScaler.FitTransform")
 	if err := m.Fit(X); err != nil {
 		return nil, err
 	}
 	return m.Transform(X)
 }
 
-// InverseTransform はスケーリングされたデータを元の範囲に戻す
+// InverseTransform reverses the min-max scaling transformation.
 //
-// パラメータ:
-//   - X: スケーリングされたデータ
+// This method transforms scaled data back to the original range using the
+// fitted min/max statistics. Useful for interpreting results or recovering
+// original data values.
 //
-// 戻り値:
-//   - mat.Matrix: 元の範囲に戻されたデータ
-//   - error: エラーが発生した場合
-func (m *MinMaxScaler) InverseTransform(X mat.Matrix) (mat.Matrix, error) {
+// Parameters:
+//   - X: Scaled data matrix of shape (n_samples, n_features)
+//
+// Returns:
+//   - mat.Matrix: Data matrix in original scale and range
+//   - error: nil if successful, otherwise an error describing the failure
+//
+// Errors:
+//   - ErrNotFitted: if the scaler hasn't been fitted yet
+//   - ErrDimensionMismatch: if X doesn't match the number of features from training
+//
+// Example:
+//   originalData, err := scaler.InverseTransform(scaledData)
+//   if err != nil {
+//       log.Fatal(err)
+//   }
+func (m *MinMaxScaler) InverseTransform(X mat.Matrix) (_ mat.Matrix, err error) {
+	defer scigoErrors.Recover(&err, "MinMaxScaler.InverseTransform")
 	if !m.IsFitted() {
-		return nil, errors.NewNotFittedError("MinMaxScaler", "InverseTransform")
+		return nil, scigoErrors.NewNotFittedError("MinMaxScaler", "InverseTransform")
 	}
 	
 	r, c := X.Dims()
 	if c != m.NFeatures {
-		return nil, errors.NewDimensionError("MinMaxScaler.InverseTransform", m.NFeatures, c, 1)
+		return nil, scigoErrors.NewDimensionError("MinMaxScaler.InverseTransform", m.NFeatures, c, 1)
 	}
 	
 	// 結果を格納する行列を作成

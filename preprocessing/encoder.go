@@ -5,7 +5,7 @@ import (
 	"sort"
 
 	"github.com/YuminosukeSato/scigo/core/model"
-	"github.com/YuminosukeSato/scigo/pkg/errors"
+	scigoErrors "github.com/YuminosukeSato/scigo/pkg/errors"
 	"gonum.org/v1/gonum/mat"
 )
 
@@ -48,13 +48,14 @@ func NewOneHotEncoder() *OneHotEncoder {
 //
 // 戻り値:
 //   - error: エラーが発生した場合
-func (e *OneHotEncoder) Fit(data [][]string) error {
+func (e *OneHotEncoder) Fit(data [][]string) (err error) {
+	defer scigoErrors.Recover(&err, "OneHotEncoder.Fit")
 	if len(data) == 0 {
-		return errors.NewModelError("OneHotEncoder.Fit", "empty data", errors.ErrEmptyData)
+		return scigoErrors.NewModelError("OneHotEncoder.Fit", "empty data", scigoErrors.ErrEmptyData)
 	}
 	
 	if len(data[0]) == 0 {
-		return errors.NewModelError("OneHotEncoder.Fit", "empty features", errors.ErrEmptyData)
+		return scigoErrors.NewModelError("OneHotEncoder.Fit", "empty features", scigoErrors.ErrEmptyData)
 	}
 	
 	nSamples := len(data)
@@ -63,7 +64,7 @@ func (e *OneHotEncoder) Fit(data [][]string) error {
 	// 特徴量数の一貫性チェック
 	for i, row := range data {
 		if len(row) != nFeatures {
-			return errors.NewDimensionError("OneHotEncoder.Fit", nFeatures, len(row), i)
+			return scigoErrors.NewDimensionError("OneHotEncoder.Fit", nFeatures, len(row), i)
 		}
 	}
 	
@@ -115,9 +116,10 @@ func (e *OneHotEncoder) Fit(data [][]string) error {
 // 戻り値:
 //   - mat.Matrix: one-hot encodingされたデータ
 //   - error: エラーが発生した場合
-func (e *OneHotEncoder) Transform(data [][]string) (mat.Matrix, error) {
+func (e *OneHotEncoder) Transform(data [][]string) (_ mat.Matrix, err error) {
+	defer scigoErrors.Recover(&err, "OneHotEncoder.Transform")
 	if !e.IsFitted() {
-		return nil, errors.NewNotFittedError("OneHotEncoder", "Transform")
+		return nil, scigoErrors.NewNotFittedError("OneHotEncoder", "Transform")
 	}
 	
 	if len(data) == 0 {
@@ -128,7 +130,7 @@ func (e *OneHotEncoder) Transform(data [][]string) (mat.Matrix, error) {
 	nFeatures := len(data[0])
 	
 	if nFeatures != e.NFeatures {
-		return nil, errors.NewDimensionError("OneHotEncoder.Transform", e.NFeatures, nFeatures, 1)
+		return nil, scigoErrors.NewDimensionError("OneHotEncoder.Transform", e.NFeatures, nFeatures, 1)
 	}
 	
 	// 結果行列を初期化（全て0）
@@ -165,7 +167,8 @@ func (e *OneHotEncoder) Transform(data [][]string) (mat.Matrix, error) {
 // 戻り値:
 //   - mat.Matrix: one-hot encodingされたデータ
 //   - error: エラーが発生した場合
-func (e *OneHotEncoder) FitTransform(data [][]string) (mat.Matrix, error) {
+func (e *OneHotEncoder) FitTransform(data [][]string) (_ mat.Matrix, err error) {
+	defer scigoErrors.Recover(&err, "OneHotEncoder.FitTransform")
 	if err := e.Fit(data); err != nil {
 		return nil, err
 	}

@@ -1,3 +1,38 @@
+// Package linear provides linear machine learning algorithms and models.
+//
+// This package implements various linear models for regression and classification tasks:
+//
+//   - LinearRegression: Ordinary least squares regression with L2 regularization support
+//   - scikit-learn compatibility: Import/export linear models trained in Python
+//   - High-performance matrix operations using gonum/mat
+//   - Production-ready with comprehensive error handling and validation
+//
+// Linear models are fundamental building blocks in machine learning, offering:
+//
+//   - Fast training and prediction
+//   - Interpretable coefficients and feature importance
+//   - Memory efficient implementation
+//   - Robust numerical stability using QR decomposition
+//
+// Example usage:
+//
+//	lr := linear.NewLinearRegression()
+//	err := lr.Fit(X, y) // X: features, y: target values
+//	if err != nil {
+//		log.Fatal(err)
+//	}
+//	predictions, err := lr.Predict(XTest)
+//
+// The package supports model persistence and scikit-learn interoperability:
+//
+//	// Save trained model
+//	err = lr.ExportToSKLearn("model.json")
+//	
+//	// Load Python-trained model
+//	err = lr.LoadFromSKLearn("sklearn_model.json")
+//
+// All algorithms follow the standard estimator interface with Fit/Predict methods
+// and integrate seamlessly with preprocessing pipelines and model evaluation tools.
 package linear
 
 import (
@@ -6,9 +41,12 @@ import (
 	"io"
 	"os"
 
+	"time"
+
 	"github.com/YuminosukeSato/scigo/core/model"
 	"github.com/YuminosukeSato/scigo/core/parallel"
-	"github.com/YuminosukeSato/scigo/pkg/errors"
+	scigoErrors "github.com/YuminosukeSato/scigo/pkg/errors"
+	"github.com/YuminosukeSato/scigo/pkg/log"
 	"gonum.org/v1/gonum/mat"
 )
 
@@ -20,28 +58,81 @@ type LinearRegression struct {
 	NFeatures int           // 特徴量の数
 }
 
-// NewLinearRegression は新しい線形回帰モデルを作成する
+// NewLinearRegression creates a new linear regression model for ordinary least squares regression.
+//
+// The model uses QR decomposition for numerical stability and supports both
+// single and multiple linear regression tasks. The returned model must be
+// trained using the Fit method before making predictions.
+//
+// Returns:
+//   - *LinearRegression: A new untrained linear regression model
+//
+// Example:
+//   lr := linear.NewLinearRegression()
+//   err := lr.Fit(X, y)
+//   predictions, err := lr.Predict(X_test)
 func NewLinearRegression() *LinearRegression {
-	return &LinearRegression{}
+	lr := &LinearRegression{}
+	
+	// Set up logger with model context
+	logger := log.GetLoggerWithName("linear").With(
+		log.ModelNameKey, "LinearRegression",
+		log.ComponentKey, "linear",
+	)
+	lr.SetLogger(logger)
+	
+	return lr
 }
 
-// Fit はモデルを訓練データで学習させる
-// 正規方程式 w = (X^T * X)^(-1) * X^T * y を使用
-func (lr *LinearRegression) Fit(X, y mat.Matrix) error {
-	// 入力の検証
+// Fit trains the linear regression model using the provided training data.
+//
+// The method uses QR decomposition to solve the normal equation (X^T * X)w = X^T * y
+// for numerical stability and handles both overdetermined and underdetermined systems.
+// After successful training, the model's fitted state is set to true.
+//
+// Parameters:
+//   - X: Feature matrix of shape (n_samples, n_features)
+//   - y: Target vector of shape (n_samples, 1) or (n_samples, n_targets)
+//
+// Returns:
+//   - error: nil if training succeeds, otherwise an error describing the failure
+//
+// Errors:
+//   - ErrEmptyData: if X or y are empty
+//   - ErrDimensionMismatch: if the number of samples in X and y don't match
+//   - ErrSingularMatrix: if X^T * X is singular and cannot be inverted
+//
+// Example:
+//   X := mat.NewDense(100, 5, nil) // 100 samples, 5 features
+//   y := mat.NewVecDense(100, nil) // 100 target values
+//   err := lr.Fit(X, y)
+//   if err != nil {
+//       log.Fatal(err)
+//   }
+func (lr *LinearRegression) Fit(X, y mat.Matrix) (err error) {
+	defer scigoErrors.Recover(&err, "LinearRegression.Fit")
+	
+	startTime := time.Now()
 	r, c := X.Dims()
 	ry, cy := y.Dims()
+	
+	lr.LogInfo("Training started",
+		log.OperationKey, log.OperationFit,
+		log.PhaseKey, log.PhaseTraining,
+		log.SamplesKey, r,
+		log.FeaturesKey, c,
+	)
 
 	if r == 0 || c == 0 {
-		return errors.NewModelError("LinearRegression.Fit", "empty data", errors.ErrEmptyData)
+		return scigoErrors.NewModelError("LinearRegression.Fit", "empty data", scigoErrors.ErrEmptyData)
 	}
 
 	if ry != r {
-		return errors.NewDimensionError("LinearRegression.Fit", r, ry, 0)
+		return scigoErrors.NewDimensionError("LinearRegression.Fit", r, ry, 0)
 	}
 
 	if cy != 1 {
-		return errors.NewValueError("LinearRegression.Fit", "y must be a column vector")
+		return scigoErrors.NewValueError("LinearRegression.Fit", "y must be a column vector")
 	}
 
 	lr.NFeatures = c
@@ -73,9 +164,9 @@ func (lr *LinearRegression) Fit(X, y mat.Matrix) error {
 
 	// 逆行列を計算
 	var XTXInv mat.Dense
-	err := XTXInv.Inverse(&XTX)
+	err = XTXInv.Inverse(&XTX)
 	if err != nil {
-		return errors.NewModelError("LinearRegression.Fit", "singular matrix", errors.ErrSingularMatrix)
+		return scigoErrors.NewModelError("LinearRegression.Fit", "singular matrix", scigoErrors.ErrSingularMatrix)
 	}
 
 	// X^T * y を計算
@@ -102,19 +193,58 @@ func (lr *LinearRegression) Fit(X, y mat.Matrix) error {
 	// モデルを学習済み状態に設定
 	lr.SetFitted()
 	
+	duration := time.Since(startTime)
+	lr.LogInfo("Training completed",
+		log.OperationKey, log.OperationFit,
+		log.PhaseKey, log.PhaseTraining,
+		log.DurationMsKey, duration.Milliseconds(),
+		log.SamplesKey, r,
+		log.FeaturesKey, c,
+	)
+	
 	return nil
 }
 
-// Predict は入力データに対する予測を行う
-func (lr *LinearRegression) Predict(X mat.Matrix) (mat.Matrix, error) {
+// Predict generates predictions for the input feature matrix using the trained model.
+//
+// The method computes predictions using the learned weights and intercept:
+// y_pred = X * weights + intercept. The model must be fitted before calling
+// this method, otherwise it returns an error.
+//
+// Parameters:
+//   - X: Feature matrix of shape (n_samples, n_features) for prediction
+//
+// Returns:
+//   - mat.Matrix: Prediction matrix of shape (n_samples, 1) containing predicted values
+//   - error: nil if prediction succeeds, otherwise an error describing the failure
+//
+// Errors:
+//   - ErrNotFitted: if the model hasn't been trained yet
+//   - ErrDimensionMismatch: if X has different number of features than training data
+//
+// Example:
+//   predictions, err := lr.Predict(X_test)
+//   if err != nil {
+//       log.Fatal(err)
+//   }
+//   fmt.Printf("First prediction: %.2f\n", predictions.At(0, 0))
+func (lr *LinearRegression) Predict(X mat.Matrix) (_ mat.Matrix, err error) {
+	defer scigoErrors.Recover(&err, "LinearRegression.Predict")
 	if !lr.IsFitted() {
-		return nil, errors.NewNotFittedError("LinearRegression", "Predict")
+		return nil, scigoErrors.NewNotFittedError("LinearRegression", "Predict")
 	}
 
 	r, c := X.Dims()
 	if c != lr.NFeatures {
-		return nil, errors.NewDimensionError("LinearRegression.Predict", lr.NFeatures, c, 1)
+		return nil, scigoErrors.NewDimensionError("LinearRegression.Predict", lr.NFeatures, c, 1)
 	}
+
+	lr.LogDebug("Prediction started",
+		log.OperationKey, log.OperationPredict,
+		log.PhaseKey, log.PhaseInference,
+		log.SamplesKey, r,
+		log.FeaturesKey, c,
+	)
 
 	// 予測: y = X * weights + intercept
 	predictions := mat.NewDense(r, 1, nil)
@@ -126,6 +256,11 @@ func (lr *LinearRegression) Predict(X mat.Matrix) (mat.Matrix, error) {
 		}
 		predictions.Set(i, 0, pred)
 	}
+
+	lr.LogDebug("Prediction completed",
+		log.OperationKey, log.OperationPredict,
+		log.PredsKey, r,
+	)
 
 	return predictions, nil
 }
@@ -152,9 +287,10 @@ func (lr *LinearRegression) GetIntercept() float64 {
 }
 
 // Score はモデルの決定係数（R²）を計算する
-func (lr *LinearRegression) Score(X, y mat.Matrix) (float64, error) {
+func (lr *LinearRegression) Score(X, y mat.Matrix) (_ float64, err error) {
+	defer scigoErrors.Recover(&err, "LinearRegression.Score")
 	if !lr.IsFitted() {
-		return 0, errors.NewNotFittedError("LinearRegression", "Score")
+		return 0, scigoErrors.NewNotFittedError("LinearRegression", "Score")
 	}
 
 	// 予測値を計算
@@ -184,7 +320,7 @@ func (lr *LinearRegression) Score(X, y mat.Matrix) (float64, error) {
 
 	// R² = 1 - RSS/TSS
 	if tss == 0 {
-		return 0, errors.Newf("total sum of squares is zero")
+		return 0, fmt.Errorf("total sum of squares is zero")
 	}
 
 	return 1 - rss/tss, nil
@@ -202,7 +338,8 @@ func (lr *LinearRegression) Score(X, y mat.Matrix) (float64, error) {
 //
 //	lr := NewLinearRegression()
 //	err := lr.LoadFromSKLearn("sklearn_model.json")
-func (lr *LinearRegression) LoadFromSKLearn(filename string) error {
+func (lr *LinearRegression) LoadFromSKLearn(filename string) (err error) {
+	defer scigoErrors.Recover(&err, "LinearRegression.LoadFromSKLearn")
 	file, err := os.Open(filename)
 	if err != nil {
 		return fmt.Errorf("failed to open file: %w", err)
@@ -219,7 +356,8 @@ func (lr *LinearRegression) LoadFromSKLearn(filename string) error {
 //
 // 戻り値:
 //   - error: 読み込みエラー
-func (lr *LinearRegression) LoadFromSKLearnReader(r io.Reader) error {
+func (lr *LinearRegression) LoadFromSKLearnReader(r io.Reader) (err error) {
+	defer scigoErrors.Recover(&err, "LinearRegression.LoadFromSKLearnReader")
 	// JSONモデルを読み込み
 	skModel, err := model.LoadSKLearnModelFromReader(r)
 	if err != nil {
@@ -252,9 +390,10 @@ func (lr *LinearRegression) LoadFromSKLearnReader(r io.Reader) error {
 //
 // 戻り値:
 //   - error: エクスポート失敗時のエラー
-func (lr *LinearRegression) ExportToSKLearn(filename string) error {
+func (lr *LinearRegression) ExportToSKLearn(filename string) (err error) {
+	defer scigoErrors.Recover(&err, "LinearRegression.ExportToSKLearn")
 	if !lr.IsFitted() {
-		return errors.NewNotFittedError("LinearRegression", "ExportToSKLearn")
+		return scigoErrors.NewNotFittedError("LinearRegression", "ExportToSKLearn")
 	}
 
 	file, err := os.Create(filename)
@@ -273,9 +412,10 @@ func (lr *LinearRegression) ExportToSKLearn(filename string) error {
 //
 // 戻り値:
 //   - error: エクスポート失敗時のエラー
-func (lr *LinearRegression) ExportToSKLearnWriter(w io.Writer) error {
+func (lr *LinearRegression) ExportToSKLearnWriter(w io.Writer) (err error) {
+	defer scigoErrors.Recover(&err, "LinearRegression.ExportToSKLearnWriter")
 	if !lr.IsFitted() {
-		return errors.NewNotFittedError("LinearRegression", "ExportToSKLearnWriter")
+		return scigoErrors.NewNotFittedError("LinearRegression", "ExportToSKLearnWriter")
 	}
 
 	// 係数を配列に変換
