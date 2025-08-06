@@ -1,0 +1,116 @@
+# Edit this file as you like.
+#
+# All these sections are optional. Each section with the exception of [general] represents
+# one rule and each key in it represents an option for that specific rule.
+#
+# Rules and sections can be referenced by their full name or by id. For example
+# 'title-trailing-punctuation' or 'T3'. Option names are always lowercase.
+#
+# Use 'gitlint generate-config' to generate a config file with all possible options
+
+[general]
+# Ignore certain rules (comma-separated list), you can reference them by their id or by their full name
+# ignore=T3,body-min-length
+
+# verbosity should be a value between 1 and 3, the commandline -v flags take precedence over this
+verbosity = 2
+
+# By default gitlint will ignore merge commits. Set to 'false' to disable.
+ignore-merge-commits=true
+
+# By default gitlint will ignore fixup commits. Set to 'false' to disable.
+ignore-fixup-commits=true
+
+# By default gitlint will ignore squash commits. Set to 'false' to disable.
+ignore-squash-commits=true
+
+# By default gitlint will ignore revert commits. Set to 'false' to disable.
+ignore-revert-commits=true
+
+# Enable debug mode (shows parsed commit, additional error info, etc)
+# debug=true
+
+# Enable community contributed rules
+# See http://jorisroovers.github.io/gitlint/contrib_rules for details
+contrib=contrib-title-conventional-commits,contrib-body-requires-signed-off-by
+
+# Set the extra-path where gitlint will search for user defined rules
+# extra-path=examples/
+
+[title-max-length]
+line-length=72
+
+[title-min-length]
+min-length=5
+
+[title-must-not-contain-word]
+# Comma-separated list of words that should not occur in the title
+words=wip,WIP
+
+[title-match-regex]
+# python-style regex that the commit-msg title must match
+# Note that the regex can contradict with other rules if not used correctly
+# regex=^US[0-9]*
+
+[body-max-line-length]
+line-length=100
+
+[body-min-length]
+min-length=20
+
+[body-is-missing]
+# Whether to ignore this rule on merge commits (which typically only have a title)
+ignore-merge-commits=true
+
+[body-changed-file-mention]
+# List of files that need to be explicitly mentioned in the body when they are changed
+# This is useful for when developers often erroneously edit certain files or git submodules.
+# By specifying this rule, developers can only change the file when they explicitly reference
+# it in the commit message.
+# files=gitlint/rules.py,README.md
+
+[body-match-regex]
+# python-style regex that the commit-msg body must match.
+# E.g. body must end with Signed-off-by
+# regex=Signed-off-by
+
+[author-valid-email]
+# python style regex that the commit author email address should be matched with
+# For example, use the following regex if you only want to allow email addresses from foo.com
+# regex=[^@]+@foo.com
+
+[ignore-by-title]
+# Ignore certain rules for commits of which the title matches a regex
+# E.g. Match commit titles that start with "Release"
+# regex=^Release(.*)
+
+# Ignore certain rules, you can reference them by their id or by their full name
+# Use 'all' to ignore all rules
+# ignore=T1,body-min-length
+
+[ignore-by-body]
+# Ignore certain rules for commits of which the body has a line that matches a regex
+# E.g. Match bodies that have a line that that contain "release"
+# regex=(.*)release(.*)
+#
+# Ignore certain rules, you can reference them by their id or by their full name
+# Use 'all' to ignore all rules
+# ignore=T1,body-min-length
+
+[ignore-by-author-name]
+# Ignore certain rules for commits of which the author name matches a regex
+# E.g. Match commits made by dependabot
+# regex=(.*)dependabot(.*)
+#
+# Ignore certain rules, you can reference them by their id or by their full name
+# Use 'all' to ignore all rules
+# ignore=T1,body-min-length
+
+# Contrib-title-conventional-commits enforce commit messages follow conventional commits
+# https://www.conventionalcommits.org/en/v1.0.0/
+[contrib-title-conventional-commits]
+# Specify allowed commit types
+types = feat,fix,docs,style,refactor,perf,test,chore,ci,build,revert
+
+# Require a scope
+# scope_required = false

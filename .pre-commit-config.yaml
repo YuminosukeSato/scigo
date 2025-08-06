@@ -1,0 +1,119 @@
+# See https://pre-commit.com for more information
+# See https://pre-commit.com/hooks.html for more hooks
+repos:
+  # Go formatters and linters
+  - repo: https://github.com/dnephin/pre-commit-golang
+    rev: v0.5.1
+    hooks:
+      - id: go-fmt
+        name: go fmt
+        description: Run go fmt on files
+      - id: go-vet
+        name: go vet
+        description: Run go vet on files
+      - id: go-imports
+        name: go imports
+        description: Run goimports on files
+      - id: go-cyclo
+        name: go cyclo
+        description: Run go cyclo on files
+        args: [-over=15]
+      - id: go-mod-tidy
+        name: go mod tidy
+        description: Run go mod tidy
+      - id: go-unit-tests
+        name: go unit tests
+        description: Run go unit tests
+        args: [-short]
+      - id: golangci-lint
+        name: golangci-lint
+        description: Run golangci-lint
+
+  # General file checks
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v4.5.0
+    hooks:
+      - id: trailing-whitespace
+        name: Trim trailing whitespace
+        description: Remove trailing whitespace
+      - id: end-of-file-fixer
+        name: Fix end of files
+        description: Ensure files end with a newline
+      - id: check-yaml
+        name: Check YAML
+        description: Check YAML syntax
+      - id: check-added-large-files
+        name: Check for large files
+        description: Prevent large files from being committed
+        args: ['--maxkb=1000']
+      - id: check-case-conflict
+        name: Check case conflicts
+        description: Check for files that would conflict in case-insensitive filesystems
+      - id: check-merge-conflict
+        name: Check merge conflicts
+        description: Check for merge conflict strings
+      - id: detect-private-key
+        name: Detect private keys
+        description: Check for private keys
+      - id: mixed-line-ending
+        name: Mixed line ending
+        description: Check for mixed line endings
+        args: ['--fix=lf']
+      - id: check-toml
+        name: Check TOML
+        description: Check TOML syntax
+
+  # Security checks
+  - repo: https://github.com/Yelp/detect-secrets
+    rev: v1.4.0
+    hooks:
+      - id: detect-secrets
+        name: Detect secrets
+        description: Detect secrets in files
+        args: ['--baseline', '.secrets.baseline']
+
+  # Go security scanner
+  - repo: https://github.com/securego/gosec
+    rev: v2.18.2
+    hooks:
+      - id: gosec
+        name: Go security check
+        description: Run gosec security scanner
+        args: ['-fmt=json', '-out=gosec-report.json', '-stdout', '-verbose=text', './...']
+
+  # Markdown linting
+  - repo: https://github.com/igorshubovych/markdownlint-cli
+    rev: v0.37.0
+    hooks:
+      - id: markdownlint
+        name: Markdown lint
+        description: Lint markdown files
+        args: ['--fix']
+
+  # Commit message linting
+  - repo: https://github.com/jorisroovers/gitlint
+    rev: v0.19.1
+    hooks:
+      - id: gitlint
+        name: Gitlint
+        description: Lint commit messages
+
+exclude: |
+  (?x)^(
+    vendor/.*|
+    third_party/.*|
+    .*\.pb\.go|
+    .*\.gen\.go|
+    docs/.*\.png|
+    docs/.*\.svg
+  )$
+
+ci:
+  autofix_prs: false
+  autofix_commit_msg: |
+    [pre-commit.ci] auto fixes from pre-commit hooks
+
+    for more information, see https://pre-commit.ci
+  autoupdate_schedule: weekly
+  autoupdate_commit_msg: '[pre-commit.ci] pre-commit autoupdate'
+  skip: [go-unit-tests, golangci-lint]  # These are run in CI separately

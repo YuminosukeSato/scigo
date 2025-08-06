@@ -1,7 +1,7 @@
 # SciGo 🚀
 
 <div align="center">
-  <img src="package.png" alt="SciGo Mascot Gopher" width="200"/>
+  <img src="docs/GOpher.png" alt="SciGo Mascot Gopher" width="200"/>
   <p><i>SciGo's official mascot - Ready, Set, SciGo!</i></p>
   
   **The blazing-fast scikit-learn compatible ML library for Go**
