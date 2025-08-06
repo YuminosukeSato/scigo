@@ -14,6 +14,12 @@ type Predictor interface {
 	Predict(X mat.Matrix) (mat.Matrix, error)
 }
 
+// Estimator は学習と予測の両方が可能なモデルのインターフェース
+type Estimator interface {
+	Fitter
+	Predictor
+}
+
 // LinearModel は線形モデルのインターフェース
 type LinearModel interface {
 	// Weights は学習された重み（係数）を返す
