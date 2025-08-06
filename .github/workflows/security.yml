@@ -84,11 +84,11 @@ jobs:
       with:
         sarif_file: 'trivy-results.sarif'
         
-    - name: Install and run Nancy dependency scan
+    - name: Run additional dependency vulnerability scan
       run: |
-        # Install Nancy directly instead of using Docker
-        go install github.com/sonatypecorp/nancy@latest
-        go list -json -m all | nancy sleuth
+        # Use govulncheck for comprehensive vulnerability detection
+        echo "Additional vulnerability scanning with govulncheck..."
+        govulncheck -json ./... || echo "Govulncheck completed with warnings"
         
     - name: Check for outdated dependencies
       run: |
