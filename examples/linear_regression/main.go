@@ -2,7 +2,6 @@ package main
 
 import (
 	"fmt"
-	"log/slog"
 	"os"
 
 	"github.com/YuminosukeSato/scigo/linear"
@@ -63,14 +62,14 @@ func main() {
 
 	err := model.Fit(X_train, y_train)
 	if err != nil {
-		slog.Error("Failed to fit model", log.ErrAttr(err))
+		log.LogError(err, "Failed to fit model")
 		os.Exit(1)
 	}
 
 	// 学習されたパラメータを表示
 	fmt.Println("Learned parameters:")
-	fmt.Printf("  Coefficient (slope): %.2f 万円/㎡\n", model.Weights()[0])
-	fmt.Printf("  Intercept (base price): %.2f 万円\n", model.Intercept())
+	fmt.Printf("  Coefficient (slope): %.2f 万円/㎡\n", model.Weights.AtVec(0))
+	fmt.Printf("  Intercept (base price): %.2f 万円\n", model.Intercept)
 	fmt.Println()
 
 	// 3. 訓練データでの予測と評価
@@ -78,7 +77,7 @@ func main() {
 
 	predictions, err := model.Predict(X_train)
 	if err != nil {
-		slog.Error("Failed to predict", log.ErrAttr(err))
+		log.LogError(err, "Failed to predict")
 		os.Exit(1)
 	}
 
@@ -115,7 +114,7 @@ func main() {
 
 	predictions_test, err := model.Predict(X_test)
 	if err != nil {
-		slog.Error("Failed to predict on test data", log.ErrAttr(err))
+		log.LogError(err, "Failed to predict on test data")
 		os.Exit(1)
 	}
 
@@ -131,8 +130,8 @@ func main() {
 
 	// 5. モデルの解釈
 	fmt.Println("5. Model interpretation:")
-	slope := model.Weights()[0]
-	intercept := model.Intercept()
+	slope := model.Weights.AtVec(0)
+	intercept := model.Intercept
 
 	fmt.Printf("The model learned: Price = %.2f × Size + %.2f\n", slope, intercept)
 	fmt.Printf("This means:\n")

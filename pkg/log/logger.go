@@ -2,54 +2,65 @@ package log
 
 import (
 	"fmt"
-	"log/slog"
 	"os"
+	"strings"
+
+	"github.com/rs/zerolog"
+	"github.com/rs/zerolog/log"
+	"github.com/cockroachdb/errors"
 )
 
-// SetupLogger function setup logger.
+// GlobalLogger はプロジェクト全体で使用するzerologインスタンスです。
+var GlobalLogger zerolog.Logger
+
+// SetupLogger はグローバルロガーを設定します。
+// CloudLogging形式への変換とcockroachdb/errorsのスタックトレース対応を含みます。
 func SetupLogger(loglevel string) {
-	ops := slog.HandlerOptions{
-		AddSource: true,
-		Level:     ToLogLevel(loglevel),
-		// Replace attributes to convert to CloudLogging format.
-		ReplaceAttr: func(groups []string, attr slog.Attr) slog.Attr {
-			switch attr.Key {
-			case slog.LevelKey:
-				attr = slog.Attr{
-					Key:   "severity",
-					Value: attr.Value,
-				}
-			case slog.MessageKey:
-				attr = slog.Attr{
-					Key:   "message",
-					Value: attr.Value,
-				}
-			case slog.SourceKey:
-				attr = slog.Attr{
-					Key:   "logging.googleapis.com/sourceLocation",
-					Value: attr.Value,
-				}
-			}
-			return attr
-		},
+	level := ToLogLevel(loglevel)
+	
+	// CloudLogging形式のフィールドマッピングを設定
+	zerolog.LevelFieldName = "severity"
+	zerolog.MessageFieldName = "message"
+	zerolog.TimestampFieldName = "timestamp"
+	
+	zerolog.TimeFieldFormat = zerolog.TimeFormatUnix
+	zerolog.SetGlobalLevel(level)
+
+	// カスタマイズされたコンソールライター（CloudLogging互換）
+	output := zerolog.ConsoleWriter{
+		Out:        os.Stdout,
+		NoColor:    true, // JSON形式で出力
+		TimeFormat: zerolog.TimeFormatUnix,
 	}
-	handler := slog.NewJSONHandler(os.Stdout, &ops)
-	errFmtHandler := WrapByErrFmtHandler(handler)
-	slog.SetDefault(slog.New(errFmtHandler))
+	
+	GlobalLogger = zerolog.New(output).With().
+		Timestamp().
+		Caller().
+		Logger()
+
+	// グローバルロガーとして設定
+	log.Logger = GlobalLogger
 }
 
-func ToLogLevel(level string) slog.Level {
-	switch level {
+// ToLogLevel はログレベル文字列をzerologのレベルに変換します。
+func ToLogLevel(level string) zerolog.Level {
+	switch strings.ToLower(level) {
 	case "info":
-		return slog.LevelInfo
+		return zerolog.InfoLevel
 	case "debug":
-		return slog.LevelDebug
-	case "warn":
-		return slog.LevelWarn
+		return zerolog.DebugLevel
+	case "warn", "warning":
+		return zerolog.WarnLevel
 	case "error":
-		return slog.LevelError
+		return zerolog.ErrorLevel
+	case "fatal":
+		return zerolog.FatalLevel
+	case "panic":
+		return zerolog.PanicLevel
+	case "disabled":
+		return zerolog.Disabled
 	default:
-		panic(fmt.Sprintf("invalid log level :%s", level))
+		panic(fmt.Sprintf("invalid log level: %s", level))
 	}
 }
 
@@ -58,7 +69,62 @@ const (
 	StacktraceAttrKey = "stacktrace"
 )
 
-// ErrAttr is a wrapper to pass err to slog.
-func ErrAttr(err error) slog.Attr {
-	return slog.Any(ErrAttrKey, err)
+// GetLogger は設定済みのグローバルロガーを返します。
+func GetLogger() zerolog.Logger {
+	return GlobalLogger
+}
+
+// LogError はcockroachdb/errorsと統合されたエラーログを出力します。
+// scikit-learnスタイルの詳細なエラー情報を構造化ログとして記録します。
+func LogError(err error, msg string) {
+	event := GlobalLogger.Error().Err(err)
+	
+	// zerolog.LogObjectMarshalerインターフェースを実装している場合は構造化データを追加
+	if marshaler, ok := err.(zerolog.LogObjectMarshaler); ok {
+		event = event.Object("details", marshaler)
+	}
+	
+	// cockroachdb/errorsのスタックトレースを抽出
+	stacktrace := extractStacktrace(err)
+	if stacktrace != "" {
+		event = event.Str(StacktraceAttrKey, stacktrace)
+	}
+	
+	event.Msg(msg)
+}
+
+// LogWarningWithDetails は構造化された警告ログを出力します。
+func LogWarningWithDetails(warning error) {
+	event := GlobalLogger.Warn()
+	
+	// zerolog.LogObjectMarshalerインターフェースを実装している場合は構造化データを追加
+	if marshaler, ok := warning.(zerolog.LogObjectMarshaler); ok {
+		event = event.Object("warning_details", marshaler)
+	}
+	
+	event.Msg(warning.Error())
+}
+
+// LogWarn は警告ログを出力します。
+func LogWarn(msg string) {
+	GlobalLogger.Warn().Msg(msg)
+}
+
+// LogInfo は情報ログを出力します。  
+func LogInfo(msg string) {
+	GlobalLogger.Info().Msg(msg)
+}
+
+// LogDebug はデバッグログを出力します。
+func LogDebug(msg string) {
+	GlobalLogger.Debug().Msg(msg)
+}
+
+// extractStacktrace はcockroachdb/errorsからスタックトレースを抽出します。
+func extractStacktrace(err error) string {
+	safeDetails := errors.GetSafeDetails(err).SafeDetails
+	if len(safeDetails) > 0 {
+		return safeDetails[0]
+	}
+	return ""
 }

@@ -2,7 +2,6 @@ package main
 
 import (
 	"fmt"
-	"log/slog"
 
 	"github.com/YuminosukeSato/scigo/linear"
 	"github.com/YuminosukeSato/scigo/pkg/errors"
@@ -52,7 +51,7 @@ func demonstrateDimensionError() {
 	
 	err := model.Fit(X_train, y_train)
 	if err != nil {
-		slog.Error("Failed to fit model", log.ErrAttr(err))
+		log.LogError(err, "Failed to fit model")
 		return
 	}
 	
@@ -65,11 +64,11 @@ func demonstrateDimensionError() {
 	_, err = model.Predict(X_test)
 	if err != nil {
 		// 構造化ログでエラーを出力
-		slog.Error("Prediction failed due to dimension mismatch", 
-			log.ErrAttr(err),
-			slog.Int("expected_features", 2),
-			slog.Int("got_features", 3),
-		)
+		logger := log.GetLogger()
+		logger.Error().Err(err).
+			Int("expected_features", 2).
+			Int("got_features", 3).
+			Msg("Prediction failed due to dimension mismatch")
 	}
 }
 
@@ -89,14 +88,12 @@ func demonstrateNotFittedError() {
 	if err != nil {
 		// 構造化ログでエラーを出力
 		
-		// エラー型の判定
-		var notFittedErr *errors.NotFittedError
-		if errors.As(err, &notFittedErr) {
-			slog.Info("NotFittedError detected", 
-				slog.String("model", notFittedErr.ModelName))
-		}
-		
-		slog.Warn("Model used before fitting", log.ErrAttr(err))
+		// 構造化ログでエラーを出力 (scikit-learnスタイル)
+		logger := log.GetLogger()
+		logger.Warn().Err(err).
+			Str("phase", "prediction").
+			Str("issue", "model_not_fitted").
+			Msg("Model used before fitting")
 	}
 }
 
@@ -113,18 +110,8 @@ func demonstrateValueError() {
 	if err != nil {
 		// 構造化ログでエラーを出力
 		
-		// ModelErrorかチェック
-		var modelErr *errors.ModelError
-		if errors.As(err, &modelErr) {
-			slog.Info("ModelError details",
-				slog.String("operation", modelErr.Op),
-				slog.String("kind", modelErr.Kind))
-		}
-		
-		slog.Error("Invalid input data", 
-			log.ErrAttr(err),
-			slog.String("data_type", "empty"),
-		)
+		// scikit-learnスタイルの構造化エラーログ
+		log.LogError(err, "Invalid input data detected")
 	}
 }
 
@@ -137,13 +124,13 @@ func demonstrateErrorChaining() {
 	if err != nil {
 		// 構造化ログでエラーチェーンを出力
 		
-		// 元のエラーを確認
+		// scikit-learnスタイルの詳細エラーログ
+		logger := log.GetLogger()
 		if errors.Is(err, errors.ErrEmptyData) {
-			slog.Info("Root cause identified", 
-				slog.String("error", "empty data"))
+			logger.Info().Str("root_cause", "empty_data").Msg("Root cause identified")
 		}
 		
-		slog.Error("Data processing failed", log.ErrAttr(err))
+		log.LogError(err, "Data processing failed")
 	}
 }
 

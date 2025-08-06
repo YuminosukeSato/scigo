@@ -8,6 +8,7 @@ import (
 	"sync"
 
 	"github.com/cockroachdb/errors"
+	"github.com/rs/zerolog"
 )
 
 // ===========================================================================
@@ -18,9 +19,11 @@ import (
 var (
 	warningMutex   sync.Mutex
 	warningHandler = func(w error) {
-		// デフォルトのハンドラは標準エラー出力にログを出す
+		// デフォルトのハンドラは標準エラー出力にログを出す  
 		log.Printf("GoML-Warning: %v\n", w)
 	}
+	// zerologロガー（循環importを避けるため遅延初期化）
+	zerologWarnFunc func(warning error)
 )
 
 // SetWarningHandler はGoMLライブラリ全体の警告ハンドラを設定します。
@@ -37,11 +40,26 @@ func SetWarningHandler(handler func(w error)) {
 	warningHandler = handler
 }
 
+// SetZerologWarnFunc はzerolog警告関数を設定します（循環importを避けるため）。
+func SetZerologWarnFunc(warnFunc func(warning error)) {
+	warningMutex.Lock()
+	defer warningMutex.Unlock()
+	zerologWarnFunc = warnFunc
+}
+
 // Warn は警告を発生させます。
-// 設定された警告ハンドラを呼び出します。
+// zerologが利用可能な場合は構造化ログとして出力し、そうでなければ従来のハンドラを使用します。
 func Warn(w error) {
 	warningMutex.Lock()
 	defer warningMutex.Unlock()
+	
+	// zerologが設定されている場合は優先的に使用
+	if zerologWarnFunc != nil {
+		zerologWarnFunc(w)
+		return
+	}
+	
+	// フォールバック: 従来のハンドラ
 	if warningHandler != nil {
 		warningHandler(w)
 	}
@@ -67,6 +85,14 @@ func (w *ConvergenceWarning) Error() string {
 	return fmt.Sprintf("%s failed to converge after %d iterations. Consider increasing max_iter or adjusting parameters.", w.Algorithm, w.Iterations)
 }
 
+// MarshalZerologObject はzerologのイベントに構造化された警告情報を追加します。
+func (w *ConvergenceWarning) MarshalZerologObject(e *zerolog.Event) {
+	e.Str("algorithm", w.Algorithm).
+		Int("iterations", w.Iterations).
+		Str("message", w.Message).
+		Str("type", "ConvergenceWarning")
+}
+
 // NewConvergenceWarning は新しいConvergenceWarningを作成します。
 func NewConvergenceWarning(algorithm string, iterations int, message string) *ConvergenceWarning {
 	return &ConvergenceWarning{Algorithm: algorithm, Iterations: iterations, Message: message}
@@ -81,6 +107,14 @@ type DataConversionWarning struct {
 
 func (w *DataConversionWarning) Error() string {
 	return fmt.Sprintf("data converted from %s to %s. Reason: %s", w.FromType, w.ToType, w.Reason)
+}
+
+// MarshalZerologObject はzerologのイベントに構造化された警告情報を追加します。
+func (w *DataConversionWarning) MarshalZerologObject(e *zerolog.Event) {
+	e.Str("from_type", w.FromType).
+		Str("to_type", w.ToType).
+		Str("reason", w.Reason).
+		Str("type", "DataConversionWarning")
 }
 
 // NewDataConversionWarning は新しいDataConversionWarningを作成します。
@@ -121,6 +155,13 @@ func (e *NotFittedError) Error() string {
 	return fmt.Sprintf("goml: %s: this model is not fitted yet. Call Fit() before using %s()", e.ModelName, e.Method)
 }
 
+// MarshalZerologObject はzerologのイベントに構造化されたエラー情報を追加します。
+func (e *NotFittedError) MarshalZerologObject(event *zerolog.Event) {
+	event.Str("model_name", e.ModelName).
+		Str("method", e.Method).
+		Str("type", "NotFittedError")
+}
+
 // NewNotFittedError は新しいNotFittedErrorを作成し、スタックトレースを付与します。
 func NewNotFittedError(modelName, method string) error {
 	err := &NotFittedError{ModelName: modelName, Method: method}
@@ -143,6 +184,20 @@ func (e *DimensionError) Error() string {
 	return fmt.Sprintf("goml: %s: dimension mismatch on axis %d (%s). Expected %d, got %d", e.Op, e.Axis, axisName, e.Expected, e.Got)
 }
 
+// MarshalZerologObject はzerologのイベントに構造化されたエラー情報を追加します。
+func (e *DimensionError) MarshalZerologObject(event *zerolog.Event) {
+	axisName := "features"
+	if e.Axis == 0 {
+		axisName = "rows"
+	}
+	event.Str("operation", e.Op).
+		Int("expected", e.Expected).
+		Int("got", e.Got).
+		Int("axis", e.Axis).
+		Str("axis_name", axisName).
+		Str("type", "DimensionError")
+}
+
 // NewDimensionError は新しいDimensionErrorを作成し、スタックトレースを付与します。
 func NewDimensionError(op string, expected, got, axis int) error {
 	err := &DimensionError{Op: op, Expected: expected, Got: got, Axis: axis}
@@ -159,6 +214,14 @@ type ValidationError struct {
 
 func (e *ValidationError) Error() string {
 	return fmt.Sprintf("goml: validation failed for parameter '%s': %s (got: %v)", e.ParamName, e.Reason, e.Value)
+}
+
+// MarshalZerologObject はzerologのイベントに構造化されたエラー情報を追加します。
+func (e *ValidationError) MarshalZerologObject(event *zerolog.Event) {
+	event.Str("param_name", e.ParamName).
+		Str("reason", e.Reason).
+		Interface("value", e.Value).
+		Str("type", "ValidationError")
 }
 
 // NewValidationError は新しいValidationErrorを作成し、スタックトレースを付与します。

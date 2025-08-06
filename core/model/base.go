@@ -12,20 +12,21 @@ const (
 
 // BaseEstimator は全てのモデルの基底となる構造体
 type BaseEstimator struct {
-	state EstimatorState
+	// State はモデルの学習状態を保持します。gobでエンコードするために公開されています。
+	State EstimatorState
 }
 
 // IsFitted はモデルが学習済みかどうかを返す
 func (e *BaseEstimator) IsFitted() bool {
-	return e.state == Fitted
+	return e.State == Fitted
 }
 
 // SetFitted はモデルを学習済み状態に設定する
 func (e *BaseEstimator) SetFitted() {
-	e.state = Fitted
+	e.State = Fitted
 }
 
 // Reset はモデルを初期状態にリセットする
 func (e *BaseEstimator) Reset() {
-	e.state = NotFitted
+	e.State = NotFitted
 }

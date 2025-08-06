@@ -355,8 +355,8 @@ func TestLinearRegression_RealWorldExample(t *testing.T) {
 
 	// モデルパラメータも確認
 	t.Logf("Model parameters:")
-	t.Logf("  Weights: %v", lr.Weights())
-	t.Logf("  Intercept: %.4f", lr.Intercept())
+	t.Logf("  Weights: %v", lr.GetWeights())
+	t.Logf("  Intercept: %.4f", lr.GetIntercept())
 
 	// R²は高い値（0.95以上）を期待
 	if r2 < 0.95 {
