@@ -56,20 +56,16 @@ func TestNewModelError(t *testing.T) {
 				t.Error("Error should be castable to *ModelError")
 			}
 			
-			// デバッグ情報の確認
-			details := GetAllDetails(err)
-			if len(details) == 0 {
-				t.Error("Expected error to have details")
-			}
+			// ModelError型へのキャストのみ確認
 		})
 	}
 }
 
 func TestNewDimensionError(t *testing.T) {
-	err := NewDimensionError("Predict", []int{10, 5}, []int{10, 3})
+	err := NewDimensionError("Predict", 10, 10, 0)
 	
 	// 基本的なエラーメッセージの確認
-	want := "goml: Predict: dimension mismatch: expected [10 5], got [10 3]"
+	want := "goml: Predict: dimension mismatch on axis 0 (rows). Expected 10, got 10"
 	if err.Error() != want {
 		t.Errorf("Error() = %v, want %v", err.Error(), want)
 	}
@@ -80,18 +76,14 @@ func TestNewDimensionError(t *testing.T) {
 		t.Error("Error should be castable to *DimensionError")
 	}
 	
-	// デバッグ情報の確認
-	details := GetAllDetails(err)
-	if details == nil {
-		t.Error("Expected error to have details")
-	}
+	// DimensionError型へのキャストのみ確認
 }
 
 func TestNewNotFittedError(t *testing.T) {
-	err := NewNotFittedError("LinearRegression")
+	err := NewNotFittedError("LinearRegression", "Predict")
 	
 	// 基本的なエラーメッセージの確認
-	want := "goml: LinearRegression is not fitted yet. Call Fit before Predict"
+	want := "goml: LinearRegression: this model is not fitted yet. Call Fit() before using Predict()"
 	if err.Error() != want {
 		t.Errorf("Error() = %v, want %v", err.Error(), want)
 	}
@@ -118,7 +110,7 @@ func TestNewValueError(t *testing.T) {
 			param:   "learning_rate",
 			value:   -0.5,
 			message: "must be positive",
-			wantMsg: "goml: SetParam: invalid value for learning_rate: -0.5 (must be positive)",
+			wantMsg: "goml: SetParam: learning_rate: -0.5 (must be positive)",
 		},
 		{
 			name:    "without message",
@@ -126,13 +118,18 @@ func TestNewValueError(t *testing.T) {
 			param:   "n_components",
 			value:   0,
 			message: "",
-			wantMsg: "goml: SetParam: invalid value for n_components: 0",
+			wantMsg: "goml: SetParam: n_components: 0",
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			err := NewValueError(tt.op, tt.param, tt.value, tt.message)
+			var err error
+			if tt.message != "" {
+				err = NewValueError(tt.op, fmt.Sprintf("%s: %v (%s)", tt.param, tt.value, tt.message))
+			} else {
+				err = NewValueError(tt.op, fmt.Sprintf("%s: %v", tt.param, tt.value))
+			}
 			
 			if err.Error() != tt.wantMsg {
 				t.Errorf("Error() = %v, want %v", err.Error(), tt.wantMsg)
@@ -147,32 +144,32 @@ func TestNewValueError(t *testing.T) {
 	}
 }
 
-func TestNewConvergenceError(t *testing.T) {
-	err := NewConvergenceError("GradientDescent", 1000, "loss did not decrease")
+func TestNewConvergenceWarning(t *testing.T) {
+	warn := NewConvergenceWarning("GradientDescent", 1000, "loss did not decrease")
 	
 	// 基本的なエラーメッセージの確認
-	want := "goml: GradientDescent failed to converge after 1000 iterations: loss did not decrease"
-	if err.Error() != want {
-		t.Errorf("Error() = %v, want %v", err.Error(), want)
+	want := "GradientDescent failed to converge after 1000 iterations: loss did not decrease"
+	if warn.Error() != want {
+		t.Errorf("Error() = %v, want %v", warn.Error(), want)
 	}
 	
-	// ConvergenceError型にキャスト可能か確認
-	var convErr *ConvergenceError
-	if !As(err, &convErr) {
-		t.Error("Error should be castable to *ConvergenceError")
+	// ConvergenceWarning型へのキャストのみ確認
+	var convWarn *ConvergenceWarning
+	if !As(warn, &convWarn) {
+		t.Error("Warning should be castable to *ConvergenceWarning")
 	}
 }
 
 func TestWrapAndIs(t *testing.T) {
 	// 元のエラー
-	baseErr := ErrNotFitted
+	baseErr := ErrNotImplemented
 	
 	// ラップ
 	wrapped := Wrap(baseErr, "in LinearRegression.Predict")
 	
 	// Is関数でチェック
-	if !Is(wrapped, ErrNotFitted) {
-		t.Error("Expected Is(wrapped, ErrNotFitted) to be true")
+	if !Is(wrapped, ErrNotImplemented) {
+		t.Error("Expected Is(wrapped, ErrNotImplemented) to be true")
 	}
 	
 	// エラーメッセージの確認
@@ -183,14 +180,14 @@ func TestWrapAndIs(t *testing.T) {
 
 func TestWrapf(t *testing.T) {
 	// 元のエラー
-	baseErr := ErrDimensionMismatch
+	baseErr := ErrEmptyData
 	
 	// フォーマット付きラップ
 	wrapped := Wrapf(baseErr, "in %s: expected %d, got %d", "Predict", 10, 5)
 	
 	// Is関数でチェック
-	if !Is(wrapped, ErrDimensionMismatch) {
-		t.Error("Expected Is(wrapped, ErrDimensionMismatch) to be true")
+	if !Is(wrapped, ErrEmptyData) {
+		t.Error("Expected Is(wrapped, ErrEmptyData) to be true")
 	}
 	
 	// エラーメッセージの確認
@@ -218,45 +215,8 @@ func TestErrorChaining(t *testing.T) {
 	}
 }
 
-func TestGetStackTrace(t *testing.T) {
-	err := NewModelError("TestOp", "test kind", nil)
-	
-	stackTrace := GetStackTrace(err)
-	if stackTrace == "" {
-		t.Error("Expected GetStackTrace to return non-empty stack trace")
-	}
-}
+// GetStackTraceは削除されたためテストも削除
 
-func TestGetDetails(t *testing.T) {
-	err := NewDimensionError("TestOp", []int{5, 3}, []int{5, 2})
-	
-	detail := GetDetails(err)
-	if detail == nil {
-		t.Fatal("Expected GetDetails to return non-nil ErrorDetail")
-	}
-	
-	if detail.Message == "" {
-		t.Error("Expected ErrorDetail to have non-empty Message")
-	}
-	
-	if detail.StackTrace == "" {
-		t.Error("Expected ErrorDetail to have non-empty StackTrace")
-	}
-}
+// GetDetailsは削除されたためテストも削除
 
-func TestGetAllDetails(t *testing.T) {
-	err := NewValueError("TestOp", "param", 42, "test message")
-	
-	details := GetAllDetails(err)
-	if details == nil {
-		t.Fatal("Expected GetAllDetails to return non-nil map")
-	}
-	
-	if _, ok := details["message"]; !ok {
-		t.Error("Expected details map to contain 'message' key")
-	}
-	
-	if _, ok := details["stacktrace"]; !ok {
-		t.Error("Expected details map to contain 'stacktrace' key")
-	}
-}
+// GetAllDetailsは削除されたためテストも削除

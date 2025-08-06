@@ -12,11 +12,11 @@ func MSE(yTrue, yPred *mat.VecDense) (float64, error) {
 	// 入力検証
 	n := yTrue.Len()
 	if n == 0 {
-		return 0, errors.NewValueError("MSE", "yTrue", n, "empty vector")
+		return 0, errors.NewValueError("MSE", "empty vector")
 	}
 
 	if yPred.Len() != n {
-		return 0, errors.NewDimensionError("MSE", []int{n}, []int{yPred.Len()})
+		return 0, errors.NewDimensionError("MSE", n, yPred.Len(), 0)
 	}
 
 	// MSE = (1/n) * Σ(yTrue - yPred)²
@@ -36,15 +36,15 @@ func MSEMatrix(yTrue, yPred mat.Matrix) (float64, error) {
 	rPred, cPred := yPred.Dims()
 
 	if rTrue == 0 || cTrue == 0 {
-		return 0, errors.NewValueError("MSEMatrix", "yTrue", []int{rTrue, cTrue}, "empty matrix")
+		return 0, errors.NewValueError("MSEMatrix", "empty matrix")
 	}
 
 	if rTrue != rPred || cTrue != cPred {
-		return 0, errors.NewDimensionError("MSEMatrix", []int{rTrue, cTrue}, []int{rPred, cPred})
+		return 0, errors.NewDimensionError("MSEMatrix", rTrue, rPred, 0)
 	}
 
 	if cTrue != 1 {
-		return 0, errors.NewValueError("MSEMatrix", "yTrue", cTrue, "must be a column vector (n×1 matrix)")
+		return 0, errors.NewValueError("MSEMatrix", "must be a column vector (n×1 matrix)")
 	}
 
 	// VecDenseに変換してMSEを計算
@@ -73,11 +73,11 @@ func MAE(yTrue, yPred *mat.VecDense) (float64, error) {
 	// 入力検証
 	n := yTrue.Len()
 	if n == 0 {
-		return 0, errors.NewValueError("MAE", "yTrue", n, "empty vector")
+		return 0, errors.NewValueError("MAE", "empty vector")
 	}
 
 	if yPred.Len() != n {
-		return 0, errors.NewDimensionError("MAE", []int{n}, []int{yPred.Len()})
+		return 0, errors.NewDimensionError("MAE", n, yPred.Len(), 0)
 	}
 
 	// MAE = (1/n) * Σ|yTrue - yPred|
@@ -95,11 +95,11 @@ func R2Score(yTrue, yPred *mat.VecDense) (float64, error) {
 	// 入力検証
 	n := yTrue.Len()
 	if n == 0 {
-		return 0, errors.NewValueError("R2Score", "yTrue", n, "empty vector")
+		return 0, errors.NewValueError("R2Score", "empty vector")
 	}
 
 	if yPred.Len() != n {
-		return 0, errors.NewDimensionError("R2Score", []int{n}, []int{yPred.Len()})
+		return 0, errors.NewDimensionError("R2Score", n, yPred.Len(), 0)
 	}
 
 	// yTrueの平均を計算
@@ -133,11 +133,11 @@ func MAPE(yTrue, yPred *mat.VecDense) (float64, error) {
 	// 入力検証
 	n := yTrue.Len()
 	if n == 0 {
-		return 0, errors.NewValueError("MAPE", "yTrue", n, "empty vector")
+		return 0, errors.NewValueError("MAPE", "empty vector")
 	}
 
 	if yPred.Len() != n {
-		return 0, errors.NewDimensionError("MAPE", []int{n}, []int{yPred.Len()})
+		return 0, errors.NewDimensionError("MAPE", n, yPred.Len(), 0)
 	}
 
 	// MAPE = (100/n) * Σ|yTrue - yPred|/|yTrue|
@@ -165,11 +165,11 @@ func ExplainedVarianceScore(yTrue, yPred *mat.VecDense) (float64, error) {
 	// 入力検証
 	n := yTrue.Len()
 	if n == 0 {
-		return 0, errors.NewValueError("ExplainedVarianceScore", "yTrue", n, "empty vector")
+		return 0, errors.NewValueError("ExplainedVarianceScore", "empty vector")
 	}
 
 	if yPred.Len() != n {
-		return 0, errors.NewDimensionError("ExplainedVarianceScore", []int{n}, []int{yPred.Len()})
+		return 0, errors.NewDimensionError("ExplainedVarianceScore", n, yPred.Len(), 0)
 	}
 
 	// 平均を計算

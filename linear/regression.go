@@ -32,11 +32,11 @@ func (lr *LinearRegression) Fit(X, y mat.Matrix) error {
 	}
 
 	if ry != r {
-		return errors.NewDimensionError("LinearRegression.Fit", []int{r, 1}, []int{ry, cy})
+		return errors.NewDimensionError("LinearRegression.Fit", r, ry, 0)
 	}
 
 	if cy != 1 {
-		return errors.NewValueError("LinearRegression.Fit", "y", cy, "y must be a column vector")
+		return errors.NewValueError("LinearRegression.Fit", "y must be a column vector")
 	}
 
 	lr.nFeatures = c
@@ -103,13 +103,12 @@ func (lr *LinearRegression) Fit(X, y mat.Matrix) error {
 // Predict は入力データに対する予測を行う
 func (lr *LinearRegression) Predict(X mat.Matrix) (mat.Matrix, error) {
 	if !lr.IsFitted() {
-		return nil, errors.NewNotFittedError("LinearRegression")
+		return nil, errors.NewNotFittedError("LinearRegression", "Predict")
 	}
 
 	r, c := X.Dims()
 	if c != lr.nFeatures {
-		return nil, errors.NewDimensionError("LinearRegression.Predict",
-			[]int{-1, lr.nFeatures}, []int{r, c})
+		return nil, errors.NewDimensionError("LinearRegression.Predict", lr.nFeatures, c, 1)
 	}
 
 	// 予測: y = X * weights + intercept
@@ -150,7 +149,7 @@ func (lr *LinearRegression) Intercept() float64 {
 // Score はモデルの決定係数（R²）を計算する
 func (lr *LinearRegression) Score(X, y mat.Matrix) (float64, error) {
 	if !lr.IsFitted() {
-		return 0, errors.NewNotFittedError("LinearRegression")
+		return 0, errors.NewNotFittedError("LinearRegression", "Score")
 	}
 
 	// 予測値を計算

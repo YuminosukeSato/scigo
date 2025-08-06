@@ -1,176 +1,196 @@
-// Package errors はプロジェクト全体のエラーハンドリングを提供します。
-// このパッケージには、エラー型定義、エラー生成関数、およびエラー操作関数が含まれています。
-// cockroachdb/errorsを直接使用せず、このパッケージを通じてエラー処理を行ってください。
+// Package errors はプロジェクト全体のエラーハンドリングと警告システムを提供します。
+// scikit-learnの警告・例外システムにインスパイアされており、構造化されたエラー情報を提供します。
 package errors
 
 import (
 	"fmt"
-	"strings"
+	"log"
+	"sync"
 
 	"github.com/cockroachdb/errors"
 )
 
-// ============================================================================
-// エラー操作関数（cockroachdb/errorsのラッパー）
-// ============================================================================
+// ===========================================================================
+//
+//	グローバル警告ハンドリング
+//
+// ===========================================================================
+var (
+	warningMutex   sync.Mutex
+	warningHandler = func(w error) {
+		// デフォルトのハンドラは標準エラー出力にログを出す
+		log.Printf("GoML-Warning: %v\n", w)
+	}
+)
 
-// Is はエラーが特定のターゲットエラーかどうかを判定する
-func Is(err, target error) bool {
-	return errors.Is(err, target)
+// SetWarningHandler はGoMLライブラリ全体の警告ハンドラを設定します。
+// これにより、ConvergenceWarningなどのカスタム警告の処理方法を制御できます。
+//
+// 例:
+//
+//	errors.SetWarningHandler(func(w error) {
+//	    // 警告を無視する
+//	})
+func SetWarningHandler(handler func(w error)) {
+	warningMutex.Lock()
+	defer warningMutex.Unlock()
+	warningHandler = handler
 }
 
-// As はエラーが特定の型にキャスト可能かどうかを判定する
-func As(err error, target interface{}) bool {
-	return errors.As(err, target)
+// Warn は警告を発生させます。
+// 設定された警告ハンドラを呼び出します。
+func Warn(w error) {
+	warningMutex.Lock()
+	defer warningMutex.Unlock()
+	if warningHandler != nil {
+		warningHandler(w)
+	}
 }
 
-// Wrap は既存のエラーをラップする
-func Wrap(err error, message string) error {
-	return errors.Wrap(err, message)
+// ===========================================================================
+//
+//	scikit-learn互換の警告型
+//
+// ===========================================================================
+
+// ConvergenceWarning は最適化アルゴリズムが収束しなかった場合に発生する警告です。
+type ConvergenceWarning struct {
+	Algorithm  string
+	Iterations int
+	Message    string
 }
 
-// Wrapf は既存のエラーをフォーマット文字列でラップする
-func Wrapf(err error, format string, args ...interface{}) error {
-	return errors.Wrapf(err, format, args...)
+func (w *ConvergenceWarning) Error() string {
+	if w.Message != "" {
+		return fmt.Sprintf("%s failed to converge after %d iterations: %s", w.Algorithm, w.Iterations, w.Message)
+	}
+	return fmt.Sprintf("%s failed to converge after %d iterations. Consider increasing max_iter or adjusting parameters.", w.Algorithm, w.Iterations)
 }
 
-// New は新しいエラーを作成する
-func New(message string) error {
-	return errors.New(message)
+// NewConvergenceWarning は新しいConvergenceWarningを作成します。
+func NewConvergenceWarning(algorithm string, iterations int, message string) *ConvergenceWarning {
+	return &ConvergenceWarning{Algorithm: algorithm, Iterations: iterations, Message: message}
 }
 
-// Newf は新しいフォーマット済みエラーを作成する
-func Newf(format string, args ...interface{}) error {
-	return errors.Newf(format, args...)
+// DataConversionWarning はデータの型が暗黙的に変換された場合に発生する警告です。
+type DataConversionWarning struct {
+	FromType string
+	ToType   string
+	Reason   string
 }
 
-// WithStack は既存のエラーにスタックトレースを付与する
-func WithStack(err error) error {
+func (w *DataConversionWarning) Error() string {
+	return fmt.Sprintf("data converted from %s to %s. Reason: %s", w.FromType, w.ToType, w.Reason)
+}
+
+// NewDataConversionWarning は新しいDataConversionWarningを作成します。
+func NewDataConversionWarning(from, to, reason string) *DataConversionWarning {
+	return &DataConversionWarning{FromType: from, ToType: to, Reason: reason}
+}
+
+// UndefinedMetricWarning は評価指標が計算できない場合に発生する警告です。
+// 例えば、適合率(precision)を計算する際に、陽性クラスの予測が一つもなかった場合など。
+type UndefinedMetricWarning struct {
+	Metric     string
+	Condition  string
+	Result     float64 // この条件で返される値
+}
+
+func (w *UndefinedMetricWarning) Error() string {
+	return fmt.Sprintf("'%s' is ill-defined and being set to %f due to %s.", w.Metric, w.Result, w.Condition)
+}
+
+// NewUndefinedMetricWarning は新しいUndefinedMetricWarningを作成します。
+func NewUndefinedMetricWarning(metric, condition string, result float64) *UndefinedMetricWarning {
+	return &UndefinedMetricWarning{Metric: metric, Condition: condition, Result: result}
+}
+
+// ===========================================================================
+//
+//	構造化されたエラー型
+//
+// ===========================================================================
+
+// NotFittedError はモデルが未学習の状態で `Predict` や `Transform` を呼び出した場合のエラーです。
+type NotFittedError struct {
+	ModelName string
+	Method    string
+}
+
+func (e *NotFittedError) Error() string {
+	return fmt.Sprintf("goml: %s: this model is not fitted yet. Call Fit() before using %s()", e.ModelName, e.Method)
+}
+
+// NewNotFittedError は新しいNotFittedErrorを作成し、スタックトレースを付与します。
+func NewNotFittedError(modelName, method string) error {
+	err := &NotFittedError{ModelName: modelName, Method: method}
 	return errors.WithStack(err)
 }
 
-// ============================================================================
-// エラー詳細情報抽出ヘルパー
-// ============================================================================
-
-// GetStackTrace はエラーからスタックトレースを抽出する
-func GetStackTrace(err error) string {
-	// フォーマッターを使ってスタックトレースを含む詳細情報を取得
-	formatted := fmt.Sprintf("%+v", err)
-	
-	// スタックトレースが含まれているかチェック
-	if strings.Contains(formatted, "stack trace:") || strings.Contains(formatted, ".go:") {
-		// 簡易的にフォーマット済み文字列からスタックトレース部分を抽出
-		lines := strings.Split(formatted, "\n")
-		var stackLines []string
-		inStack := false
-		
-		for _, line := range lines {
-			if strings.Contains(line, "stack trace:") || (strings.Contains(line, ".go:") && strings.Contains(line, "\t")) {
-				inStack = true
-			}
-			if inStack && strings.TrimSpace(line) != "" {
-				stackLines = append(stackLines, line)
-			}
-		}
-		
-		if len(stackLines) > 0 {
-			return strings.Join(stackLines, "\n")
-		}
-	}
-	
-	// cockroachdb/errorsのGetSafeDetailsも試す
-	safeDetails := errors.GetSafeDetails(err).SafeDetails
-	if len(safeDetails) > 0 {
-		return safeDetails[0]
-	}
-	
-	return ""
+// DimensionError は入力データの次元が期待値と異なる場合のエラーです。
+type DimensionError struct {
+	Op       string
+	Expected int
+	Got      int
+	Axis     int // 0 for rows, 1 for columns/features
 }
 
-// ErrorDetail はエラーの詳細情報を表す構造体
-type ErrorDetail struct {
-	Message     string                 // エラーメッセージ
-	StackTrace  string                 // スタックトレース
-	Details     map[string]string      // 詳細情報
-	Hints       []string               // ヒント情報
-	Attributes  map[string]interface{} // その他の属性
+func (e *DimensionError) Error() string {
+	axisName := "features"
+	if e.Axis == 0 {
+		axisName = "rows"
+	}
+	return fmt.Sprintf("goml: %s: dimension mismatch on axis %d (%s). Expected %d, got %d", e.Op, e.Axis, axisName, e.Expected, e.Got)
 }
 
-// GetDetails はエラーからすべての詳細情報を抽出する
-func GetDetails(err error) *ErrorDetail {
-	if err == nil {
-		return nil
-	}
-
-	detail := &ErrorDetail{
-		Message:    err.Error(),
-		StackTrace: GetStackTrace(err),
-		Details:    make(map[string]string),
-		Hints:      []string{},
-		Attributes: make(map[string]interface{}),
-	}
-
-	// cockroachdb/errorsの詳細情報を抽出
-	safeDetails := errors.GetSafeDetails(err)
-	if safeDetails.SafeDetails != nil {
-		for i, d := range safeDetails.SafeDetails {
-			if i == 0 {
-				// 最初の要素は通常スタックトレース
-				continue
-			}
-			detail.Details[fmt.Sprintf("detail_%d", i)] = d
-		}
-	}
-
-	// エラーチェーンを辿って情報を収集
-	var current error = err
-	for current != nil {
-		// Unwrapを使ってエラーチェーンを辿る
-		current = errors.Unwrap(current)
-	}
-
-	return detail
+// NewDimensionError は新しいDimensionErrorを作成し、スタックトレースを付与します。
+func NewDimensionError(op string, expected, got, axis int) error {
+	err := &DimensionError{Op: op, Expected: expected, Got: got, Axis: axis}
+	return errors.WithStack(err)
 }
 
-// GetAllDetails はエラーの詳細情報をマップ形式で返す（構造化ログ用）
-func GetAllDetails(err error) map[string]interface{} {
-	if err == nil {
-		return nil
-	}
-
-	detail := GetDetails(err)
-	result := make(map[string]interface{})
-
-	result["message"] = detail.Message
-	if detail.StackTrace != "" {
-		result["stacktrace"] = detail.StackTrace
-	}
-	if len(detail.Details) > 0 {
-		result["details"] = detail.Details
-	}
-	if len(detail.Hints) > 0 {
-		result["hints"] = detail.Hints
-	}
-	if len(detail.Attributes) > 0 {
-		result["attributes"] = detail.Attributes
-	}
-
-	return result
+// ValidationError は入力パラメータの検証に失敗した場合のエラーです。
+// `ValueError`よりも具体的なバリデーションロジックの失敗を示します。
+type ValidationError struct {
+	ParamName string
+	Reason    string
+	Value     interface{}
 }
 
-// ============================================================================
-// エラー型定義（機械学習モデル用）
-// ============================================================================
+func (e *ValidationError) Error() string {
+	return fmt.Sprintf("goml: validation failed for parameter '%s': %s (got: %v)", e.ParamName, e.Reason, e.Value)
+}
 
-// ModelError は機械学習モデルに関するエラーを表す
+// NewValidationError は新しいValidationErrorを作成し、スタックトレースを付与します。
+func NewValidationError(param, reason string, value interface{}) error {
+	err := &ValidationError{ParamName: param, Reason: reason, Value: value}
+	return errors.WithStack(err)
+}
+
+// ValueError は引数の値が不適切または不正な場合に発生するエラーです。
+// 例えば、`log`関数に負の数を渡した場合など。
+type ValueError struct {
+	Op      string
+	Message string
+}
+
+func (e *ValueError) Error() string {
+	return fmt.Sprintf("goml: %s: %s", e.Op, e.Message)
+}
+
+// NewValueError は新しいValueErrorを作成し、スタックトレースを付与します。
+func NewValueError(op, message string) error {
+	err := &ValueError{Op: op, Message: message}
+	return errors.WithStack(err)
+}
+
+// ModelError は機械学習モデルに関する一般的なエラーです。
 type ModelError struct {
-	Op   string // 操作名
-	Kind string // エラーの種類
-	Err  error  // 元のエラー
+	Op   string
+	Kind string
+	Err  error
 }
 
-// Error はエラーメッセージを返す
 func (e *ModelError) Error() string {
 	if e.Err != nil {
 		return fmt.Sprintf("goml: %s: %s: %v", e.Op, e.Kind, e.Err)
@@ -178,201 +198,70 @@ func (e *ModelError) Error() string {
 	return fmt.Sprintf("goml: %s: %s", e.Op, e.Kind)
 }
 
-// Unwrap は元のエラーを返す
 func (e *ModelError) Unwrap() error {
 	return e.Err
 }
 
-// DimensionError は次元の不一致エラーを表す
-type DimensionError struct {
-	Op       string
-	Expected []int
-	Got      []int
+// NewModelError は新しいModelErrorを作成し、スタックトレースを付与します。
+func NewModelError(op, kind string, err error) error {
+	modelErr := &ModelError{Op: op, Kind: kind, Err: err}
+	return errors.WithStack(modelErr)
 }
 
-// Error はエラーメッセージを返す
-func (e *DimensionError) Error() string {
-	return fmt.Sprintf("goml: %s: dimension mismatch: expected %v, got %v", e.Op, e.Expected, e.Got)
+// ===========================================================================
+//
+//	cockroachdb/errors ラッパー関数
+//
+// ===========================================================================
+
+// Is はエラーが特定のターゲットエラーかどうかを判定します。
+func Is(err, target error) bool {
+	return errors.Is(err, target)
 }
 
-// NotFittedError はモデルが未学習の状態で予測しようとした場合のエラー
-type NotFittedError struct {
-	ModelName string
+// As はエラーが特定の型にキャスト可能かどうかを判定します。
+func As(err error, target interface{}) bool {
+	return errors.As(err, target)
 }
 
-// Error はエラーメッセージを返す
-func (e *NotFittedError) Error() string {
-	return fmt.Sprintf("goml: %s is not fitted yet. Call Fit before Predict", e.ModelName)
+// Wrap は既存のエラーをメッセージ付きでラップします。
+func Wrap(err error, message string) error {
+	return errors.Wrap(err, message)
 }
 
-// ValueError は値に関するエラーを表す
-type ValueError struct {
-	Op      string
-	Param   string
-	Value   interface{}
-	Message string
+// Wrapf は既存のエラーをフォーマット文字列でラップします。
+func Wrapf(err error, format string, args ...interface{}) error {
+	return errors.Wrapf(err, format, args...)
 }
 
-// Error はエラーメッセージを返す
-func (e *ValueError) Error() string {
-	if e.Message != "" {
-		return fmt.Sprintf("goml: %s: invalid value for %s: %v (%s)", e.Op, e.Param, e.Value, e.Message)
-	}
-	return fmt.Sprintf("goml: %s: invalid value for %s: %v", e.Op, e.Param, e.Value)
+// New は新しいエラーを作成します。
+func New(message string) error {
+	return errors.New(message)
 }
 
-// ConvergenceError は収束しなかった場合のエラー
-type ConvergenceError struct {
-	ModelName  string
-	Iterations int
-	Message    string
+// Newf は新しいフォーマット済みエラーを作成します。
+func Newf(format string, args ...interface{}) error {
+	return errors.Newf(format, args...)
 }
 
-// Error はエラーメッセージを返す
-func (e *ConvergenceError) Error() string {
-	if e.Message != "" {
-		return fmt.Sprintf("goml: %s failed to converge after %d iterations: %s", e.ModelName, e.Iterations, e.Message)
-	}
-	return fmt.Sprintf("goml: %s failed to converge after %d iterations", e.ModelName, e.Iterations)
+// WithStack はエラーにスタックトレースを付与します。
+func WithStack(err error) error {
+	return errors.WithStack(err)
 }
 
-// ============================================================================
-// 共通エラー定義（プロジェクト全体で使用）
-// ============================================================================
+// ===========================================================================
+//
+//	共通エラー変数
+//
+// ===========================================================================
 
 var (
-	// ErrNotFound はリソースが見つからない場合のエラー
-	ErrNotFound = errors.New("not found")
-
-	// ErrInvalidArgument は無効な引数が渡された場合のエラー
-	ErrInvalidArgument = errors.New("invalid argument")
-
-	// ErrInternal は内部エラーが発生した場合のエラー
-	ErrInternal = errors.New("internal error")
-
-	// ErrNotImplemented は未実装の機能を呼び出した場合のエラー
-	ErrNotImplemented = errors.New("not implemented")
+	// ErrNotImplemented は機能が未実装の場合のエラーです。
+	ErrNotImplemented = New("not implemented")
 	
-	// 機械学習関連の一般的なエラー定義
+	// ErrEmptyData は空のデータが渡された場合のエラーです。
+	ErrEmptyData = New("empty data")
 	
-	// ErrNotFitted はモデルが未学習の場合のエラー
-	ErrNotFitted = errors.New("model is not fitted")
-	
-	// ErrDimensionMismatch は次元が一致しない場合のエラー
-	ErrDimensionMismatch = errors.New("dimension mismatch")
-	
-	// ErrEmptyData は空のデータが渡された場合のエラー
-	ErrEmptyData = errors.New("empty data")
-	
-	// ErrInvalidParameter は無効なパラメータが渡された場合のエラー
-	ErrInvalidParameter = errors.New("invalid parameter")
-	
-	// ErrSingularMatrix は特異行列の場合のエラー
-	ErrSingularMatrix = errors.New("singular matrix")
+	// ErrSingularMatrix は特異行列の場合のエラーです。
+	ErrSingularMatrix = New("singular matrix")
 )
-
-// ============================================================================
-// エラー生成関数（スタックトレース付き）
-// ============================================================================
-
-// NewModelError は新しいModelErrorを作成する（スタックトレース付き）
-func NewModelError(op, kind string, err error) error {
-	modelErr := &ModelError{
-		Op:   op,
-		Kind: kind,
-		Err:  err,
-	}
-	
-	// cockroachdb/errorsでラップしてスタックトレースを付与
-	wrappedErr := errors.WithStack(modelErr)
-	
-	// デバッグ情報を追加
-	if err != nil {
-		wrappedErr = errors.WithDetail(wrappedErr, fmt.Sprintf("Operation: %s, Kind: %s, Original error: %v", op, kind, err))
-	} else {
-		wrappedErr = errors.WithDetail(wrappedErr, fmt.Sprintf("Operation: %s, Kind: %s", op, kind))
-	}
-	
-	return wrappedErr
-}
-
-// NewDimensionError は新しいDimensionErrorを作成する（スタックトレース付き）
-func NewDimensionError(op string, expected, got []int) error {
-	dimErr := &DimensionError{
-		Op:       op,
-		Expected: expected,
-		Got:      got,
-	}
-	
-	// cockroachdb/errorsでラップしてスタックトレースを付与
-	wrappedErr := errors.WithStack(dimErr)
-	
-	// デバッグ情報を追加
-	wrappedErr = errors.WithDetail(wrappedErr, fmt.Sprintf("Operation: %s", op))
-	wrappedErr = errors.WithDetail(wrappedErr, fmt.Sprintf("Expected dimensions: %v", expected))
-	wrappedErr = errors.WithDetail(wrappedErr, fmt.Sprintf("Got dimensions: %v", got))
-	wrappedErr = errors.WithHint(wrappedErr, "Check that input dimensions match expected dimensions")
-	
-	return wrappedErr
-}
-
-// NewNotFittedError は新しいNotFittedErrorを作成する（スタックトレース付き）
-func NewNotFittedError(modelName string) error {
-	notFittedErr := &NotFittedError{
-		ModelName: modelName,
-	}
-	
-	// cockroachdb/errorsでラップしてスタックトレースを付与
-	wrappedErr := errors.WithStack(notFittedErr)
-	
-	// デバッグ情報を追加
-	wrappedErr = errors.WithDetail(wrappedErr, fmt.Sprintf("Model: %s", modelName))
-	wrappedErr = errors.WithHint(wrappedErr, fmt.Sprintf("Call Fit() method on %s before calling Predict()", modelName))
-	
-	return wrappedErr
-}
-
-// NewValueError は新しいValueErrorを作成する（スタックトレース付き）
-func NewValueError(op, param string, value interface{}, message string) error {
-	valErr := &ValueError{
-		Op:      op,
-		Param:   param,
-		Value:   value,
-		Message: message,
-	}
-	
-	// cockroachdb/errorsでラップしてスタックトレースを付与
-	wrappedErr := errors.WithStack(valErr)
-	
-	// デバッグ情報を追加
-	wrappedErr = errors.WithDetail(wrappedErr, fmt.Sprintf("Operation: %s", op))
-	wrappedErr = errors.WithDetail(wrappedErr, fmt.Sprintf("Parameter: %s", param))
-	wrappedErr = errors.WithDetail(wrappedErr, fmt.Sprintf("Value: %v", value))
-	if message != "" {
-		wrappedErr = errors.WithDetail(wrappedErr, fmt.Sprintf("Message: %s", message))
-	}
-	
-	return wrappedErr
-}
-
-// NewConvergenceError は新しいConvergenceErrorを作成する（スタックトレース付き）
-func NewConvergenceError(modelName string, iterations int, message string) error {
-	convErr := &ConvergenceError{
-		ModelName:  modelName,
-		Iterations: iterations,
-		Message:    message,
-	}
-	
-	// cockroachdb/errorsでラップしてスタックトレースを付与
-	wrappedErr := errors.WithStack(convErr)
-	
-	// デバッグ情報を追加
-	wrappedErr = errors.WithDetail(wrappedErr, fmt.Sprintf("Model: %s", modelName))
-	wrappedErr = errors.WithDetail(wrappedErr, fmt.Sprintf("Iterations: %d", iterations))
-	if message != "" {
-		wrappedErr = errors.WithDetail(wrappedErr, fmt.Sprintf("Message: %s", message))
-	}
-	wrappedErr = errors.WithHint(wrappedErr, "Try increasing max_iterations or adjusting convergence criteria")
-	
-	return wrappedErr
-}
