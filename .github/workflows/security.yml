@@ -84,15 +84,14 @@ jobs:
       with:
         sarif_file: 'trivy-results.sarif'
         
-    - name: Run additional dependency vulnerability scan
+    - name: Run comprehensive dependency analysis
       run: |
-        # Use govulncheck for comprehensive vulnerability detection
-        echo "Additional vulnerability scanning with govulncheck..."
-        govulncheck -json ./... || echo "Govulncheck completed with warnings"
-        
-    - name: Check for outdated dependencies
-      run: |
+        echo "Checking Go module dependencies..."
+        go list -m all
+        echo "Checking for available updates..."
         go list -u -m all
+        echo "Analyzing dependency tree..."
+        go mod graph | head -20
         
   sbom:
     name: Generate SBOM

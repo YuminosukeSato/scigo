@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/YuminosukeSato/scigo/pkg/log"
 	"gonum.org/v1/gonum/mat"
 )
 
@@ -55,12 +56,12 @@ func (qr *QuickResult) PrintSummary() {
 		modelType = "Classifier"
 	}
 	
-	fmt.Printf("\n🚀 Quick Training Summary\n")
-	fmt.Printf("========================\n")
-	fmt.Printf("Model Type:     LightGBM %s\n", modelType)
-	fmt.Printf("Training Score: %.4f\n", qr.TrainScore)
-	fmt.Printf("Training Time:  %v\n", qr.TrainTime)
-	fmt.Printf("Features:       %d\n", len(qr.FeatureNames))
+	logger := log.GetLoggerWithName("lightgbm.quick")
+	logger.Info("🚀 Quick Training Summary",
+		"model_type", fmt.Sprintf("LightGBM %s", modelType),
+		"train_score", qr.TrainScore,
+		"train_time", qr.TrainTime,
+		"features", len(qr.FeatureNames))
 	
 	// Print top 5 important features
 	importance := qr.GetFeatureImportance()

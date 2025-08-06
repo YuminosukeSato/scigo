@@ -7,6 +7,7 @@ import (
 	"github.com/YuminosukeSato/scigo/core/model"
 	"github.com/YuminosukeSato/scigo/metrics"
 	scigoErrors "github.com/YuminosukeSato/scigo/pkg/errors"
+	"github.com/YuminosukeSato/scigo/pkg/log"
 	"gonum.org/v1/gonum/mat"
 )
 
@@ -151,9 +152,13 @@ func (lgb *LGBMRegressor) Fit(X, y mat.Matrix) (err error) {
 	lgb.nSamples_ = rows
 
 	// Log training start
+	logger := log.GetLoggerWithName("lightgbm.regressor")
 	if lgb.ShowProgress {
-		fmt.Printf("Training LGBMRegressor with %d samples, %d features\n", rows, cols)
-		fmt.Printf("Objective: %s, Metric: %s\n", lgb.Objective, lgb.Metric)
+		logger.Info("Training LGBMRegressor", 
+			"samples", rows,
+			"features", cols,
+			"objective", lgb.Objective,
+			"metric", lgb.Metric)
 	}
 
 	// Create training parameters
@@ -199,7 +204,7 @@ func (lgb *LGBMRegressor) Fit(X, y mat.Matrix) (err error) {
 	lgb.SetFitted()
 
 	if lgb.ShowProgress {
-		fmt.Println("Training completed successfully")
+		logger.Info("Training completed successfully")
 	}
 
 	return nil

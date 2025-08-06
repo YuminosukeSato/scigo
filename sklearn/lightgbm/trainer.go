@@ -6,6 +6,7 @@ import (
 	"sort"
 	"sync"
 
+	"github.com/YuminosukeSato/scigo/pkg/log"
 	"gonum.org/v1/gonum/mat"
 )
 
@@ -198,14 +199,18 @@ func (t *Trainer) Fit(X, y mat.Matrix) error {
 		// Check early stopping
 		if t.params.EarlyStopping > 0 && t.checkEarlyStopping() {
 			if t.params.Verbosity > 0 {
-				fmt.Printf("Early stopping at iteration %d\n", iter)
+				logger := log.GetLoggerWithName("lightgbm.trainer")
+				logger.Info("Early stopping", "iteration", iter)
 			}
 			break
 		}
 		
 		// Log progress
 		if t.params.Verbosity > 0 && iter%10 == 0 {
-			fmt.Printf("Iteration %d, Loss: %.6f\n", iter, t.calculateLoss())
+			logger := log.GetLoggerWithName("lightgbm.trainer")
+			logger.Debug("Training progress", 
+				"iteration", iter, 
+				"loss", t.calculateLoss())
 		}
 	}
 	

@@ -6,6 +6,7 @@ import (
 
 	"github.com/YuminosukeSato/scigo/core/model"
 	scigoErrors "github.com/YuminosukeSato/scigo/pkg/errors"
+	"github.com/YuminosukeSato/scigo/pkg/log"
 	"gonum.org/v1/gonum/mat"
 )
 
@@ -155,9 +156,12 @@ func (lgb *LGBMClassifier) Fit(X, y mat.Matrix) (err error) {
 	lgb.nFeatures_ = cols
 
 	// Log training start
+	logger := log.GetLoggerWithName("lightgbm.classifier")
 	if lgb.ShowProgress {
-		fmt.Printf("Training LGBMClassifier with %d samples, %d features, %d classes\n", 
-			rows, cols, lgb.nClasses_)
+		logger.Info("Training LGBMClassifier",
+			"samples", rows,
+			"features", cols,
+			"classes", lgb.nClasses_)
 	}
 
 	// Create training parameters
@@ -203,7 +207,7 @@ func (lgb *LGBMClassifier) Fit(X, y mat.Matrix) (err error) {
 	lgb.SetFitted()
 
 	if lgb.ShowProgress {
-		fmt.Println("Training completed successfully")
+		logger.Info("Training completed successfully")
 	}
 
 	return nil
