@@ -179,7 +179,7 @@ func (lr *SKLinearRegression) fitNormalEquation(X, y mat.Matrix) error {
 }
 
 // fitNNLS fits using Non-Negative Least Squares
-// Simple implementation using projected gradient descent
+// Optimized implementation using matrix operations and early stopping
 func (lr *SKLinearRegression) fitNNLS(X, y mat.Matrix) error {
 	rows, cols := X.Dims()
 	_, yCols := y.Dims()
@@ -187,59 +187,77 @@ func (lr *SKLinearRegression) fitNNLS(X, y mat.Matrix) error {
 	// Initialize coefficients
 	coef := mat.NewDense(cols, yCols, nil)
 
-	// Solve NNLS for each target using simple iterative method
+	// Pre-compute X^T for gradient calculation
+	var XT mat.Dense
+	XT.CloneFrom(X.T())
+
+	// Solve NNLS for each target with optimizations
 	for target := 0; target < yCols; target++ {
-		// Extract target column
+		// Extract target column as vector
 		yTarget := mat.NewVecDense(rows, nil)
 		for i := 0; i < rows; i++ {
 			yTarget.SetVec(i, y.At(i, target))
 		}
 
-		// Initialize weights to positive values
-		weights := make([]float64, cols)
-		for i := range weights {
-			weights[i] = 0.1
+		// Initialize weights
+		weights := mat.NewVecDense(cols, nil)
+		for i := 0; i < cols; i++ {
+			weights.SetVec(i, 0.1)
 		}
 
-		// Simple gradient descent with projection
+		// Optimized gradient descent with early stopping
 		learningRate := 0.01
 		maxIter := 1000
+		tolerance := 1e-6
+		prevLoss := float64(1e10)
 		
 		for iter := 0; iter < maxIter; iter++ {
-			// Compute predictions
+			// Compute predictions using matrix multiplication: X * weights
 			predictions := mat.NewVecDense(rows, nil)
+			predictions.MulVec(X, weights)
+
+			// Compute residual: predictions - y
+			residual := mat.NewVecDense(rows, nil)
+			residual.SubVec(predictions, yTarget)
+
+			// Compute loss for early stopping
+			var loss float64
 			for i := 0; i < rows; i++ {
-				pred := 0.0
-				for j := 0; j < cols; j++ {
-					pred += X.At(i, j) * weights[j]
+				r := residual.AtVec(i)
+				loss += r * r
+			}
+			loss /= float64(rows)
+
+			// Early stopping if converged
+			if prevLoss - loss < tolerance && iter > 10 {
+				break
+			}
+			prevLoss = loss
+
+			// Compute gradient using matrix multiplication: X^T * residual / n
+			gradient := mat.NewVecDense(cols, nil)
+			gradient.MulVec(&XT, residual)
+			gradient.ScaleVec(2.0/float64(rows), gradient)
+
+			// Update weights with projection
+			for j := 0; j < cols; j++ {
+				newWeight := weights.AtVec(j) - learningRate*gradient.AtVec(j)
+				// Project to non-negative
+				if newWeight < 0 {
+					newWeight = 0
 				}
-				predictions.SetVec(i, pred)
+				weights.SetVec(j, newWeight)
 			}
 
-			// Compute gradients
-			gradients := make([]float64, cols)
-			for j := 0; j < cols; j++ {
-				grad := 0.0
-				for i := 0; i < rows; i++ {
-					error := predictions.AtVec(i) - yTarget.AtVec(i)
-					grad += 2 * error * X.At(i, j)
-				}
-				gradients[j] = grad / float64(rows)
-			}
-
-			// Update weights
-			for j := 0; j < cols; j++ {
-				weights[j] -= learningRate * gradients[j]
-				// Project to non-negative (enforce constraint)
-				if weights[j] < 0 {
-					weights[j] = 0
-				}
+			// Adaptive learning rate (optional optimization)
+			if iter > 0 && iter%100 == 0 {
+				learningRate *= 0.95 // Decay learning rate
 			}
 		}
 
 		// Store coefficients
 		for i := 0; i < cols; i++ {
-			coef.Set(i, target, weights[i])
+			coef.Set(i, target, weights.AtVec(i))
 		}
 	}
 
