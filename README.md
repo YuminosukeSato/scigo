@@ -1,5 +1,10 @@
 # GoML - Go Machine Learning Library
 
+<div align="center">
+  <img src="package.png" alt="GoML Mascot Gopher" width="200"/>
+  <p><i>GoML's official mascot</i></p>
+</div>
+
 [![CI](https://github.com/YuminosukeSato/GoML/actions/workflows/ci.yml/badge.svg)](https://github.com/YuminosukeSato/GoML/actions/workflows/ci.yml)
 [![Go Report Card](https://goreportcard.com/badge/github.com/YuminosukeSato/GoML)](https://goreportcard.com/report/github.com/YuminosukeSato/GoML)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
