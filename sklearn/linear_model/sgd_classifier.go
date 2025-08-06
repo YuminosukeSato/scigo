@@ -9,7 +9,7 @@ import (
 	"time"
 
 	"github.com/YuminosukeSato/GoML/core/model"
-	"github.com/cockroachdb/errors"
+	"github.com/YuminosukeSato/GoML/pkg/errors"
 	"gonum.org/v1/gonum/mat"
 )
 
@@ -239,7 +239,7 @@ func (sgd *SGDClassifier) PartialFit(X, y mat.Matrix, classes []int) error {
 	}
 
 	if cols != sgd.nFeatures_ {
-		return errors.Newf("特徴量の次元が一致しません: expected %d, got %d", sgd.nFeatures_, cols)
+		return errors.NewDimensionError("PartialFit", []int{sgd.nFeatures_}, []int{cols})
 	}
 
 	// ミニバッチ処理
@@ -395,12 +395,12 @@ func (sgd *SGDClassifier) Predict(X mat.Matrix) (mat.Matrix, error) {
 	defer sgd.mu.RUnlock()
 
 	if !sgd.IsFitted() {
-		return nil, errors.New("モデルが学習されていません")
+		return nil, errors.NewNotFittedError("SGDClassifier")
 	}
 
 	rows, cols := X.Dims()
 	if cols != sgd.nFeatures_ {
-		return nil, errors.Newf("特徴量の次元が一致しません: expected %d, got %d", sgd.nFeatures_, cols)
+		return nil, errors.NewDimensionError("Predict", []int{sgd.nFeatures_}, []int{cols})
 	}
 
 	predictions := mat.NewDense(rows, 1, nil)
@@ -441,12 +441,12 @@ func (sgd *SGDClassifier) PredictProba(X mat.Matrix) (mat.Matrix, error) {
 	defer sgd.mu.RUnlock()
 
 	if !sgd.IsFitted() {
-		return nil, errors.New("モデルが学習されていません")
+		return nil, errors.NewNotFittedError("SGDClassifier")
 	}
 
 	rows, cols := X.Dims()
 	if cols != sgd.nFeatures_ {
-		return nil, errors.Newf("特徴量の次元が一致しません: expected %d, got %d", sgd.nFeatures_, cols)
+		return nil, errors.NewDimensionError("Predict", []int{sgd.nFeatures_}, []int{cols})
 	}
 
 	probabilities := mat.NewDense(rows, sgd.nClasses_, nil)
@@ -490,12 +490,12 @@ func (sgd *SGDClassifier) DecisionFunction(X mat.Matrix) (mat.Matrix, error) {
 	defer sgd.mu.RUnlock()
 
 	if !sgd.IsFitted() {
-		return nil, errors.New("モデルが学習されていません")
+		return nil, errors.NewNotFittedError("SGDClassifier")
 	}
 
 	rows, cols := X.Dims()
 	if cols != sgd.nFeatures_ {
-		return nil, errors.Newf("特徴量の次元が一致しません: expected %d, got %d", sgd.nFeatures_, cols)
+		return nil, errors.NewDimensionError("Predict", []int{sgd.nFeatures_}, []int{cols})
 	}
 
 	decisions := mat.NewDense(rows, sgd.nClasses_, nil)

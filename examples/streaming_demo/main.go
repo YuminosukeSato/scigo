@@ -15,7 +15,7 @@ import (
 )
 
 func main() {
-	fmt.Println("=== GoML Streaming Learning Demo ===\n")
+	fmt.Println("=== GoML Streaming Learning Demo ===")
 
 	// デモ1: バッチ学習 vs オンライン学習の比較
 	fmt.Println("1. Batch Learning vs Online Learning Comparison")

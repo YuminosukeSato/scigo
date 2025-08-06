@@ -6,7 +6,7 @@ import (
 	"sync"
 
 	"github.com/YuminosukeSato/GoML/core/model"
-	"github.com/cockroachdb/errors"
+	"github.com/YuminosukeSato/GoML/pkg/errors"
 	"gonum.org/v1/gonum/mat"
 )
 

@@ -9,7 +9,7 @@ import (
 	"time"
 
 	"github.com/YuminosukeSato/GoML/core/model"
-	"github.com/cockroachdb/errors"
+	"github.com/YuminosukeSato/GoML/pkg/errors"
 	"gonum.org/v1/gonum/mat"
 )
 
@@ -178,8 +178,10 @@ func (kmeans *MiniBatchKMeans) fitSingleRun(X mat.Matrix) ([][]float64, []int, f
 
 	prevInertia := math.Inf(1)
 	noImprovementCount := 0
+	var finalIter int
 
 	for iter := 0; iter < kmeans.maxIter; iter++ {
+		finalIter = iter
 		// ミニバッチの選択
 		batchIndices := kmeans.selectMiniBatch(rows)
 		
@@ -228,7 +230,7 @@ func (kmeans *MiniBatchKMeans) fitSingleRun(X mat.Matrix) ([][]float64, []int, f
 	}
 
 	finalInertia := kmeans.computeInertia(X, centers)
-	return centers, labels, finalInertia, iter
+	return centers, labels, finalInertia, finalIter
 }
 
 // PartialFit はミニバッチでモデルを逐次的に学習
@@ -246,7 +248,7 @@ func (kmeans *MiniBatchKMeans) PartialFit(X, y mat.Matrix, classes []int) error 
 	}
 
 	if cols != kmeans.nFeatures_ {
-		return errors.Newf("特徴量の次元が一致しません: expected %d, got %d", kmeans.nFeatures_, cols)
+		return errors.NewDimensionError("PartialFit", []int{kmeans.nFeatures_}, []int{cols})
 	}
 
 	// ミニバッチ処理
