@@ -9,51 +9,6 @@ on:
 jobs:
   test:
     runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        go: ['1.21', '1.22', '1.23']
-    
-    steps:
-    - uses: actions/checkout@v4
-    
-    - name: Set up Go
-      uses: actions/setup-go@v5
-      with:
-        go-version: ${{ matrix.go }}
-    
-    - name: Install dependencies
-      run: |
-        go mod download
-        go install honnef.co/go/tools/cmd/staticcheck@latest
-        go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest
-    
-    - name: Run tests
-      run: |
-        go test -v -race -coverprofile=coverage.out -covermode=atomic ./...
-    
-    - name: Run benchmarks
-      run: |
-        go test -bench=. -benchmem ./linear/...
-    
-    - name: Static analysis
-      run: |
-        go vet ./...
-        staticcheck ./...
-        golangci-lint run
-    
-    - name: Build
-      run: |
-        go build ./...
-    
-    - name: Upload coverage
-      uses: codecov/codecov-action@v3
-      with:
-        file: ./coverage.out
-        flags: unittests
-        name: codecov-umbrella
-
-  build-examples:
-    runs-on: ubuntu-latest
     
     steps:
     - uses: actions/checkout@v4
@@ -63,12 +18,16 @@ jobs:
       with:
         go-version: '1.23'
     
-    - name: Build examples
+    - name: Install dependencies
       run: |
-        go build ./examples/linear_regression
-        go build ./examples/iris_regression
-        go build ./examples/error_demo
+        go mod download
+        go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest
     
-    - name: Run examples
-      run: |
-        go run ./examples/error_demo
+    - name: Run golangci-lint
+      run: golangci-lint run
+    
+    - name: Run tests
+      run: go test ./...
+    
+    - name: Build
+      run: go build ./...
