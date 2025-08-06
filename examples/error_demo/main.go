@@ -4,9 +4,9 @@ import (
 	"fmt"
 	"log/slog"
 
-	"github.com/YuminosukeSato/GoML/linear"
-	"github.com/YuminosukeSato/GoML/pkg/errors"
-	"github.com/YuminosukeSato/GoML/pkg/log"
+	"github.com/s21066/goml/linear"
+	"github.com/s21066/goml/pkg/errors"
+	"github.com/s21066/goml/pkg/log"
 	"gonum.org/v1/gonum/mat"
 )
 
@@ -64,13 +64,7 @@ func demonstrateDimensionError() {
 	
 	_, err = model.Predict(X_test)
 	if err != nil {
-		// 基本的なエラーメッセージ
-		fmt.Printf("Error: %v\n", err)
-		
-		// 詳細なエラー情報（スタックトレース付き）
-		fmt.Printf("\nDetailed error:\n%+v\n", err)
-		
-		// ログにも出力
+		// 構造化ログでエラーを出力
 		slog.Error("Prediction failed due to dimension mismatch", 
 			log.ErrAttr(err),
 			slog.Int("expected_features", 2),
@@ -93,12 +87,13 @@ func demonstrateNotFittedError() {
 	
 	_, err := model.Predict(X)
 	if err != nil {
-		fmt.Printf("Error: %v\n", err)
+		// 構造化ログでエラーを出力
 		
 		// エラー型の判定
 		var notFittedErr *errors.NotFittedError
 		if errors.As(err, &notFittedErr) {
-			fmt.Printf("This is a NotFittedError for model: %s\n", notFittedErr.ModelName)
+			slog.Info("NotFittedError detected", 
+				slog.String("model", notFittedErr.ModelName))
 		}
 		
 		slog.Warn("Model used before fitting", log.ErrAttr(err))
@@ -116,12 +111,14 @@ func demonstrateValueError() {
 	
 	err := model.Fit(X, y)
 	if err != nil {
-		fmt.Printf("Error: %v\n", err)
+		// 構造化ログでエラーを出力
 		
 		// ModelErrorかチェック
 		var modelErr *errors.ModelError
 		if errors.As(err, &modelErr) {
-			fmt.Printf("Operation: %s, Kind: %s\n", modelErr.Op, modelErr.Kind)
+			slog.Info("ModelError details",
+				slog.String("operation", modelErr.Op),
+				slog.String("kind", modelErr.Kind))
 		}
 		
 		slog.Error("Invalid input data", 
@@ -138,12 +135,12 @@ func demonstrateErrorChaining() {
 	// エラーチェーンのシミュレーション
 	err := processData()
 	if err != nil {
-		fmt.Printf("Simple error: %v\n", err)
-		fmt.Printf("\nError chain:\n%+v\n", err)
+		// 構造化ログでエラーチェーンを出力
 		
 		// 元のエラーを確認
 		if errors.Is(err, errors.ErrEmptyData) {
-			fmt.Println("\nRoot cause: Empty data error detected")
+			slog.Info("Root cause identified", 
+				slog.String("error", "empty data"))
 		}
 		
 		slog.Error("Data processing failed", log.ErrAttr(err))

@@ -1,16 +1,15 @@
 package linear
 
 import (
-	"fmt"
-
-	"github.com/YuminosukeSato/GoML/core"
-	"github.com/YuminosukeSato/GoML/pkg/errors"
+	"github.com/s21066/goml/core/model"
+	"github.com/s21066/goml/core/parallel"
+	"github.com/s21066/goml/pkg/errors"
 	"gonum.org/v1/gonum/mat"
 )
 
 // LinearRegression は線形回帰モデル
 type LinearRegression struct {
-	core.BaseEstimator
+	model.BaseEstimator // BaseEstimatorを埋め込み
 	weights   *mat.VecDense // 重み（係数）
 	intercept float64       // 切片
 	nFeatures int           // 特徴量の数
@@ -45,12 +44,19 @@ func (lr *LinearRegression) Fit(X, y mat.Matrix) error {
 	// 切片項のために X に 1 の列を追加
 	// X_with_intercept = [1, X]
 	XWithIntercept := mat.NewDense(r, c+1, nil)
-	for i := 0; i < r; i++ {
-		XWithIntercept.Set(i, 0, 1.0) // 切片項
-		for j := 0; j < c; j++ {
-			XWithIntercept.Set(i, j+1, X.At(i, j))
+
+	// 並列処理の閾値（この値以下の行数では逐次処理を使用）
+	const parallelThreshold = 1000
+
+	// ParallelizeWithThresholdを使用して、データサイズに応じて並列化
+	parallel.ParallelizeWithThreshold(r, parallelThreshold, func(start, end int) {
+		for i := start; i < end; i++ {
+			XWithIntercept.Set(i, 0, 1.0) // 切片項
+			for j := 0; j < c; j++ {
+				XWithIntercept.Set(i, j+1, X.At(i, j))
+			}
 		}
-	}
+	})
 
 	// 正規方程式を解く
 	// (X^T * X)^(-1) * X^T * y
@@ -87,8 +93,10 @@ func (lr *LinearRegression) Fit(X, y mat.Matrix) error {
 	for i := 0; i < c; i++ {
 		lr.weights.SetVec(i, weights.AtVec(i+1))
 	}
-
+	
+	// モデルを学習済み状態に設定
 	lr.SetFitted()
+	
 	return nil
 }
 
@@ -120,7 +128,7 @@ func (lr *LinearRegression) Predict(X mat.Matrix) (mat.Matrix, error) {
 
 // Weights は学習された重み（係数）を返す
 func (lr *LinearRegression) Weights() []float64 {
-	if !lr.IsFitted() || lr.weights == nil {
+	if lr.weights == nil {
 		return nil
 	}
 
@@ -172,7 +180,7 @@ func (lr *LinearRegression) Score(X, y mat.Matrix) (float64, error) {
 
 	// R² = 1 - RSS/TSS
 	if tss == 0 {
-		return 0, fmt.Errorf("total sum of squares is zero")
+		return 0, errors.Newf("total sum of squares is zero")
 	}
 
 	return 1 - rss/tss, nil

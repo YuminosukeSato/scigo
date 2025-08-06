@@ -1,7 +1,7 @@
 package tensor
 
 import (
-	"github.com/YuminosukeSato/GoML/pkg/errors"
+	"github.com/s21066/goml/pkg/errors"
 	"gonum.org/v1/gonum/mat"
 )
 
@@ -133,14 +133,14 @@ func (t *Tensor) T() *Tensor {
 // Reshape はテンソルの形状を変更する
 func (t *Tensor) Reshape(shape ...int) error {
 	if len(shape) != 2 {
-		return fmt.Errorf("currently only 2D reshaping is supported")
+		return errors.Newf("currently only 2D reshaping is supported")
 	}
 
 	newSize := shape[0] * shape[1]
 	oldSize := t.shape[0] * t.shape[1]
 
 	if newSize != oldSize {
-		return fmt.Errorf("cannot reshape tensor of size %d to size %d", oldSize, newSize)
+		return errors.Newf("cannot reshape tensor of size %d to size %d", oldSize, newSize)
 	}
 
 	// データをコピーして新しい形状で再構築
@@ -158,11 +158,11 @@ func (t *Tensor) Slice(rowStart, rowEnd, colStart, colEnd int) (*Tensor, error) 
 	r, c := t.data.Dims()
 
 	if rowStart < 0 || rowEnd > r || colStart < 0 || colEnd > c {
-		return nil, fmt.Errorf("slice indices out of bounds")
+		return nil, errors.Newf("slice indices out of bounds")
 	}
 
 	if rowStart >= rowEnd || colStart >= colEnd {
-		return nil, fmt.Errorf("invalid slice range")
+		return nil, errors.Newf("invalid slice range")
 	}
 
 	sliced := t.data.Slice(rowStart, rowEnd, colStart, colEnd).(*mat.Dense)

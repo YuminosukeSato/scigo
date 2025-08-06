@@ -1,10 +1,9 @@
 package metrics
 
 import (
-	"fmt"
 	"math"
 
-	"github.com/YuminosukeSato/GoML/pkg/errors"
+	"github.com/s21066/goml/pkg/errors"
 	"gonum.org/v1/gonum/mat"
 )
 
@@ -122,7 +121,7 @@ func R2Score(yTrue, yPred *mat.VecDense) (float64, error) {
 
 	// 全変動が0の場合（すべてのyTrueが同じ値）
 	if tss == 0 {
-		return 0, fmt.Errorf("R2Score: total sum of squares is zero (no variance in yTrue)")
+		return 0, errors.Newf("R2Score: total sum of squares is zero (no variance in yTrue)")
 	}
 
 	// R² = 1 - RSS/TSS
@@ -155,7 +154,7 @@ func MAPE(yTrue, yPred *mat.VecDense) (float64, error) {
 	}
 
 	if validCount == 0 {
-		return 0, fmt.Errorf("MAPE: all yTrue values are zero")
+		return 0, errors.Newf("MAPE: all yTrue values are zero")
 	}
 
 	return (sum / float64(validCount)) * 100, nil
@@ -197,7 +196,7 @@ func ExplainedVarianceScore(yTrue, yPred *mat.VecDense) (float64, error) {
 	varDiff /= float64(n)
 
 	if varYTrue == 0 {
-		return 0, fmt.Errorf("ExplainedVarianceScore: no variance in yTrue")
+		return 0, errors.Newf("ExplainedVarianceScore: no variance in yTrue")
 	}
 
 	// 説明分散スコア = 1 - Var(yTrue - yPred) / Var(yTrue)
