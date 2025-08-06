@@ -1,0 +1,55 @@
+# .goreleaser.yml
+# GoReleaser configuration for automated releases
+
+project_name: goml
+
+before:
+  hooks:
+    - go mod tidy
+    - go test ./...
+
+builds:
+  - skip: true  # Library only, no binaries
+
+archives:
+  - format: tar.gz
+    name_template: "{{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
+
+checksum:
+  name_template: 'checksums.txt'
+
+snapshot:
+  name_template: "{{ incpatch .Version }}-next"
+
+changelog:
+  sort: asc
+  filters:
+    exclude:
+      - '^docs:'
+      - '^test:'
+      - '^chore:'
+  groups:
+    - title: 'Features'
+      regexp: "^feat"
+    - title: 'Bug Fixes'
+      regexp: "^fix"
+    - title: 'Performance'
+      regexp: "^perf"
+
+release:
+  github:
+    owner: YuminosukeSato
+    name: GoML
+  
+  header: |
+    ## GoML v{{ .Version }}
+    
+    High-performance machine learning library for Go with scikit-learn compatible API.
+    
+  footer: |
+    ## Installation
+    ```bash
+    go get github.com/YuminosukeSato/GoML@v{{ .Version }}
+    ```
+    
+    **Full Documentation**: https://pkg.go.dev/github.com/YuminosukeSato/GoML
