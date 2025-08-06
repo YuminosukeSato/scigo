@@ -37,6 +37,7 @@ type PassiveAggressiveRegressor struct {
 	// 学習状態
 	nIter_    int // 実行されたイテレーション数
 	t_        int64 // 総ステップ数
+	converged_ bool  // 収束フラグ
 	
 	// 内部状態
 	mu         sync.RWMutex
@@ -71,6 +72,7 @@ type PassiveAggressiveClassifier struct {
 	// 学習状態
 	nIter_    int // 実行されたイテレーション数
 	t_        int64 // 総ステップ数
+	converged_ bool  // 収束フラグ
 	
 	// 内部状態
 	mu         sync.RWMutex
@@ -204,6 +206,13 @@ func (pa *PassiveAggressiveRegressor) Fit(X, y mat.Matrix) error {
 		pa.nIter_++
 	}
 
+	if pa.nIter_ >= pa.maxIter {
+		pa.converged_ = false
+		errors.Warn(errors.NewConvergenceWarning("PassiveAggressiveRegressor", pa.nIter_, "Maximum number of iterations reached"))
+	} else {
+		pa.converged_ = true
+	}
+
 	pa.SetFitted()
 	return nil
 }
@@ -222,7 +231,7 @@ func (pa *PassiveAggressiveRegressor) PartialFit(X, y mat.Matrix, classes []int)
 	}
 
 	if cols != pa.nFeatures_ {
-		return errors.Newf("特徴量の次元が一致しません: expected %d, got %d", pa.nFeatures_, cols)
+		return errors.NewDimensionError("PartialFit", pa.nFeatures_, cols, 1)
 	}
 
 	// ミニバッチ処理
@@ -305,12 +314,12 @@ func (pa *PassiveAggressiveRegressor) Predict(X mat.Matrix) (mat.Matrix, error) 
 	defer pa.mu.RUnlock()
 
 	if !pa.IsFitted() {
-		return nil, errors.New("モデルが学習されていません")
+		return nil, errors.NewNotFittedError("PassiveAggressiveRegressor", "Predict")
 	}
 
 	rows, cols := X.Dims()
 	if cols != pa.nFeatures_ {
-		return nil, errors.Newf("特徴量の次元が一致しません: expected %d, got %d", pa.nFeatures_, cols)
+		return nil, errors.NewDimensionError("Predict", pa.nFeatures_, cols, 1)
 	}
 
 	predictions := mat.NewDense(rows, 1, nil)
@@ -368,6 +377,13 @@ func (pa *PassiveAggressiveClassifier) Fit(X, y mat.Matrix) error {
 		pa.nIter_++
 	}
 
+	if pa.nIter_ >= pa.maxIter {
+		pa.converged_ = false
+		errors.Warn(errors.NewConvergenceWarning("PassiveAggressiveClassifier", pa.nIter_, "Maximum number of iterations reached"))
+	} else {
+		pa.converged_ = true
+	}
+
 	pa.SetFitted()
 	return nil
 }
@@ -395,7 +411,7 @@ func (pa *PassiveAggressiveClassifier) PartialFit(X, y mat.Matrix, classes []int
 	}
 
 	if cols != pa.nFeatures_ {
-		return errors.Newf("特徴量の次元が一致しません: expected %d, got %d", pa.nFeatures_, cols)
+		return errors.NewDimensionError("PartialFit", pa.nFeatures_, cols, 1)
 	}
 
 	// ミニバッチ処理
@@ -490,12 +506,12 @@ func (pa *PassiveAggressiveClassifier) Predict(X mat.Matrix) (mat.Matrix, error)
 	defer pa.mu.RUnlock()
 
 	if !pa.IsFitted() {
-		return nil, errors.New("モデルが学習されていません")
+		return nil, errors.NewNotFittedError("PassiveAggressiveClassifier", "Predict")
 	}
 
 	rows, cols := X.Dims()
 	if cols != pa.nFeatures_ {
-		return nil, errors.Newf("特徴量の次元が一致しません: expected %d, got %d", pa.nFeatures_, cols)
+		return nil, errors.NewDimensionError("Predict", pa.nFeatures_, cols, 1)
 	}
 
 	predictions := mat.NewDense(rows, 1, nil)

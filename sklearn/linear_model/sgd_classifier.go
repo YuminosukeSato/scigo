@@ -211,6 +211,10 @@ func (sgd *SGDClassifier) Fit(X, y mat.Matrix) error {
 		}
 	}
 
+	if !sgd.converged_ {
+		errors.Warn(errors.NewConvergenceWarning("SGDClassifier", sgd.nIter_, "Maximum number of iterations reached"))
+	}
+
 	sgd.SetFitted()
 	return nil
 }

@@ -228,6 +228,10 @@ func (sgd *SGDRegressor) Fit(X, y mat.Matrix) error {
 		}
 	}
 
+	if !sgd.converged_ {
+		errors.Warn(errors.NewConvergenceWarning("SGDRegressor", sgd.nIter_, "Maximum number of iterations reached"))
+	}
+
 	sgd.SetFitted()
 	return nil
 }
@@ -462,6 +466,7 @@ func (sgd *SGDRegressor) PredictStream(ctx context.Context, inputChan <-chan mat
 				
 				pred, err := sgd.Predict(X)
 				if err != nil {
+					// In a real-world scenario, we might want to log this error
 					continue
 				}
 				
@@ -507,6 +512,7 @@ func (sgd *SGDRegressor) FitPredictStream(ctx context.Context, dataChan <-chan *
 				
 				// その後学習
 				if err := sgd.PartialFit(batch.X, batch.Y, nil); err != nil {
+					// In a real-world scenario, we might want to log this error
 					continue
 				}
 			}
@@ -647,7 +653,7 @@ func (sgd *SGDRegressor) Score(X, y mat.Matrix) (float64, error) {
 	}
 
 	if ssTot == 0 {
-		return 0, errors.NewValueError("Score", "target variance is zero")
+		return 0, errors.NewValueError("Score", "Cannot compute score with zero variance in y_true")
 	}
 
 	return 1.0 - (ssRes / ssTot), nil
@@ -684,3 +690,4 @@ func isIncreasing(values []float64) bool {
 	}
 	return true
 }
+

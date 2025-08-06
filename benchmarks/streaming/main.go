@@ -28,7 +28,7 @@ type BenchmarkResult struct {
 }
 
 func main() {
-	fmt.Println("=== GoML Streaming Learning Benchmarks ===\n")
+	fmt.Println("=== GoML Streaming Learning Benchmarks ===")
 
 	// メモリ統計の初期化
 	var m1, m2 runtime.MemStats
