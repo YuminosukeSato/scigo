@@ -344,9 +344,8 @@ func (lgb *LGBMClassifier) LoadModel(filepath string) error {
 	lgb.Predictor = NewPredictor(model)
 	
 	// Set parameters from loaded model
-	lgb.NumFeatures = model.NumFeatures
-	lgb.NumClass = model.NumClass
 	lgb.nFeatures_ = model.NumFeatures
+	lgb.NumClass = model.NumClass
 	
 	// Extract objective
 	switch model.Objective {

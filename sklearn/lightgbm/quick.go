@@ -292,6 +292,8 @@ func QuickCrossValidate(X, y mat.Matrix, nFolds int) (float64, float64) {
 		if fold == nFolds-1 {
 			testEnd = rows
 		}
+		_ = testStart // Will be used for proper train/test split in future
+		_ = testEnd
 		
 		// This is a simplified split - proper implementation would handle this better
 		// For now, we'll just train on all data and report training score

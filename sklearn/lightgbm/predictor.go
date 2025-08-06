@@ -59,12 +59,28 @@ func (p *Predictor) Predict(X mat.Matrix) (mat.Matrix, error) {
 
 	predictions := mat.NewDense(rows, outputCols, nil)
 
+	// Convert interface to concrete type
+	var xDense *mat.Dense
+	switch v := X.(type) {
+	case *mat.Dense:
+		xDense = v
+	default:
+		// If not a Dense matrix, convert it
+		rows, cols := X.Dims()
+		xDense = mat.NewDense(rows, cols, nil)
+		for i := 0; i < rows; i++ {
+			for j := 0; j < cols; j++ {
+				xDense.Set(i, j, X.At(i, j))
+			}
+		}
+	}
+
 	if p.deterministic || p.numThreads == 1 {
 		// Sequential processing for deterministic results
-		p.predictSequential(X, predictions)
+		p.predictSequential(xDense, predictions)
 	} else {
 		// Parallel processing for better performance
-		p.predictParallel(X, predictions)
+		p.predictParallel(xDense, predictions)
 	}
 
 	return predictions, nil

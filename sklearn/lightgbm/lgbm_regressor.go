@@ -236,7 +236,14 @@ func (lgb *LGBMRegressor) Score(X, y mat.Matrix) (float64, error) {
 	}
 
 	// Calculate R^2 score
-	return metrics.R2Score(y, predictions)
+	rows, _ := y.Dims()
+	yVec := mat.NewVecDense(rows, nil)
+	predVec := mat.NewVecDense(rows, nil)
+	for i := 0; i < rows; i++ {
+		yVec.SetVec(i, y.At(i, 0))
+		predVec.SetVec(i, predictions.At(i, 0))
+	}
+	return metrics.R2Score(yVec, predVec)
 }
 
 // LoadModel loads a pre-trained LightGBM model from file
@@ -499,7 +506,15 @@ func (lgb *LGBMRegressor) GetMSE(X, y mat.Matrix) (float64, error) {
 		return 0, err
 	}
 
-	return metrics.MeanSquaredError(y, predictions)
+	// Convert to vectors for MSE calculation
+	rows, _ := y.Dims()
+	yVec := mat.NewVecDense(rows, nil)
+	predVec := mat.NewVecDense(rows, nil)
+	for i := 0; i < rows; i++ {
+		yVec.SetVec(i, y.At(i, 0))
+		predVec.SetVec(i, predictions.At(i, 0))
+	}
+	return metrics.MSE(yVec, predVec)
 }
 
 // GetMAE returns the mean absolute error
@@ -513,7 +528,15 @@ func (lgb *LGBMRegressor) GetMAE(X, y mat.Matrix) (float64, error) {
 		return 0, err
 	}
 
-	return metrics.MeanAbsoluteError(y, predictions)
+	// Convert to vectors for MAE calculation
+	rows, _ := y.Dims()
+	yVec := mat.NewVecDense(rows, nil)
+	predVec := mat.NewVecDense(rows, nil)
+	for i := 0; i < rows; i++ {
+		yVec.SetVec(i, y.At(i, 0))
+		predVec.SetVec(i, predictions.At(i, 0))
+	}
+	return metrics.MAE(yVec, predVec)
 }
 
 // GetRMSE returns the root mean squared error

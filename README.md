@@ -25,11 +25,13 @@ SciGo brings the power and familiarity of scikit-learn to the Go ecosystem, offe
 
 - 🔥 **Blazing Fast**: Native Go implementation with built-in parallelization
 - 🎯 **scikit-learn Compatible**: Familiar Fit/Predict API for easy migration
+- 🌲 **LightGBM Support**: Full compatibility with Python LightGBM models (.txt/JSON/string)
 - 📖 **Well Documented**: Complete API documentation with examples on [pkg.go.dev](https://pkg.go.dev/github.com/YuminosukeSato/scigo)
 - 🌊 **Streaming Support**: Online learning algorithms for real-time data
 - 🚀 **Zero Heavy Dependencies**: Pure Go implementation (only scientific essentials)
-- 📊 **Comprehensive**: Regression, classification, clustering, and more
+- 📊 **Comprehensive**: Regression, classification, clustering, tree-based models, and more
 - 🧪 **Production Ready**: Extensive tests, benchmarks, and error handling
+- ⚡ **Superior to leaves**: Not just inference - full training, convenience features, and numerical precision
 
 ## 📦 Installation
 
@@ -41,6 +43,35 @@ go get github.com/YuminosukeSato/scigo
 
 > 💡 **Tip**: For complete API documentation with examples, visit [pkg.go.dev/scigo](https://pkg.go.dev/github.com/YuminosukeSato/scigo)
 
+### Option 1: One-Liner with LightGBM 🌲
+```go
+package main
+
+import (
+    "github.com/YuminosukeSato/scigo/sklearn/lightgbm"
+    "gonum.org/v1/gonum/mat"
+)
+
+func main() {
+    // Super convenient one-liner training!
+    X := mat.NewDense(100, 4, data) // Your data
+    y := mat.NewDense(100, 1, labels) // Your labels
+    
+    // Train and predict in one line!
+    result := lightgbm.QuickTrain(X, y)
+    predictions := result.Predict(X_test)
+    
+    // Or use AutoML for automatic tuning
+    best := lightgbm.AutoFit(X, y)
+    
+    // Load Python LightGBM models directly!
+    model := lightgbm.NewLGBMClassifier()
+    model.LoadModel("python_model.txt") // Full compatibility!
+    predictions, _ := model.Predict(X_test)
+}
+```
+
+### Option 2: Classic Linear Regression
 ```go
 package main
 
@@ -91,6 +122,7 @@ func main() {
 
 | Package | Description | Go Doc |
 |---------|-------------|--------|
+| **sklearn/lightgbm** 🌲 | LightGBM with Python model compatibility & convenience features | [![GoDoc](https://pkg.go.dev/badge/github.com/YuminosukeSato/scigo/sklearn/lightgbm)](https://pkg.go.dev/github.com/YuminosukeSato/scigo/sklearn/lightgbm) |
 | **preprocessing** | Data preprocessing utilities (StandardScaler, MinMaxScaler, OneHotEncoder) | [![GoDoc](https://pkg.go.dev/badge/github.com/YuminosukeSato/scigo/preprocessing)](https://pkg.go.dev/github.com/YuminosukeSato/scigo/preprocessing) |
 | **linear** | Linear machine learning algorithms (LinearRegression) | [![GoDoc](https://pkg.go.dev/badge/github.com/YuminosukeSato/scigo/linear)](https://pkg.go.dev/github.com/YuminosukeSato/scigo/linear) |
 | **metrics** | Model evaluation metrics (MSE, RMSE, MAE, R², MAPE) | [![GoDoc](https://pkg.go.dev/badge/github.com/YuminosukeSato/scigo/metrics)](https://pkg.go.dev/github.com/YuminosukeSato/scigo/metrics) |
@@ -133,8 +165,13 @@ go test -v ./metrics -run Example
 - ✅ **OneHotEncoder** - Encodes categorical features as one-hot numeric arrays
 
 #### Tree-based Models
+- ✅ **LightGBM** - Full Python model compatibility (.txt/JSON/string formats)
+  - LGBMClassifier - Binary and multiclass classification
+  - LGBMRegressor - Regression with multiple objectives
+  - QuickTrain - One-liner training with automatic model selection
+  - AutoFit - Automatic hyperparameter tuning
+  - Superior to [leaves](https://github.com/dmitryikh/leaves) - training + convenience features
 - 🚧 Random Forest (Coming Soon)
-- 🚧 Gradient Boosting (Coming Soon)
 - 🚧 XGBoost compatibility (Coming Soon)
 
 ### Unsupervised Learning

@@ -60,7 +60,7 @@ import (
 //   }
 //   fmt.Printf("MSE: %.4f\n", mse)
 func MSE(yTrue, yPred *mat.VecDense) (float64, error) {
-	// 入力検証
+	// Input validation
 	n := yTrue.Len()
 	if n == 0 {
 		return 0, scigoErrors.NewValueError("MSE", "empty vector")
@@ -102,7 +102,7 @@ func MSE(yTrue, yPred *mat.VecDense) (float64, error) {
 // Example:
 //   mse, err := metrics.MSEMatrix(yTrueMatrix, yPredMatrix)
 func MSEMatrix(yTrue, yPred mat.Matrix) (float64, error) {
-	// 入力検証
+	// Input validation
 	rTrue, cTrue := yTrue.Dims()
 	rPred, cPred := yPred.Dims()
 
@@ -118,7 +118,7 @@ func MSEMatrix(yTrue, yPred mat.Matrix) (float64, error) {
 		return 0, scigoErrors.NewValueError("MSEMatrix", "must be a column vector (n×1 matrix)")
 	}
 
-	// VecDenseに変換してMSEを計算
+	// Convert to VecDense and calculate MSE
 	yTrueVec := mat.NewVecDense(rTrue, nil)
 	yPredVec := mat.NewVecDense(rPred, nil)
 
@@ -183,7 +183,7 @@ func RMSE(yTrue, yPred *mat.VecDense) (float64, error) {
 //   }
 //   fmt.Printf("MAE: %.4f\n", mae)
 func MAE(yTrue, yPred *mat.VecDense) (float64, error) {
-	// 入力検証
+	// Input validation
 	n := yTrue.Len()
 	if n == 0 {
 		return 0, scigoErrors.NewValueError("MAE", "empty vector")
@@ -230,7 +230,7 @@ func MAE(yTrue, yPred *mat.VecDense) (float64, error) {
 //   }
 //   fmt.Printf("R² Score: %.4f\n", r2)
 func R2Score(yTrue, yPred *mat.VecDense) (float64, error) {
-	// 入力検証
+	// Input validation
 	n := yTrue.Len()
 	if n == 0 {
 		return 0, scigoErrors.NewValueError("R2Score", "empty vector")
@@ -240,14 +240,14 @@ func R2Score(yTrue, yPred *mat.VecDense) (float64, error) {
 		return 0, scigoErrors.NewDimensionError("R2Score", n, yPred.Len(), 0)
 	}
 
-	// yTrueの平均を計算
+	// Calculate mean of yTrue
 	var yMean float64
 	for i := 0; i < n; i++ {
 		yMean += yTrue.AtVec(i)
 	}
 	yMean /= float64(n)
 
-	// 全変動（TSS）と残差変動（RSS）を計算
+	// Calculate Total Sum of Squares (TSS) and Residual Sum of Squares (RSS)
 	var tss, rss float64
 	for i := 0; i < n; i++ {
 		yTrueVal := yTrue.AtVec(i)
@@ -257,7 +257,7 @@ func R2Score(yTrue, yPred *mat.VecDense) (float64, error) {
 		rss += (yTrueVal - yPredVal) * (yTrueVal - yPredVal)
 	}
 
-	// 全変動が0の場合（すべてのyTrueが同じ値）
+	// When TSS is zero (all yTrue values are identical)
 	if tss == 0 {
 		return 0, fmt.Errorf("R2Score: total sum of squares is zero (no variance in yTrue)")
 	}
@@ -292,7 +292,7 @@ func R2Score(yTrue, yPred *mat.VecDense) (float64, error) {
 //   }
 //   fmt.Printf("MAPE: %.2f%%\n", mape)
 func MAPE(yTrue, yPred *mat.VecDense) (float64, error) {
-	// 入力検証
+	// Input validation
 	n := yTrue.Len()
 	if n == 0 {
 		return 0, scigoErrors.NewValueError("MAPE", "empty vector")
@@ -308,7 +308,7 @@ func MAPE(yTrue, yPred *mat.VecDense) (float64, error) {
 
 	for i := 0; i < n; i++ {
 		yTrueVal := yTrue.AtVec(i)
-		if yTrueVal != 0 { // ゼロ除算を避ける
+		if yTrueVal != 0 { // Avoid division by zero
 			diff := math.Abs(yTrueVal - yPred.AtVec(i))
 			sum += diff / math.Abs(yTrueVal)
 			validCount++
@@ -349,7 +349,7 @@ func MAPE(yTrue, yPred *mat.VecDense) (float64, error) {
 //   }
 //   fmt.Printf("Explained Variance Score: %.4f\n", evs)
 func ExplainedVarianceScore(yTrue, yPred *mat.VecDense) (float64, error) {
-	// 入力検証
+	// Input validation
 	n := yTrue.Len()
 	if n == 0 {
 		return 0, scigoErrors.NewValueError("ExplainedVarianceScore", "empty vector")
@@ -359,7 +359,7 @@ func ExplainedVarianceScore(yTrue, yPred *mat.VecDense) (float64, error) {
 		return 0, scigoErrors.NewDimensionError("ExplainedVarianceScore", n, yPred.Len(), 0)
 	}
 
-	// 平均を計算
+	// Calculate means
 	var yTrueMean, yPredMean, diffMean float64
 	for i := 0; i < n; i++ {
 		yTrueMean += yTrue.AtVec(i)
@@ -370,7 +370,7 @@ func ExplainedVarianceScore(yTrue, yPred *mat.VecDense) (float64, error) {
 	yPredMean /= float64(n)
 	diffMean /= float64(n)
 
-	// 分散を計算
+	// Calculate variances
 	var varYTrue, varDiff float64
 	for i := 0; i < n; i++ {
 		yTrueVal := yTrue.AtVec(i)
@@ -386,6 +386,6 @@ func ExplainedVarianceScore(yTrue, yPred *mat.VecDense) (float64, error) {
 		return 0, fmt.Errorf("ExplainedVarianceScore: no variance in yTrue")
 	}
 
-	// 説明分散スコア = 1 - Var(yTrue - yPred) / Var(yTrue)
+	// Explained variance score = 1 - Var(yTrue - yPred) / Var(yTrue)
 	return 1 - varDiff/varYTrue, nil
 }

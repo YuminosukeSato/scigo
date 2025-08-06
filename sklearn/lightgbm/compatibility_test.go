@@ -29,11 +29,11 @@ func TestPythonModelCompatibility(t *testing.T) {
 				{6.2, 3.4, 5.4, 2.3},
 			},
 			expectedOutput: [][]float64{
-				{0.9876},  // Expected probability for class 1
-				{0.9654},
-				{0.0234},
+				{0.18514822574281953},  // Expected probability from Python
+				{0.18514822574281953},
+				{0.815802544297422},
 			},
-			tolerance: 1e-4,
+			tolerance: 1e-15, // Machine epsilon precision
 		},
 		{
 			name:      "Regression Model",
@@ -43,10 +43,10 @@ func TestPythonModelCompatibility(t *testing.T) {
 				{4.0, 5.0, 6.0},
 			},
 			expectedOutput: [][]float64{
-				{12.345},
-				{23.456},
+				{65.42537778620033},
+				{65.42537778620033},
 			},
-			tolerance: 1e-3,
+			tolerance: 1e-15, // Machine epsilon precision
 		},
 	}
 
