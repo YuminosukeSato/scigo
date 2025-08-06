@@ -86,7 +86,7 @@ jobs:
         
     - name: Run Nancy dependency scan
       run: |
-        go list -json -m all | docker run --rm -i sonatypecorp/nancy:latest sleuth
+        go list -json -m all | docker run --rm -i ghcr.io/sonatype-nexus-community/nancy:latest sleuth
         
     - name: Check for outdated dependencies
       run: |
