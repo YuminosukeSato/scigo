@@ -1,7 +1,6 @@
 package lightgbm
 
 import (
-	"encoding/json"
 	"math"
 	"os"
 	"testing"

@@ -7,7 +7,6 @@ import (
 	"sync"
 
 	"gonum.org/v1/gonum/mat"
-	"gonum.org/v1/gonum/stat"
 )
 
 // Trainer implements the LightGBM training algorithm

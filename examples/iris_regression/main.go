@@ -78,15 +78,15 @@ func createRegressionLine(xData []float64, lr *linear.LinearRegression) (*plotte
 	}
 
 	// 回帰係数を取得
-	weights := lr.Weights()
-	intercept := lr.Intercept()
+	weights := lr.Weights
+	intercept := lr.Intercept
 
 	// 直線の2点を計算
 	pts := make(plotter.XYs, 2)
 	pts[0].X = minX
-	pts[0].Y = weights[0]*minX + intercept
+	pts[0].Y = weights.At(0, 0)*minX + intercept
 	pts[1].X = maxX
-	pts[1].Y = weights[0]*maxX + intercept
+	pts[1].Y = weights.At(0, 0)*maxX + intercept
 
 	line, err := plotter.NewLine(pts)
 	if err != nil {
@@ -123,8 +123,8 @@ func main() {
 	}
 
 	// 回帰係数を表示
-	fmt.Printf("Regression coefficient (slope): %.4f\n", lr.Weights()[0])
-	fmt.Printf("Intercept: %.4f\n", lr.Intercept())
+	fmt.Printf("Regression coefficient (slope): %.4f\n", lr.Weights.At(0, 0))
+	fmt.Printf("Intercept: %.4f\n", lr.Intercept)
 
 	// R²スコアを計算
 	r2, err := lr.Score(X, y)
