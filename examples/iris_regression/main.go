@@ -7,7 +7,7 @@ import (
 	"os"
 	"strconv"
 
-	"github.com/s21066/goml/linear"
+	"github.com/YuminosukeSato/GoML/linear"
 	"gonum.org/v1/gonum/mat"
 	"gonum.org/v1/plot"
 	"gonum.org/v1/plot/plotter"

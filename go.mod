@@ -1,10 +1,11 @@
-module github.com/s21066/goml
+module github.com/YuminosukeSato/GoML
 
 go 1.24.4
 
 require (
 	github.com/cockroachdb/errors v1.12.0
 	gonum.org/v1/gonum v0.16.0
+	gonum.org/v1/plot v0.16.0
 )
 
 require (
@@ -27,5 +28,4 @@ require (
 	golang.org/x/image v0.25.0 // indirect
 	golang.org/x/sys v0.31.0 // indirect
 	golang.org/x/text v0.23.0 // indirect
-	gonum.org/v1/plot v0.16.0 // indirect
 )

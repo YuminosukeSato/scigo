@@ -4,9 +4,9 @@ import (
 	"fmt"
 	"log/slog"
 
-	"github.com/s21066/goml/linear"
-	"github.com/s21066/goml/pkg/errors"
-	"github.com/s21066/goml/pkg/log"
+	"github.com/YuminosukeSato/GoML/linear"
+	"github.com/YuminosukeSato/GoML/pkg/errors"
+	"github.com/YuminosukeSato/GoML/pkg/log"
 	"gonum.org/v1/gonum/mat"
 )
 

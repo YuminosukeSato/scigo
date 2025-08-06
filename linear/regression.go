@@ -1,9 +1,9 @@
 package linear
 
 import (
-	"github.com/s21066/goml/core/model"
-	"github.com/s21066/goml/core/parallel"
-	"github.com/s21066/goml/pkg/errors"
+	"github.com/YuminosukeSato/GoML/core/model"
+	"github.com/YuminosukeSato/GoML/core/parallel"
+	"github.com/YuminosukeSato/GoML/pkg/errors"
 	"gonum.org/v1/gonum/mat"
 )
 

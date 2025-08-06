@@ -5,9 +5,9 @@ import (
 	"log/slog"
 	"os"
 
-	"github.com/s21066/goml/linear"
-	"github.com/s21066/goml/metrics"
-	"github.com/s21066/goml/pkg/log"
+	"github.com/YuminosukeSato/GoML/linear"
+	"github.com/YuminosukeSato/GoML/metrics"
+	"github.com/YuminosukeSato/GoML/pkg/log"
 	"gonum.org/v1/gonum/mat"
 )
 
