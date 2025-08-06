@@ -1,0 +1,327 @@
+openapi: 3.0.3
+info:
+  title: SciGo API Specification
+  description: |
+    SciGo is a blazing-fast, scikit-learn compatible machine learning library for Go.
+    This specification defines the public API surface and usage patterns.
+  version: 0.1.0
+  license:
+    name: MIT
+    url: https://opensource.org/licenses/MIT
+  contact:
+    name: SciGo Team
+    url: https://github.com/YuminosukeSato/scigo
+    email: support@scigo.dev
+
+tags:
+  - name: Models
+    description: Machine learning model interfaces
+  - name: Preprocessing
+    description: Data preprocessing and transformation
+  - name: Metrics
+    description: Model evaluation metrics
+
+components:
+  schemas:
+    Matrix:
+      type: object
+      description: 2D matrix of float64 values (gonum/mat.Matrix interface)
+      properties:
+        rows:
+          type: integer
+          minimum: 1
+        cols:
+          type: integer
+          minimum: 1
+        data:
+          type: array
+          items:
+            type: number
+            format: double
+            
+    Vector:
+      type: object
+      description: 1D vector of float64 values (gonum/mat.VecDense)
+      properties:
+        length:
+          type: integer
+          minimum: 1
+        data:
+          type: array
+          items:
+            type: number
+            format: double
+            
+    Error:
+      type: object
+      properties:
+        error:
+          type: string
+        code:
+          type: string
+          enum:
+            - DIMENSION_MISMATCH
+            - NOT_FITTED
+            - INVALID_VALUE
+            - NUMERICAL_ERROR
+            - PANIC_RECOVERED
+            
+    BaseEstimator:
+      type: object
+      description: Base interface for all estimators
+      required:
+        - fitted
+      properties:
+        fitted:
+          type: boolean
+          description: Whether the model has been fitted
+          
+    LinearRegression:
+      allOf:
+        - $ref: '#/components/schemas/BaseEstimator'
+        - type: object
+          properties:
+            coef:
+              $ref: '#/components/schemas/Vector'
+              description: Coefficients of the linear model
+            intercept:
+              type: number
+              format: double
+              description: Intercept term
+            fit_intercept:
+              type: boolean
+              default: true
+              description: Whether to calculate the intercept
+              
+    StandardScaler:
+      allOf:
+        - $ref: '#/components/schemas/BaseEstimator'
+        - type: object
+          properties:
+            mean:
+              $ref: '#/components/schemas/Vector'
+              description: Mean of each feature
+            std:
+              $ref: '#/components/schemas/Vector'
+              description: Standard deviation of each feature
+            with_mean:
+              type: boolean
+              default: true
+            with_std:
+              type: boolean
+              default: true
+              
+    LGBMClassifier:
+      allOf:
+        - $ref: '#/components/schemas/BaseEstimator'
+        - type: object
+          properties:
+            num_leaves:
+              type: integer
+              default: 31
+              minimum: 2
+            max_depth:
+              type: integer
+              default: -1
+              description: -1 means no limit
+            learning_rate:
+              type: number
+              format: double
+              default: 0.1
+              minimum: 0
+              exclusiveMinimum: true
+            n_estimators:
+              type: integer
+              default: 100
+              minimum: 1
+            objective:
+              type: string
+              enum:
+                - binary
+                - multiclass
+              default: binary
+            deterministic:
+              type: boolean
+              default: false
+              description: Enable deterministic mode for reproducibility
+              
+  examples:
+    linear_regression_fit:
+      summary: Fitting a linear regression model
+      value:
+        code: |
+          model := linear.NewLinearRegression()
+          err := model.Fit(X, y)
+          if err != nil {
+              log.Fatal(err)
+          }
+          
+    standard_scaler_transform:
+      summary: Standardizing features
+      value:
+        code: |
+          scaler := preprocessing.NewStandardScaler()
+          scaler.Fit(X_train)
+          X_scaled := scaler.Transform(X_test)
+          
+    lgbm_inference:
+      summary: LightGBM model inference
+      value:
+        code: |
+          model := lightgbm.NewLGBMClassifier()
+          model.LoadModel("model.txt")
+          predictions, err := model.Predict(X)
+
+paths:
+  /models/linear/regression:
+    post:
+      tags:
+        - Models
+      summary: Linear Regression
+      description: |
+        Ordinary least squares Linear Regression.
+        
+        LinearRegression fits a linear model with coefficients w = (w1, ..., wp)
+        to minimize the residual sum of squares between the observed targets in
+        the dataset, and the targets predicted by the linear approximation.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - X
+                - y
+              properties:
+                X:
+                  $ref: '#/components/schemas/Matrix'
+                y:
+                  $ref: '#/components/schemas/Matrix'
+                fit_intercept:
+                  type: boolean
+                  default: true
+      responses:
+        '200':
+          description: Model fitted successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LinearRegression'
+        '400':
+          description: Invalid input
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+                
+  /models/lightgbm/classifier:
+    post:
+      tags:
+        - Models
+      summary: LightGBM Classifier
+      description: |
+        LightGBM gradient boosting classifier.
+        
+        This is a high-performance implementation compatible with models
+        trained in Python's LightGBM library.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - model_path
+              properties:
+                model_path:
+                  type: string
+                  description: Path to the LightGBM model file
+      responses:
+        '200':
+          description: Model loaded successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LGBMClassifier'
+                
+  /preprocessing/standard_scaler:
+    post:
+      tags:
+        - Preprocessing
+      summary: Standard Scaler
+      description: |
+        Standardize features by removing the mean and scaling to unit variance.
+        
+        The standard score of a sample x is calculated as:
+        z = (x - u) / s
+        
+        where u is the mean of the training samples, and s is the standard
+        deviation of the training samples.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - X
+              properties:
+                X:
+                  $ref: '#/components/schemas/Matrix'
+                with_mean:
+                  type: boolean
+                  default: true
+                with_std:
+                  type: boolean
+                  default: true
+      responses:
+        '200':
+          description: Scaler fitted successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StandardScaler'
+                
+  /metrics/regression:
+    post:
+      tags:
+        - Metrics
+      summary: Regression Metrics
+      description: Calculate regression metrics between true and predicted values
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - y_true
+                - y_pred
+                - metric
+              properties:
+                y_true:
+                  $ref: '#/components/schemas/Vector'
+                y_pred:
+                  $ref: '#/components/schemas/Vector'
+                metric:
+                  type: string
+                  enum:
+                    - mse
+                    - rmse
+                    - mae
+                    - r2
+                    - mape
+      responses:
+        '200':
+          description: Metric calculated successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  value:
+                    type: number
+                    format: double
+                  metric:
+                    type: string

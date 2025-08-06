@@ -150,47 +150,43 @@ func (lgb *LGBMRegressor) Fit(X, y mat.Matrix) (err error) {
 	lgb.nFeatures_ = cols
 	lgb.nSamples_ = rows
 
-	// Initialize model
-	lgb.Model = NewModel()
-	lgb.Model.NumFeatures = cols
-	lgb.Model.NumClass = 1 // Regression always has 1 output
-	lgb.Model.LearningRate = lgb.LearningRate
-	lgb.Model.NumLeaves = lgb.NumLeaves
-	lgb.Model.MaxDepth = lgb.MaxDepth
-	lgb.Model.Deterministic = lgb.Deterministic
-	lgb.Model.RandomSeed = lgb.RandomState
-	
-	// Set objective
-	switch lgb.Objective {
-	case "regression", "regression_l2", "l2", "mean_squared_error", "mse":
-		lgb.Model.Objective = RegressionL2
-	case "regression_l1", "l1", "mean_absolute_error", "mae":
-		lgb.Model.Objective = RegressionL1
-	case "huber":
-		lgb.Model.Objective = RegressionHuber
-	case "fair":
-		lgb.Model.Objective = RegressionFair
-	case "poisson":
-		lgb.Model.Objective = RegressionPoisson
-	case "quantile":
-		lgb.Model.Objective = RegressionQuantile
-	case "gamma":
-		lgb.Model.Objective = RegressionGamma
-	case "tweedie":
-		lgb.Model.Objective = RegressionTweedie
-	default:
-		lgb.Model.Objective = RegressionL2
-	}
-
 	// Log training start
 	if lgb.ShowProgress {
 		fmt.Printf("Training LGBMRegressor with %d samples, %d features\n", rows, cols)
 		fmt.Printf("Objective: %s, Metric: %s\n", lgb.Objective, lgb.Metric)
 	}
 
-	// For now, we're implementing inference only
-	// Full training would require implementing the gradient boosting algorithm
-	// This is a placeholder that loads a pre-trained model
+	// Create training parameters
+	params := TrainingParams{
+		NumIterations:   lgb.NumIterations,
+		LearningRate:    lgb.LearningRate,
+		NumLeaves:       lgb.NumLeaves,
+		MaxDepth:        lgb.MaxDepth,
+		MinDataInLeaf:   lgb.MinChildSamples,
+		Lambda:          lgb.RegLambda,
+		Alpha:           lgb.RegAlpha,
+		MinGainToSplit:  1e-7,
+		BaggingFraction: lgb.Subsample,
+		BaggingFreq:     lgb.SubsampleFreq,
+		FeatureFraction: lgb.ColsampleBytree,
+		MaxBin:          255,
+		MinDataInBin:    3,
+		Objective:       lgb.Objective,
+		NumClass:        1, // Regression always has 1 output
+		Seed:            lgb.RandomState,
+		Deterministic:   lgb.Deterministic,
+		Verbosity:       lgb.Verbosity,
+		EarlyStopping:   lgb.EarlyStopping,
+	}
+
+	// Create and run trainer
+	trainer := NewTrainer(params)
+	if err := trainer.Fit(X, y); err != nil {
+		return fmt.Errorf("training failed: %w", err)
+	}
+
+	// Get trained model
+	lgb.Model = trainer.GetModel()
 	
 	// Create predictor
 	lgb.Predictor = NewPredictor(lgb.Model)

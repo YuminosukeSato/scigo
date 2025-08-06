@@ -1,0 +1,92 @@
+version: 2
+updates:
+  # Enable version updates for Go modules
+  - package-ecosystem: "gomod"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "02:00"
+    open-pull-requests-limit: 10
+    reviewers:
+      - "YuminosukeSato"
+    labels:
+      - "dependencies"
+      - "go"
+      - "automated"
+    commit-message:
+      prefix: "deps"
+      prefix-development: "deps-dev"
+      include: "scope"
+    pull-request-branch-name:
+      separator: "-"
+    # Group updates to reduce PR noise
+    groups:
+      gonum:
+        patterns:
+          - "gonum.org/*"
+        update-types:
+          - "minor"
+          - "patch"
+      testing:
+        patterns:
+          - "*test*"
+          - "*mock*"
+        update-types:
+          - "minor"
+          - "patch"
+    # Security updates should be prioritized
+    allow:
+      - dependency-type: "all"
+    ignore:
+      # Don't update major versions automatically
+      - dependency-name: "*"
+        update-types: ["version-update:semver-major"]
+
+  # Enable version updates for GitHub Actions
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "02:00"
+    open-pull-requests-limit: 5
+    reviewers:
+      - "YuminosukeSato"
+    labels:
+      - "dependencies"
+      - "github-actions"
+      - "automated"
+    commit-message:
+      prefix: "ci"
+      include: "scope"
+    # Group GitHub Actions updates
+    groups:
+      actions:
+        patterns:
+          - "actions/*"
+        update-types:
+          - "minor"
+          - "patch"
+
+  # Enable security updates with highest priority
+  - package-ecosystem: "gomod"
+    directory: "/"
+    schedule:
+      interval: "daily"
+      time: "00:00"
+    open-pull-requests-limit: 20
+    target-branch: "main"
+    labels:
+      - "security"
+      - "dependencies"
+      - "critical"
+      - "automated"
+    commit-message:
+      prefix: "security"
+      include: "scope"
+    # Only security updates in this configuration
+    allow:
+      - dependency-type: "all"
+    # Apply security updates immediately
+    versioning-strategy: "increase-if-necessary"

@@ -154,26 +154,43 @@ func (lgb *LGBMClassifier) Fit(X, y mat.Matrix) (err error) {
 	// Store feature information
 	lgb.nFeatures_ = cols
 
-	// Initialize model
-	lgb.Model = NewModel()
-	lgb.Model.NumFeatures = cols
-	lgb.Model.NumClass = lgb.NumClass
-	lgb.Model.Objective = ObjectiveType(lgb.Objective)
-	lgb.Model.LearningRate = lgb.LearningRate
-	lgb.Model.NumLeaves = lgb.NumLeaves
-	lgb.Model.MaxDepth = lgb.MaxDepth
-	lgb.Model.Deterministic = lgb.Deterministic
-	lgb.Model.RandomSeed = lgb.RandomState
-
 	// Log training start
 	if lgb.ShowProgress {
 		fmt.Printf("Training LGBMClassifier with %d samples, %d features, %d classes\n", 
 			rows, cols, lgb.nClasses_)
 	}
 
-	// For now, we're implementing inference only
-	// Full training would require implementing the gradient boosting algorithm
-	// This is a placeholder that loads a pre-trained model
+	// Create training parameters
+	params := TrainingParams{
+		NumIterations:   lgb.NumIterations,
+		LearningRate:    lgb.LearningRate,
+		NumLeaves:       lgb.NumLeaves,
+		MaxDepth:        lgb.MaxDepth,
+		MinDataInLeaf:   lgb.MinChildSamples,
+		Lambda:          lgb.RegLambda,
+		Alpha:           lgb.RegAlpha,
+		MinGainToSplit:  1e-7,
+		BaggingFraction: lgb.Subsample,
+		BaggingFreq:     lgb.SubsampleFreq,
+		FeatureFraction: lgb.ColsampleBytree,
+		MaxBin:          255,
+		MinDataInBin:    3,
+		Objective:       lgb.Objective,
+		NumClass:        lgb.NumClass,
+		Seed:            lgb.RandomState,
+		Deterministic:   lgb.Deterministic,
+		Verbosity:       lgb.Verbosity,
+		EarlyStopping:   lgb.EarlyStopping,
+	}
+
+	// Create and run trainer
+	trainer := NewTrainer(params)
+	if err := trainer.Fit(X, y); err != nil {
+		return fmt.Errorf("training failed: %w", err)
+	}
+
+	// Get trained model
+	lgb.Model = trainer.GetModel()
 	
 	// Create predictor
 	lgb.Predictor = NewPredictor(lgb.Model)

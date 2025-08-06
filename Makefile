@@ -107,6 +107,97 @@ lint-check: ## Check linting issues
 		echo -e "$(YELLOW)golangci-lint not installed. Install with: go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest$(NC)"; \
 	fi
 
+##@ Security Scanning
+
+install-security-tools: ## Install security scanning tools
+	@echo -e "$(GREEN)Installing security tools...$(NC)"
+	go install golang.org/x/vuln/cmd/govulncheck@latest
+	go install github.com/securego/gosec/v2/cmd/gosec@latest
+	go install honnef.co/go/tools/cmd/staticcheck@latest
+	go install github.com/CycloneDX/cyclonedx-gomod/cmd/cyclonedx-gomod@latest
+	go install github.com/sonatype-nexus-community/nancy@latest
+	@echo -e "$(GREEN)Security tools installed successfully$(NC)"
+
+security-scan: ## Run complete security scan
+	@echo -e "$(GREEN)Running comprehensive security scan...$(NC)"
+	@$(MAKE) vuln-check
+	@$(MAKE) gosec-scan
+	@$(MAKE) static-analysis
+	@$(MAKE) dependency-check
+	@$(MAKE) generate-sbom
+	@echo -e "$(GREEN)Security scan completed$(NC)"
+
+vuln-check: ## Check for known vulnerabilities
+	@echo -e "$(GREEN)Checking for known vulnerabilities with govulncheck...$(NC)"
+	@if command -v govulncheck &> /dev/null; then \
+		govulncheck ./... || (echo -e "$(RED)Vulnerabilities found!$(NC)" && exit 1); \
+		echo -e "$(GREEN)No known vulnerabilities detected$(NC)"; \
+	else \
+		echo -e "$(YELLOW)govulncheck not installed. Run 'make install-security-tools'$(NC)"; \
+	fi
+
+gosec-scan: ## Run gosec security analyzer
+	@echo -e "$(GREEN)Running gosec security analysis...$(NC)"
+	@mkdir -p security
+	@if command -v gosec &> /dev/null; then \
+		gosec -fmt json -out security/gosec-report.json -stdout -verbose=text -severity medium ./...; \
+		echo -e "$(GREEN)Gosec scan completed. Report: security/gosec-report.json$(NC)"; \
+	else \
+		echo -e "$(YELLOW)gosec not installed. Run 'make install-security-tools'$(NC)"; \
+	fi
+
+static-analysis: ## Run staticcheck for security issues
+	@echo -e "$(GREEN)Running staticcheck...$(NC)"
+	@mkdir -p security
+	@if command -v staticcheck &> /dev/null; then \
+		staticcheck -f json ./... > security/staticcheck-report.json 2>&1 || true; \
+		staticcheck ./...; \
+		echo -e "$(GREEN)Staticcheck completed$(NC)"; \
+	else \
+		echo -e "$(YELLOW)staticcheck not installed. Run 'make install-security-tools'$(NC)"; \
+	fi
+
+dependency-check: ## Check dependencies for vulnerabilities
+	@echo -e "$(GREEN)Checking dependencies for vulnerabilities...$(NC)"
+	@mkdir -p security
+	@if command -v nancy &> /dev/null; then \
+		go list -json -deps ./... | nancy sleuth -o json > security/nancy-report.json || true; \
+		go list -json -deps ./... | nancy sleuth; \
+		echo -e "$(GREEN)Dependency check completed$(NC)"; \
+	else \
+		echo -e "$(YELLOW)nancy not installed. Run 'make install-security-tools'$(NC)"; \
+	fi
+
+generate-sbom: ## Generate Software Bill of Materials (SBOM)
+	@echo -e "$(GREEN)Generating SBOM in CycloneDX format...$(NC)"
+	@mkdir -p security
+	@if command -v cyclonedx-gomod &> /dev/null; then \
+		cyclonedx-gomod mod -json -output security/sbom.json; \
+		cyclonedx-gomod mod -output security/sbom.xml; \
+		echo -e "$(GREEN)SBOM generated: security/sbom.json and security/sbom.xml$(NC)"; \
+	else \
+		echo -e "$(YELLOW)cyclonedx-gomod not installed. Run 'make install-security-tools'$(NC)"; \
+	fi
+
+security-report: ## Generate consolidated security report
+	@echo -e "$(GREEN)Generating consolidated security report...$(NC)"
+	@mkdir -p security/reports
+	@echo "# Security Scan Report - $$(date '+%Y-%m-%d %H:%M:%S')" > security/reports/security-report-$$(date '+%Y%m%d').md
+	@echo "" >> security/reports/security-report-$$(date '+%Y%m%d').md
+	@echo "## Summary" >> security/reports/security-report-$$(date '+%Y%m%d').md
+	@echo "- Date: $$(date '+%Y-%m-%d %H:%M:%S')" >> security/reports/security-report-$$(date '+%Y%m%d').md
+	@echo "- Go Version: $$(go version)" >> security/reports/security-report-$$(date '+%Y%m%d').md
+	@echo "" >> security/reports/security-report-$$(date '+%Y%m%d').md
+	@echo "## Vulnerability Check (govulncheck)" >> security/reports/security-report-$$(date '+%Y%m%d').md
+	@govulncheck ./... 2>&1 | head -20 >> security/reports/security-report-$$(date '+%Y%m%d').md || echo "No vulnerabilities found" >> security/reports/security-report-$$(date '+%Y%m%d').md
+	@echo "" >> security/reports/security-report-$$(date '+%Y%m%d').md
+	@echo "## Static Analysis (staticcheck)" >> security/reports/security-report-$$(date '+%Y%m%d').md
+	@staticcheck ./... 2>&1 | head -20 >> security/reports/security-report-$$(date '+%Y%m%d').md || echo "No issues found" >> security/reports/security-report-$$(date '+%Y%m%d').md
+	@echo "" >> security/reports/security-report-$$(date '+%Y%m%d').md
+	@echo "## Security Analysis (gosec)" >> security/reports/security-report-$$(date '+%Y%m%d').md
+	@gosec -fmt text ./... 2>&1 | grep "Summary" -A 5 >> security/reports/security-report-$$(date '+%Y%m%d').md || echo "No security issues found" >> security/reports/security-report-$$(date '+%Y%m%d').md
+	@echo -e "$(GREEN)Security report: security/reports/security-report-$$(date '+%Y%m%d').md$(NC)"
+
 ##@ Build
 
 build: ## Build all packages

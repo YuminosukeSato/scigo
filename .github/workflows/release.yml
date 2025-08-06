@@ -1,0 +1,103 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+  
+jobs:
+  release:
+    name: Create Release
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+        
+    - name: Set up Go
+      uses: actions/setup-go@v5
+      with:
+        go-version: '1.23'
+        
+    - name: Run tests
+      run: |
+        go test -v -race -coverprofile=coverage.txt -covermode=atomic ./...
+        
+    - name: Check test coverage
+      run: |
+        go tool cover -func=coverage.txt
+        total=$(go tool cover -func=coverage.txt | grep total | awk '{print $3}' | sed 's/%//')
+        if (( $(echo "$total < 70" | bc -l) )); then
+          echo "Test coverage is below 70% ($total%)"
+          exit 1
+        fi
+        echo "Test coverage: $total%"
+        
+    - name: Build binaries
+      run: |
+        # Build for multiple platforms
+        GOOS=linux GOARCH=amd64 go build -o scigo-linux-amd64 ./cmd/scigo
+        GOOS=linux GOARCH=arm64 go build -o scigo-linux-arm64 ./cmd/scigo
+        GOOS=darwin GOARCH=amd64 go build -o scigo-darwin-amd64 ./cmd/scigo
+        GOOS=darwin GOARCH=arm64 go build -o scigo-darwin-arm64 ./cmd/scigo
+        GOOS=windows GOARCH=amd64 go build -o scigo-windows-amd64.exe ./cmd/scigo
+        
+    - name: Generate changelog
+      id: changelog
+      run: |
+        # Extract version from tag
+        VERSION=${GITHUB_REF#refs/tags/}
+        echo "VERSION=$VERSION" >> $GITHUB_OUTPUT
+        
+        # Extract changelog for this version
+        sed -n "/## \[$VERSION\]/,/## \[/p" CHANGELOG.md | sed '$d' > release_notes.md
+        
+        # If empty, use unreleased section
+        if [ ! -s release_notes.md ]; then
+          sed -n "/## \[Unreleased\]/,/## \[/p" CHANGELOG.md | sed '$d' > release_notes.md
+        fi
+        
+    - name: Create Release
+      uses: softprops/action-gh-release@v1
+      with:
+        body_path: release_notes.md
+        draft: false
+        prerelease: ${{ contains(github.ref, '-alpha') || contains(github.ref, '-beta') || contains(github.ref, '-rc') }}
+        files: |
+          scigo-linux-amd64
+          scigo-linux-arm64
+          scigo-darwin-amd64
+          scigo-darwin-arm64
+          scigo-windows-amd64.exe
+          
+    - name: Update pkg.go.dev
+      run: |
+        # Trigger pkg.go.dev to update
+        curl "https://proxy.golang.org/github.com/YuminosukeSato/scigo/@v/${{ steps.changelog.outputs.VERSION }}.info"
+        
+    - name: Notify release
+      uses: actions/github-script@v7
+      with:
+        script: |
+          const version = '${{ steps.changelog.outputs.VERSION }}';
+          const release_url = `https://github.com/${context.repo.owner}/${context.repo.repo}/releases/tag/${version}`;
+          
+          // Create an issue to track post-release tasks
+          await github.rest.issues.create({
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            title: `Post-release tasks for ${version}`,
+            body: `## Post-release checklist for ${version}\n\n` +
+                  `- [ ] Verify pkg.go.dev updated: https://pkg.go.dev/github.com/YuminosukeSato/scigo\n` +
+                  `- [ ] Update documentation if needed\n` +
+                  `- [ ] Announce release on social media\n` +
+                  `- [ ] Update dependent projects\n` +
+                  `- [ ] Check for any reported issues\n\n` +
+                  `Release URL: ${release_url}`,
+            labels: ['release', 'documentation']
+          });
