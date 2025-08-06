@@ -14,26 +14,14 @@ import (
 var GlobalLogger zerolog.Logger
 
 // SetupLogger はグローバルロガーを設定します。
-// CloudLogging形式への変換とcockroachdb/errorsのスタックトレース対応を含みます。
 func SetupLogger(loglevel string) {
 	level := ToLogLevel(loglevel)
-	
-	// CloudLogging形式のフィールドマッピングを設定
-	zerolog.LevelFieldName = "severity"
-	zerolog.MessageFieldName = "message"
-	zerolog.TimestampFieldName = "timestamp"
 	
 	zerolog.TimeFieldFormat = zerolog.TimeFormatUnix
 	zerolog.SetGlobalLevel(level)
 
-	// カスタマイズされたコンソールライター（CloudLogging互換）
-	output := zerolog.ConsoleWriter{
-		Out:        os.Stdout,
-		NoColor:    true, // JSON形式で出力
-		TimeFormat: zerolog.TimeFormatUnix,
-	}
-	
-	GlobalLogger = zerolog.New(output).With().
+	// JSON形式で標準出力に出力
+	GlobalLogger = zerolog.New(os.Stdout).With().
 		Timestamp().
 		Caller().
 		Logger()
