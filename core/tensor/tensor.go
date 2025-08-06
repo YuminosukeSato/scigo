@@ -14,24 +14,24 @@ type Tensor struct {
 // NewTensor は新しいテンソルを作成する
 func NewTensor(data []float64, shape ...int) (*Tensor, error) {
 	if len(shape) == 0 {
-		return nil, errors.NewValueError("NewTensor", "shape", nil, "shape must be provided")
+		return nil, errors.NewValueError("NewTensor", "shape must be provided")
 	}
 
 	size := 1
 	for _, s := range shape {
 		if s <= 0 {
-			return nil, errors.NewValueError("NewTensor", "shape", shape, "all dimensions must be positive")
+			return nil, errors.NewValueError("NewTensor", "all dimensions must be positive")
 		}
 		size *= s
 	}
 
 	if len(data) != size {
-		return nil, errors.NewDimensionError("NewTensor", []int{size}, []int{len(data)})
+		return nil, errors.NewDimensionError("NewTensor", size, len(data), 0)
 	}
 
 	// 現在は2次元のみサポート
 	if len(shape) != 2 {
-		return nil, errors.NewValueError("NewTensor", "dimensions", len(shape), "currently only 2D tensors are supported")
+		return nil, errors.NewValueError("NewTensor", "currently only 2D tensors are supported")
 	}
 
 	return &Tensor{
@@ -52,7 +52,7 @@ func NewTensorFromDense(dense *mat.Dense) *Tensor {
 // NewZeros は指定された形状のゼロテンソルを作成する
 func NewZeros(shape ...int) (*Tensor, error) {
 	if len(shape) != 2 {
-		return nil, errors.NewValueError("NewZeros", "dimensions", len(shape), "currently only 2D tensors are supported")
+		return nil, errors.NewValueError("NewZeros", "currently only 2D tensors are supported")
 	}
 
 	size := shape[0] * shape[1]
@@ -63,7 +63,7 @@ func NewZeros(shape ...int) (*Tensor, error) {
 // NewOnes は指定された形状の1で埋められたテンソルを作成する
 func NewOnes(shape ...int) (*Tensor, error) {
 	if len(shape) != 2 {
-		return nil, errors.NewValueError("NewOnes", "dimensions", len(shape), "currently only 2D tensors are supported")
+		return nil, errors.NewValueError("NewOnes", "currently only 2D tensors are supported")
 	}
 
 	size := shape[0] * shape[1]

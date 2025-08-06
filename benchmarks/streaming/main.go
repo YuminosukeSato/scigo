@@ -176,8 +176,11 @@ func benchmarkSGDRegressorOnline(X, y mat.Matrix, samples, features int) Benchma
 			end = samples
 		}
 		
-		XBatch := X.Slice(i, end, 0, features)
-		yBatch := y.Slice(i, end, 0, 1)
+		// Cast mat.Matrix to *mat.Dense for slicing
+		XDense := X.(*mat.Dense)
+		yDense := y.(*mat.Dense)
+		XBatch := XDense.Slice(i, end, 0, features)
+		yBatch := yDense.Slice(i, end, 0, 1)
 		sgd.PartialFit(XBatch, yBatch, nil)
 	}
 	
@@ -228,8 +231,11 @@ func benchmarkSGDRegressorStreaming(X, y mat.Matrix, samples, features int) Benc
 				end = samples
 			}
 			
-			XBatch := X.Slice(i, end, 0, features)
-			yBatch := y.Slice(i, end, 0, 1)
+			// Cast mat.Matrix to *mat.Dense for slicing
+			XDense := X.(*mat.Dense)
+			yDense := y.(*mat.Dense)
+			XBatch := XDense.Slice(i, end, 0, features)
+			yBatch := yDense.Slice(i, end, 0, 1)
 			
 			select {
 			case dataChan <- &model.Batch{X: XBatch, Y: yBatch}:
@@ -312,8 +318,11 @@ func benchmarkSGDClassifierOnline(X, y mat.Matrix, samples, features int) Benchm
 			end = samples
 		}
 		
-		XBatch := X.Slice(i, end, 0, features)
-		yBatch := y.Slice(i, end, 0, 1)
+		// Cast mat.Matrix to *mat.Dense for slicing
+		XDense := X.(*mat.Dense)
+		yDense := y.(*mat.Dense)
+		XBatch := XDense.Slice(i, end, 0, features)
+		yBatch := yDense.Slice(i, end, 0, 1)
 		sgd.PartialFit(XBatch, yBatch, nil)
 	}
 	

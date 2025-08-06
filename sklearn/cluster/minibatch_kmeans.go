@@ -248,7 +248,7 @@ func (kmeans *MiniBatchKMeans) PartialFit(X, y mat.Matrix, classes []int) error 
 	}
 
 	if cols != kmeans.nFeatures_ {
-		return errors.NewDimensionError("PartialFit", []int{kmeans.nFeatures_}, []int{cols})
+		return errors.NewDimensionError("PartialFit", kmeans.nFeatures_, cols, 1)
 	}
 
 	// ミニバッチ処理
