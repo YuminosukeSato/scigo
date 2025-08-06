@@ -5,25 +5,25 @@ import (
 	"sync"
 )
 
-// Parallelize は、指定された総数(items)をCPUコア数に応じて分割し、
-// 各範囲(start, end)に対して指定された関数(fn)を並列実行する
+// Parallelize divides the specified total number (items) according to the number of CPU cores,
+// and executes the specified function (fn) in parallel for each range (start, end)
 func Parallelize(items int, fn func(start, end int)) {
 	if items == 0 {
 		return
 	}
 
-	// 利用可能なCPUコア数を取得
+	// Get the number of available CPU cores
 	numWorkers := runtime.NumCPU()
 	if numWorkers > items {
-		numWorkers = items // アイテム数より多くのワーカーは不要
+		numWorkers = items // No need for more workers than items
 	}
 
-	// 各ワーカーが担当するアイテム数を計算（天井割り算）
+	// Calculate the number of items each worker handles (ceiling division)
 	chunkSize := (items + numWorkers - 1) / numWorkers
 
 	var wg sync.WaitGroup
 
-	// CPUコア数分のワーカーを起動
+	// Start workers equal to the number of CPU cores
 	for i := 0; i < numWorkers; i++ {
 		start := i * chunkSize
 		end := start + chunkSize
@@ -31,7 +31,7 @@ func Parallelize(items int, fn func(start, end int)) {
 			end = items
 		}
 
-		// 担当する範囲がなければスキップ
+		// Skip if there's no range to handle
 		if start >= end {
 			continue
 		}
@@ -43,19 +43,19 @@ func Parallelize(items int, fn func(start, end int)) {
 		}(start, end)
 	}
 
-	// 全てのワーカーの処理が終わるのを待つ
+	// Wait for all workers to finish processing
 	wg.Wait()
 }
 
-// ParallelizeWithThreshold は、アイテム数が閾値を超えた場合のみ並列化を行う
-// threshold以下の場合は、通常の逐次処理を実行する
+// ParallelizeWithThreshold performs parallelization only when the number of items exceeds the threshold
+// If below threshold, normal sequential processing is performed
 func ParallelizeWithThreshold(items int, threshold int, fn func(start, end int)) {
 	if items <= threshold {
-		// 閾値以下の場合は逐次処理
+		// Sequential processing when below threshold
 		fn(0, items)
 		return
 	}
 
-	// 閾値を超えた場合は並列処理
+	// Parallel processing when above threshold
 	Parallelize(items, fn)
 }

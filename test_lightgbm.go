@@ -9,41 +9,41 @@ import (
 )
 
 func main() {
-	// 二値分類モデルの読み込みテスト
-	fmt.Println("LightGBM Python互換性のテスト中...")
+	// Binary classification model loading test
+	fmt.Println("Testing LightGBM Python compatibility...")
 	
-	// 二値モデルを読み込み
+	// Load binary model
 	model, err := lightgbm.LoadFromFile("sklearn/lightgbm/testdata/binary_model.txt")
 	if err != nil {
 		log.Fatalf("Failed to load model: %v", err)
 	}
 	
-	// 予測器を作成
+	// Create predictor
 	predictor := lightgbm.NewPredictor(model)
 	predictor.SetDeterministic(true)
 	
-	// テストデータ
+	// Test data
 	X := mat.NewDense(3, 4, []float64{
 		5.1, 3.5, 1.4, 0.2,
 		4.9, 3.0, 1.4, 0.2,
 		6.2, 3.4, 5.4, 2.3,
 	})
 	
-	// 予測を実行
+	// Execute prediction
 	predictions, err := predictor.Predict(X)
 	if err != nil {
 		log.Fatalf("Failed to predict: %v", err)
 	}
 	
-	// Pythonからの期待値
+	// Expected values from Python
 	expected := []float64{
 		0.18514822574281953,
 		0.18514822574281953,
 		0.815802544297422,
 	}
 	
-	fmt.Println("結果:")
-	fmt.Println("サンプル | 予測値 | 期待値 | 差分")
+	fmt.Println("Results:")
+	fmt.Println("Sample | Prediction | Expected | Difference")
 	fmt.Println("-------|-----------|----------|------------")
 	for i := 0; i < 3; i++ {
 		pred := predictions.At(i, 0)

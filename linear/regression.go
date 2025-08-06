@@ -50,12 +50,12 @@ import (
 	"gonum.org/v1/gonum/mat"
 )
 
-// LinearRegression は線形回帰モデル
+// LinearRegression is a linear regression model
 type LinearRegression struct {
-	model.BaseEstimator // BaseEstimatorを埋め込み
-	Weights   *mat.VecDense // 重み（係数）
-	Intercept float64       // 切片
-	NFeatures int           // 特徴量の数
+	model.BaseEstimator // Embedded BaseEstimator
+	Weights   *mat.VecDense // Model weights (coefficients)
+	Intercept float64       // Model intercept
+	NFeatures int           // Number of features
 }
 
 // NewLinearRegression creates a new linear regression model for ordinary least squares regression.

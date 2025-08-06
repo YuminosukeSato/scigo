@@ -84,9 +84,11 @@ jobs:
       with:
         sarif_file: 'trivy-results.sarif'
         
-    - name: Run Nancy dependency scan
+    - name: Install and run Nancy dependency scan
       run: |
-        go list -json -m all | docker run --rm -i ghcr.io/sonatype-nexus-community/nancy:latest sleuth
+        # Install Nancy directly instead of using Docker
+        go install github.com/sonatypecorp/nancy@latest
+        go list -json -m all | nancy sleuth
         
     - name: Check for outdated dependencies
       run: |

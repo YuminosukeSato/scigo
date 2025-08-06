@@ -103,7 +103,7 @@ func main() {
         log.Fatal(err)
     }
     
-    // 予測を実行
+    // Make predictions
     XTest := mat.NewDense(2, 2, []float64{
         1.5, 1.5,
         2.5, 3.5,
