@@ -1,6 +1,8 @@
 module github.com/YuminosukeSato/scigo
 
-go 1.23
+go 1.23.0
+
+toolchain go1.24.4
 
 require (
 	github.com/cockroachdb/errors v1.12.0

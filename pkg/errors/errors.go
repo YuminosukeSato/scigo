@@ -251,6 +251,127 @@ func WithStack(err error) error {
 
 // ===========================================================================
 //
+//	オンライン学習特有のエラー型
+//
+// ===========================================================================
+
+// NumericalInstabilityError は数値計算が不安定になった場合のエラーです。
+// NaN、Inf、オーバーフロー、アンダーフローなどを検出します。
+type NumericalInstabilityError struct {
+	Operation string                 // 発生した操作（例: "gradient_update", "loss_calculation"）
+	Values    []float64              // 問題のある値
+	Context   map[string]interface{} // デバッグ用の追加コンテキスト情報
+	Iteration int                    // 発生したイテレーション番号
+}
+
+func (e *NumericalInstabilityError) Error() string {
+	valStr := ""
+	for i, v := range e.Values {
+		if i > 0 {
+			valStr += ", "
+		}
+		if i >= 5 {
+			valStr += "..."
+			break
+		}
+		valStr += fmt.Sprintf("%.6g", v)
+	}
+	return fmt.Sprintf("goml: numerical instability detected in %s at iteration %d. Values: [%s]", 
+		e.Operation, e.Iteration, valStr)
+}
+
+// NewNumericalInstabilityError は新しいNumericalInstabilityErrorを作成します。
+func NewNumericalInstabilityError(operation string, values []float64, iteration int) error {
+	err := &NumericalInstabilityError{
+		Operation: operation,
+		Values:    values,
+		Iteration: iteration,
+		Context:   make(map[string]interface{}),
+	}
+	return errors.WithStack(err)
+}
+
+// InputShapeError は入力データの形状が期待と異なる場合のエラーです。
+// DimensionErrorより詳細で、訓練時と推論時の不整合を検出します。
+type InputShapeError struct {
+	Phase    string // "training", "prediction", "transform"
+	Expected []int  // 期待される形状
+	Got      []int  // 実際の形状
+	Feature  string // 問題のある特徴量名（オプション）
+}
+
+func (e *InputShapeError) Error() string {
+	expectedStr := fmt.Sprintf("%v", e.Expected)
+	gotStr := fmt.Sprintf("%v", e.Got)
+	if e.Feature != "" {
+		return fmt.Sprintf("goml: input shape mismatch in %s phase for feature '%s'. Expected shape %s, got %s",
+			e.Phase, e.Feature, expectedStr, gotStr)
+	}
+	return fmt.Sprintf("goml: input shape mismatch in %s phase. Expected shape %s, got %s",
+		e.Phase, expectedStr, gotStr)
+}
+
+// NewInputShapeError は新しいInputShapeErrorを作成します。
+func NewInputShapeError(phase string, expected, got []int) error {
+	err := &InputShapeError{
+		Phase:    phase,
+		Expected: expected,
+		Got:      got,
+	}
+	return errors.WithStack(err)
+}
+
+// ModelDriftWarning はモデルドリフトが検出された場合の警告です。
+type ModelDriftWarning struct {
+	DriftScore float64 // ドリフトスコア（検出器により異なる）
+	Threshold  float64 // 閾値
+	Detector   string  // 使用したドリフト検出器（例: "DDM", "ADWIN"）
+	Action     string  // 推奨アクション（"reset", "alert", "retrain"）
+	Timestamp  int64   // ドリフト検出時のタイムスタンプ（Unix時間）
+}
+
+func (w *ModelDriftWarning) Error() string {
+	return fmt.Sprintf("Model drift detected by %s: score=%.4f (threshold=%.4f). Recommended action: %s",
+		w.Detector, w.DriftScore, w.Threshold, w.Action)
+}
+
+// NewModelDriftWarning は新しいModelDriftWarningを作成します。
+func NewModelDriftWarning(detector string, score, threshold float64, action string) *ModelDriftWarning {
+	return &ModelDriftWarning{
+		Detector:   detector,
+		DriftScore: score,
+		Threshold:  threshold,
+		Action:     action,
+		Timestamp:  0, // Will be set when detected
+	}
+}
+
+// CatastrophicForgettingWarning は破滅的忘却が発生した可能性がある場合の警告です。
+type CatastrophicForgettingWarning struct {
+	OldPerformance float64 // 以前のパフォーマンス
+	NewPerformance float64 // 現在のパフォーマンス
+	DropRate       float64 // 性能低下率
+	Metric         string  // 使用したメトリクス（例: "accuracy", "f1_score"）
+}
+
+func (w *CatastrophicForgettingWarning) Error() string {
+	return fmt.Sprintf("Possible catastrophic forgetting detected: %s dropped from %.4f to %.4f (%.2f%% decrease)",
+		w.Metric, w.OldPerformance, w.NewPerformance, w.DropRate*100)
+}
+
+// NewCatastrophicForgettingWarning は新しいCatastrophicForgettingWarningを作成します。
+func NewCatastrophicForgettingWarning(metric string, oldPerf, newPerf float64) *CatastrophicForgettingWarning {
+	dropRate := (oldPerf - newPerf) / oldPerf
+	return &CatastrophicForgettingWarning{
+		Metric:         metric,
+		OldPerformance: oldPerf,
+		NewPerformance: newPerf,
+		DropRate:       dropRate,
+	}
+}
+
+// ===========================================================================
+//
 //	共通エラー変数
 //
 // ===========================================================================

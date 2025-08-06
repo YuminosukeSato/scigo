@@ -285,6 +285,14 @@ func (sgd *SGDRegressor) updateWeights(x []float64, y float64) float64 {
 		pred += sgd.coef_[i] * xi
 	}
 
+	// 予測値の数値安定性チェック
+	if err := errors.CheckScalar("prediction", pred, sgd.nIter_); err != nil {
+		errors.Warn(err)
+		// 数値不安定性が検出された場合、学習率を下げてリトライ
+		sgd.eta0 = sgd.eta0 * 0.1
+		return 0
+	}
+
 	// 損失と勾配計算
 	var loss, dloss float64
 	switch sgd.loss {
@@ -321,6 +329,7 @@ func (sgd *SGDRegressor) updateWeights(x []float64, y float64) float64 {
 	sgd.t_++
 
 	// 重み更新（勾配降下 + 正則化）
+	gradients := make([]float64, len(x))
 	for i, xi := range x {
 		grad := dloss * xi
 		
@@ -334,7 +343,22 @@ func (sgd *SGDRegressor) updateWeights(x []float64, y float64) float64 {
 			grad += sgd.alpha * (sgd.l1Ratio*sign(sgd.coef_[i]) + (1-sgd.l1Ratio)*sgd.coef_[i])
 		}
 		
+		gradients[i] = grad
+	}
+	
+	// 勾配クリッピング（勾配爆発防止）
+	gradients = errors.ClipGradient(gradients, 10.0)
+	
+	// 重み更新
+	for i, grad := range gradients {
 		sgd.coef_[i] -= lr * grad
+		
+		// 更新後の重みの数値安定性チェック
+		if err := errors.CheckScalar("weight_update", sgd.coef_[i], sgd.nIter_); err != nil {
+			errors.Warn(err)
+			// ロールバック
+			sgd.coef_[i] += lr * grad
+		}
 		
 		// 平均化SGD
 		if sgd.averageSGD {
