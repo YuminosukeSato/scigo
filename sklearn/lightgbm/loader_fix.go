@@ -9,7 +9,7 @@ import (
 	"strings"
 )
 
-// LoadFromFile loads a LightGBM model from a text file
+// LoadFromFile はテキストファイルからLightGBMモデルを読み込みます
 func LoadFromFile(filepath string) (*Model, error) {
 	file, err := os.Open(filepath)
 	if err != nil {
@@ -20,13 +20,13 @@ func LoadFromFile(filepath string) (*Model, error) {
 	return LoadFromReader(file)
 }
 
-// LoadFromString loads a LightGBM model from string format
+// LoadFromString は文字列形式からLightGBMモデルを読み込みます
 func LoadFromString(modelStr string) (*Model, error) {
 	reader := strings.NewReader(modelStr)
 	return LoadFromReader(reader)
 }
 
-// LoadFromReader loads a LightGBM model from an io.Reader
+// LoadFromReader はio.ReaderからLightGBMモデルを読み込みます
 func LoadFromReader(reader io.Reader) (*Model, error) {
 	scanner := bufio.NewScanner(reader)
 	model := NewModel()
@@ -38,9 +38,9 @@ func LoadFromReader(reader io.Reader) (*Model, error) {
 	for scanner.Scan() {
 		line := strings.TrimSpace(scanner.Text())
 		
-		// Skip empty lines
+		// 空行をスキップ
 		if line == "" {
-			// If we were in a tree and hit empty line, finalize the tree
+			// ツリー処理中に空行に到達した場合、ツリーを完成させる
 			if inTree && currentTree != nil {
 				if err := finalizeTree(currentTree, treeParams); err != nil {
 					return nil, err
@@ -53,7 +53,7 @@ func LoadFromReader(reader io.Reader) (*Model, error) {
 			continue
 		}
 		
-		// Check if this is a tree header
+		// ツリーヘッダーかどうかを確認
 		if strings.HasPrefix(line, "Tree=") {
 			parts := strings.Split(line, "=")
 			if len(parts) == 2 {
@@ -71,17 +71,17 @@ func LoadFromReader(reader io.Reader) (*Model, error) {
 			continue
 		}
 		
-		// Parse key=value pairs
+		// key=valueペアをパース
 		if strings.Contains(line, "=") {
 			parts := strings.SplitN(line, "=", 2)
 			key := strings.TrimSpace(parts[0])
 			value := strings.TrimSpace(parts[1])
 			
 			if inTree {
-				// Store tree parameters
+				// ツリーパラメータを保存
 				treeParams[key] = value
 			} else {
-				// Parse model parameters
+				// モデルパラメータをパース
 				switch key {
 				case "version":
 					model.Version = value
@@ -92,7 +92,7 @@ func LoadFromReader(reader io.Reader) (*Model, error) {
 					maxFeature, _ := strconv.Atoi(value)
 					model.NumFeatures = maxFeature + 1
 				case "objective":
-					// Parse objective, e.g., "binary sigmoid:1"
+					// 目的関数をパース、例: "binary sigmoid:1"
 					objParts := strings.Fields(value)
 					if len(objParts) > 0 {
 						switch objParts[0] {
@@ -113,7 +113,7 @@ func LoadFromReader(reader io.Reader) (*Model, error) {
 		}
 	}
 	
-	// Handle last tree if exists
+	// 最後のツリーが存在する場合は処理
 	if inTree && currentTree != nil {
 		if err := finalizeTree(currentTree, treeParams); err != nil {
 			return nil, err
@@ -125,7 +125,7 @@ func LoadFromReader(reader io.Reader) (*Model, error) {
 		return nil, fmt.Errorf("error reading model: %w", err)
 	}
 	
-	// Set derived values
+	// 派生値を設定
 	model.NumIteration = len(model.Trees)
 	if model.NumClass == 0 {
 		model.NumClass = 1
@@ -134,35 +134,35 @@ func LoadFromReader(reader io.Reader) (*Model, error) {
 	return model, nil
 }
 
-// finalizeTree parses the tree parameters and constructs the tree nodes
+// finalizeTree はツリーパラメータをパースしてツリーノードを構築します
 func finalizeTree(tree *Tree, params map[string]string) error {
-	// Parse num_leaves
+	// num_leavesをパース
 	if v, ok := params["num_leaves"]; ok {
 		numLeaves, _ := strconv.Atoi(v)
 		tree.NumLeaves = numLeaves
 	}
 	
-	// Parse shrinkage
+	// shrinkageをパース
 	if v, ok := params["shrinkage"]; ok {
 		shrinkage, _ := strconv.ParseFloat(v, 64)
 		tree.ShrinkageRate = shrinkage
 	}
 	
-	// Parse arrays of values
+	// 値の配列をパース
 	splitFeatures := parseIntArray(params["split_feature"])
 	thresholds := parseFloatArray(params["threshold"])
 	leftChildren := parseIntArray(params["left_child"])
 	rightChildren := parseIntArray(params["right_child"])
 	leafValues := parseFloatArray(params["leaf_value"])
 	
-	// Build nodes
+	// ノードを構築
 	numInternalNodes := len(splitFeatures)
 	numLeaves := len(leafValues)
 	totalNodes := numInternalNodes + numLeaves
 	
 	tree.Nodes = make([]Node, 0, totalNodes)
 	
-	// Create internal nodes
+	// 内部ノードを作成
 	for i := 0; i < numInternalNodes; i++ {
 		node := Node{
 			NodeID:       i,
@@ -174,9 +174,9 @@ func finalizeTree(tree *Tree, params map[string]string) error {
 			NodeType:     NumericalNode,
 		}
 		
-		// Check if it's actually a leaf (-1 means leaf)
+		// 実際にリーフかどうかを確認（-1はリーフを意味する）
 		if leftChildren[i] < 0 && rightChildren[i] < 0 {
-			// This is actually a leaf node, get its value
+			// これは実際にリーフノードなので、値を取得
 			leafIdx := -(leftChildren[i] + 1)
 			if leafIdx < len(leafValues) {
 				node.LeafValue = leafValues[leafIdx]
@@ -187,14 +187,14 @@ func finalizeTree(tree *Tree, params map[string]string) error {
 		tree.Nodes = append(tree.Nodes, node)
 	}
 	
-	// Add leaf nodes that aren't already added
+	// まだ追加されていないリーフノードを追加
 	leafNodeID := numInternalNodes
 	for i := 0; i < numLeaves; i++ {
-		// Check if this leaf was already added as part of internal nodes
+		// このリーフがすでに内部ノードの一部として追加されているか確認
 		alreadyAdded := false
 		for j := 0; j < numInternalNodes; j++ {
 			if leftChildren[j] == -(i+1) || rightChildren[j] == -(i+1) {
-				// This leaf is referenced, but we need to create it properly
+				// このリーフは参照されているが、適切に作成する必要がある
 				node := Node{
 					NodeID:     leafNodeID,
 					ParentID:   j,
@@ -211,7 +211,7 @@ func finalizeTree(tree *Tree, params map[string]string) error {
 		}
 		
 		if !alreadyAdded {
-			// Standalone leaf node
+			// 独立したリーフノード
 			node := Node{
 				NodeID:     leafNodeID,
 				ParentID:   -1,
@@ -228,7 +228,7 @@ func finalizeTree(tree *Tree, params map[string]string) error {
 	return nil
 }
 
-// parseIntArray parses a space-separated string of integers
+// parseIntArray はスペース区切りの整数文字列をパースします
 func parseIntArray(s string) []int {
 	if s == "" {
 		return []int{}
@@ -243,7 +243,7 @@ func parseIntArray(s string) []int {
 	return result
 }
 
-// parseFloatArray parses a space-separated string of floats
+// parseFloatArray はスペース区切りの浮動小数点文字列をパースします
 func parseFloatArray(s string) []float64 {
 	if s == "" {
 		return []float64{}
