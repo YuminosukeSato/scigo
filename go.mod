@@ -1,4 +1,4 @@
-module github.com/YuminosukeSato/GoML
+module github.com/YuminosukeSato/scigo
 
 go 1.23
 

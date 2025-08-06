@@ -4,7 +4,7 @@ import (
 	"math"
 	"testing"
 
-	"github.com/YuminosukeSato/GoML/metrics"
+	"github.com/YuminosukeSato/scigo/metrics"
 	"gonum.org/v1/gonum/mat"
 )
 

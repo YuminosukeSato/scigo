@@ -8,10 +8,10 @@ import (
 	"runtime"
 	"time"
 
-	"github.com/YuminosukeSato/GoML/core/model"
-	"github.com/YuminosukeSato/GoML/sklearn/cluster"
-	"github.com/YuminosukeSato/GoML/sklearn/drift"
-	"github.com/YuminosukeSato/GoML/sklearn/linear_model"
+	"github.com/YuminosukeSato/scigo/core/model"
+	"github.com/YuminosukeSato/scigo/sklearn/cluster"
+	"github.com/YuminosukeSato/scigo/sklearn/drift"
+	"github.com/YuminosukeSato/scigo/sklearn/linear_model"
 	"gonum.org/v1/gonum/mat"
 )
 
