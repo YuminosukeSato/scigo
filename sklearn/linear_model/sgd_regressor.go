@@ -271,6 +271,7 @@ func (sgd *SGDRegressor) PartialFit(X, y mat.Matrix, classes []int) error {
 
 	batchLoss /= float64(rows)
 	sgd.lossHistory_ = append(sgd.lossHistory_, batchLoss)
+	sgd.nIter_++  // Increment iteration count for PartialFit
 	
 	sgd.SetFitted()
 	return nil
