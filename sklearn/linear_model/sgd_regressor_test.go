@@ -6,7 +6,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/YuminosukeSato/GoML/core/model"
+	"github.com/YuminosukeSato/scigo/core/model"
 	"gonum.org/v1/gonum/mat"
 )
 

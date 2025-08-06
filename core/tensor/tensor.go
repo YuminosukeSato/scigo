@@ -1,7 +1,7 @@
 package tensor
 
 import (
-	"github.com/YuminosukeSato/GoML/pkg/errors"
+	"github.com/YuminosukeSato/scigo/pkg/errors"
 	"gonum.org/v1/gonum/mat"
 )
 

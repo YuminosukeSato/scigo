@@ -8,8 +8,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/YuminosukeSato/GoML/core/model"
-	"github.com/YuminosukeSato/GoML/pkg/errors"
+	"github.com/YuminosukeSato/scigo/core/model"
+	"github.com/YuminosukeSato/scigo/pkg/errors"
 	"gonum.org/v1/gonum/mat"
 )
 
