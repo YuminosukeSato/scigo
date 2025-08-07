@@ -78,7 +78,7 @@ jobs:
 
       - name: Run nancy vulnerability scanner
         run: |
-          go install github.com/sonatypeossindex/nancy@latest
+          go install github.com/sonatype-nexus-community/nancy@latest
           go list -json -deps ./... | nancy sleuth || echo "nancy completed with issues"
 
       - name: Scan for secrets with gitleaks
@@ -117,12 +117,6 @@ jobs:
             trivy-results.*
           retention-days: 30
           if-no-files-found: warn
-
-      - name: Run dependency check
-        run: |
-          go install github.com/sonatypeossindex/nancy@latest
-          go mod download
-          go list -json -deps ./... | nancy sleuth -loud || echo "nancy dependency check completed with issues"
 
       - name: Scan for hardcoded credentials
         run: |
