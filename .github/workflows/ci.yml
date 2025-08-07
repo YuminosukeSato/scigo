@@ -118,6 +118,9 @@ jobs:
           retention-days: 30
           if-no-files-found: warn
 
+      - name: Setup Homebrew
+        uses: Homebrew/actions/setup-homebrew@master
+
       - name: Scan for hardcoded credentials
         run: |
           brew install trufflehog
