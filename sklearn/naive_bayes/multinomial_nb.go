@@ -8,13 +8,18 @@ import (
 	"github.com/YuminosukeSato/scigo/core/model"
 	"github.com/YuminosukeSato/scigo/pkg/errors"
 	"gonum.org/v1/gonum/mat"
+	"github.com/YuminosukeSato/scigo/pkg/log"
 )
+
+var globalProvider log.LoggerProvider
 
 // MultinomialNB implements the Multinomial Naive Bayes classifier
 // for discrete features (e.g., word counts for text classification).
 // Scikit-learn compatible implementation with partial_fit support.
 type MultinomialNB struct {
-	model.BaseEstimator
+	// State management using composition
+	state  *model.StateManager
+	logger log.Logger
 
 	// Hyperparameters
 	alpha      float64   // Additive (Laplace/Lidstone) smoothing parameter
@@ -45,6 +50,13 @@ func NewMultinomialNB(options ...MultinomialNBOption) *MultinomialNB {
 	for _, opt := range options {
 		opt(nb)
 	}
+
+	// Initialize state manager and logger
+	nb.state = model.NewStateManager()
+	if globalProvider == nil {
+		globalProvider = log.NewZerologProvider(log.ToLogLevel("info"))
+	}
+	nb.logger = globalProvider.GetLoggerWithName("MultinomialNB")
 
 	return nb
 }
@@ -118,7 +130,7 @@ func (nb *MultinomialNB) Fit(X, y mat.Matrix) error {
 	// Update model parameters
 	nb.updateModel()
 
-	nb.SetFitted()
+	nb.state.SetFitted()
 	return nil
 }
 
@@ -180,7 +192,7 @@ func (nb *MultinomialNB) PartialFit(X, y mat.Matrix, classes []int) error {
 	// Update model parameters
 	nb.updateModel()
 
-	nb.SetFitted()
+	nb.state.SetFitted()
 	return nil
 }
 
@@ -236,7 +248,7 @@ func (nb *MultinomialNB) Predict(X mat.Matrix) (mat.Matrix, error) {
 	nb.mu.RLock()
 	defer nb.mu.RUnlock()
 
-	if !nb.IsFitted() {
+	if !nb.state.IsFitted() {
 		return nil, errors.NewNotFittedError("MultinomialNB", "Predict")
 	}
 
@@ -317,7 +329,7 @@ func (nb *MultinomialNB) PredictLogProba(X mat.Matrix) (mat.Matrix, error) {
 	nb.mu.RLock()
 	defer nb.mu.RUnlock()
 
-	if !nb.IsFitted() {
+	if !nb.state.IsFitted() {
 		return nil, errors.NewNotFittedError("MultinomialNB", "PredictLogProba")
 	}
 
@@ -514,5 +526,5 @@ func (nb *MultinomialNB) reset() {
 	nb.classCount_ = nil
 	nb.nFeatures_ = 0
 	nb.nSamplesSeen_ = 0
-	nb.Reset() // Reset BaseEstimator
+	nb.state.Reset() // Reset state
 }

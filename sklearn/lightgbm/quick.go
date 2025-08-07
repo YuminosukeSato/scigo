@@ -386,7 +386,7 @@ func QuickBenchmark(X mat.Matrix, iterations int) {
 	clf.Model = NewModel()
 	clf.Model.NumFeatures = cols
 	clf.Predictor = NewPredictor(clf.Model)
-	clf.SetFitted()
+	clf.state.SetFitted()
 
 	// Warm-up
 	for i := 0; i < 10; i++ {

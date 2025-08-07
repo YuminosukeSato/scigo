@@ -12,7 +12,9 @@ import (
 
 // LGBMClassifier implements a LightGBM classifier with scikit-learn compatible API
 type LGBMClassifier struct {
-	model.BaseEstimator
+	// State management using composition
+	state  *model.StateManager
+	logger log.Logger
 
 	// Model
 	Model     *Model
@@ -53,7 +55,7 @@ type LGBMClassifier struct {
 
 // NewLGBMClassifier creates a new LightGBM classifier with default parameters
 func NewLGBMClassifier() *LGBMClassifier {
-	return &LGBMClassifier{
+	classifier := &LGBMClassifier{
 		NumLeaves:       31,
 		MaxDepth:        -1, // No limit
 		LearningRate:    0.1,
@@ -74,6 +76,12 @@ func NewLGBMClassifier() *LGBMClassifier {
 		EarlyStopping:   0,
 		ShowProgress:    false,
 	}
+
+	// Initialize state manager and logger
+	classifier.state = model.NewStateManager()
+	classifier.logger = log.GetLoggerWithName("LGBMClassifier")
+
+	return classifier
 }
 
 // WithNumLeaves sets the number of leaves
@@ -144,10 +152,10 @@ func (lgb *LGBMClassifier) Fit(X, y mat.Matrix) (err error) {
 
 	// Set objective based on number of classes
 	if lgb.nClasses_ == 2 {
-		lgb.Objective = "binary"
+		lgb.Objective = string(BinaryLogistic)
 		lgb.NumClass = 1
 	} else if lgb.nClasses_ > 2 {
-		lgb.Objective = "multiclass"
+		lgb.Objective = string(MulticlassSoftmax)
 		lgb.NumClass = lgb.nClasses_
 	} else {
 		return fmt.Errorf("invalid number of classes: %d", lgb.nClasses_)
@@ -205,7 +213,7 @@ func (lgb *LGBMClassifier) Fit(X, y mat.Matrix) (err error) {
 	lgb.Predictor.SetDeterministic(lgb.Deterministic)
 
 	// Mark as fitted
-	lgb.SetFitted()
+	lgb.state.SetFitted()
 
 	if lgb.ShowProgress {
 		logger.Info("Training completed successfully")
@@ -244,7 +252,7 @@ func (lgb *LGBMClassifier) extractClasses(y mat.Matrix) {
 
 // Predict makes predictions for input samples
 func (lgb *LGBMClassifier) Predict(X mat.Matrix) (mat.Matrix, error) {
-	if !lgb.IsFitted() {
+	if !lgb.state.IsFitted() {
 		return nil, scigoErrors.NewNotFittedError("LGBMClassifier", "Predict")
 	}
 
@@ -294,7 +302,7 @@ func (lgb *LGBMClassifier) Predict(X mat.Matrix) (mat.Matrix, error) {
 
 // PredictProba returns probability estimates for each class
 func (lgb *LGBMClassifier) PredictProba(X mat.Matrix) (mat.Matrix, error) {
-	if !lgb.IsFitted() {
+	if !lgb.state.IsFitted() {
 		return nil, scigoErrors.NewNotFittedError("LGBMClassifier", "PredictProba")
 	}
 
@@ -334,7 +342,7 @@ func (lgb *LGBMClassifier) PredictLogProba(X mat.Matrix) (mat.Matrix, error) {
 
 // Score returns the mean accuracy on the given test data and labels
 func (lgb *LGBMClassifier) Score(X, y mat.Matrix) (float64, error) {
-	if !lgb.IsFitted() {
+	if !lgb.state.IsFitted() {
 		return 0, scigoErrors.NewNotFittedError("LGBMClassifier", "Score")
 	}
 
@@ -382,7 +390,7 @@ func (lgb *LGBMClassifier) LoadModel(filepath string) error {
 		}
 	}
 
-	lgb.SetFitted()
+	lgb.state.SetFitted()
 	return nil
 }
 
@@ -409,7 +417,7 @@ func (lgb *LGBMClassifier) LoadModelFromString(modelStr string) error {
 		lgb.classes_ = []int{0, 1}
 	}
 
-	lgb.SetFitted()
+	lgb.state.SetFitted()
 	return nil
 }
 
@@ -436,13 +444,13 @@ func (lgb *LGBMClassifier) LoadModelFromJSON(jsonData []byte) error {
 		lgb.classes_ = []int{0, 1}
 	}
 
-	lgb.SetFitted()
+	lgb.state.SetFitted()
 	return nil
 }
 
 // GetFeatureImportance returns feature importance scores
 func (lgb *LGBMClassifier) GetFeatureImportance(importanceType string) []float64 {
-	if !lgb.IsFitted() || lgb.Model == nil {
+	if !lgb.state.IsFitted() || lgb.Model == nil {
 		return nil
 	}
 

@@ -11,42 +11,47 @@ import (
 	"github.com/YuminosukeSato/scigo/core/model"
 	"github.com/YuminosukeSato/scigo/pkg/errors"
 	"gonum.org/v1/gonum/mat"
+	"github.com/YuminosukeSato/scigo/pkg/log"
 )
 
-// MiniBatchKMeans はミニバッチK-meansクラスタリング
-// scikit-learnのMiniBatchKMeansと互換性を持つ
+var globalProvider log.LoggerProvider
+
+// MiniBatchKMeans implements mini-batch K-means clustering
+// Compatible with scikit-learn's MiniBatchKMeans
 type MiniBatchKMeans struct {
-	model.BaseEstimator
+	// State management using composition
+	state  *model.StateManager
+	logger log.Logger
 
-	// ハイパーパラメータ
-	nClusters         int     // クラスタ数
-	init              string  // 初期化方法: "k-means++", "random"
-	maxIter           int     // 最大イテレーション数
-	batchSize         int     // ミニバッチサイズ
-	verbose           int     // 詳細出力レベル
-	computeLabels     bool    // ラベルを計算するか
-	randomState       int64   // 乱数シード
-	tol               float64 // 収束判定の許容誤差
-	maxNoImprovement  int     // 改善なしの最大イテレーション数
-	initSize          int     // 初期化用のサンプル数
-	nInit             int     // 異なる初期化での実行回数
-	reassignmentRatio float64 // 再割り当て比率
+	// Hyperparameters
+	nClusters         int     // Number of clusters
+	init              string  // Initialization method: "k-means++", "random"
+	maxIter           int     // Maximum number of iterations
+	batchSize         int     // Mini-batch size
+	verbose           int     // Verbosity level
+	computeLabels     bool    // Whether to compute labels
+	randomState       int64   // Random seed
+	tol               float64 // Tolerance for convergence
+	maxNoImprovement  int     // Maximum iterations without improvement
+	initSize          int     // Number of samples for initialization
+	nInit             int     // Number of runs with different initializations
+	reassignmentRatio float64 // Reassignment ratio
 
-	// 学習パラメータ
-	clusterCenters_ [][]float64 // クラスタ中心（nClusters x nFeatures）
-	labels_         []int       // 各サンプルのクラスタラベル
-	inertia_        float64     // クラスタ内平方和誤差
-	nIter_          int         // 実行されたイテレーション数
-	counts_         []int       // 各クラスタのサンプル数
+	// Learning parameters
+	clusterCenters_ [][]float64 // Cluster centers (nClusters x nFeatures)
+	labels_         []int       // Cluster label for each sample
+	inertia_        float64     // Within-cluster sum of squared errors
+	nIter_          int         // Number of iterations executed
+	counts_         []int       // Number of samples per cluster
 
-	// 内部状態
+	// Internal state
 	mu         sync.RWMutex
 	rng        *rand.Rand
 	nFeatures_ int
 	nSamples_  int
 }
 
-// NewMiniBatchKMeans は新しいMiniBatchKMeansを作成
+// NewMiniBatchKMeans creates a new MiniBatchKMeans instance
 func NewMiniBatchKMeans(options ...KMeansOption) *MiniBatchKMeans {
 	kmeans := &MiniBatchKMeans{
 		nClusters:         8,
@@ -58,7 +63,7 @@ func NewMiniBatchKMeans(options ...KMeansOption) *MiniBatchKMeans {
 		randomState:       -1,
 		tol:               0.0,
 		maxNoImprovement:  10,
-		initSize:          -1, // デフォルトは3 * batchSize
+		initSize:          -1, // Default is 3 * batchSize
 		nInit:             3,
 		reassignmentRatio: 0.01,
 	}
@@ -67,7 +72,7 @@ func NewMiniBatchKMeans(options ...KMeansOption) *MiniBatchKMeans {
 		opt(kmeans)
 	}
 
-	// デフォルト値の調整
+	// Adjust default values
 	if kmeans.initSize == -1 {
 		kmeans.initSize = 3 * kmeans.batchSize
 	}
@@ -78,41 +83,49 @@ func NewMiniBatchKMeans(options ...KMeansOption) *MiniBatchKMeans {
 		kmeans.rng = rand.New(rand.NewSource(time.Now().UnixNano()))
 	}
 
+	// Initialize state manager and logger
+	kmeans.state = model.NewStateManager()
+	// Initialize logger using global provider
+	if globalProvider == nil {
+		globalProvider = log.NewZerologProvider(log.ToLogLevel("info"))
+	}
+	kmeans.logger = globalProvider.GetLoggerWithName("MiniBatchKMeans")
+
 	return kmeans
 }
 
-// KMeansOption はMiniBatchKMeansの設定オプション
+// KMeansOption is a configuration option for MiniBatchKMeans
 type KMeansOption func(*MiniBatchKMeans)
 
-// WithKMeansNClusters はクラスタ数を設定
+// WithKMeansNClusters sets the number of clusters
 func WithKMeansNClusters(n int) KMeansOption {
 	return func(kmeans *MiniBatchKMeans) {
 		kmeans.nClusters = n
 	}
 }
 
-// WithKMeansInit は初期化方法を設定
+// WithKMeansInit sets the initialization method
 func WithKMeansInit(init string) KMeansOption {
 	return func(kmeans *MiniBatchKMeans) {
 		kmeans.init = init
 	}
 }
 
-// WithKMeansMaxIter は最大イテレーション数を設定
+// WithKMeansMaxIter sets the maximum number of iterations
 func WithKMeansMaxIter(maxIter int) KMeansOption {
 	return func(kmeans *MiniBatchKMeans) {
 		kmeans.maxIter = maxIter
 	}
 }
 
-// WithKMeansBatchSize はミニバッチサイズを設定
+// WithKMeansBatchSize sets the mini-batch size
 func WithKMeansBatchSize(batchSize int) KMeansOption {
 	return func(kmeans *MiniBatchKMeans) {
 		kmeans.batchSize = batchSize
 	}
 }
 
-// WithKMeansRandomState は乱数シードを設定
+// WithKMeansRandomState sets the random seed
 func WithKMeansRandomState(seed int64) KMeansOption {
 	return func(kmeans *MiniBatchKMeans) {
 		kmeans.randomState = seed
@@ -122,14 +135,14 @@ func WithKMeansRandomState(seed int64) KMeansOption {
 	}
 }
 
-// WithKMeansTol は収束判定の許容誤差を設定
+// WithKMeansTol sets the tolerance for convergence
 func WithKMeansTol(tol float64) KMeansOption {
 	return func(kmeans *MiniBatchKMeans) {
 		kmeans.tol = tol
 	}
 }
 
-// Fit はバッチ学習でモデルを訓練
+// Fit trains the model using batch learning
 func (kmeans *MiniBatchKMeans) Fit(X, y mat.Matrix) error {
 	kmeans.mu.Lock()
 	defer kmeans.mu.Unlock()
@@ -139,7 +152,7 @@ func (kmeans *MiniBatchKMeans) Fit(X, y mat.Matrix) error {
 	kmeans.nFeatures_ = cols
 
 	if rows < kmeans.nClusters {
-		return errors.Newf("サンプル数がクラスタ数より少ないです: %d < %d", rows, kmeans.nClusters)
+		return errors.Newf("number of samples is less than number of clusters: %d < %d", rows, kmeans.nClusters)
 	}
 
 	// 複数回実行して最良の結果を選択
@@ -164,7 +177,7 @@ func (kmeans *MiniBatchKMeans) Fit(X, y mat.Matrix) error {
 	kmeans.inertia_ = bestInertia
 	kmeans.nIter_ = bestNIter
 
-	kmeans.SetFitted()
+	kmeans.state.SetFitted()
 	return nil
 }
 
@@ -266,7 +279,7 @@ func (kmeans *MiniBatchKMeans) PartialFit(X, y mat.Matrix, classes []int) error 
 		}
 	}
 
-	kmeans.SetFitted()
+	kmeans.state.SetFitted()
 	return nil
 }
 
@@ -275,7 +288,7 @@ func (kmeans *MiniBatchKMeans) Transform(X mat.Matrix) (mat.Matrix, error) {
 	kmeans.mu.RLock()
 	defer kmeans.mu.RUnlock()
 
-	if !kmeans.IsFitted() {
+	if !kmeans.state.IsFitted() {
 		return nil, errors.New("モデルが学習されていません")
 	}
 
@@ -302,7 +315,7 @@ func (kmeans *MiniBatchKMeans) Predict(X mat.Matrix) (mat.Matrix, error) {
 	kmeans.mu.RLock()
 	defer kmeans.mu.RUnlock()
 
-	if !kmeans.IsFitted() {
+	if !kmeans.state.IsFitted() {
 		return nil, errors.New("モデルが学習されていません")
 	}
 

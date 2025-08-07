@@ -13,7 +13,9 @@ import (
 
 // LGBMRegressor implements a LightGBM regressor with scikit-learn compatible API
 type LGBMRegressor struct {
-	model.BaseEstimator
+	// State management using composition
+	state  *model.StateManager
+	logger log.Logger
 
 	// Model
 	Model     *Model
@@ -54,7 +56,7 @@ type LGBMRegressor struct {
 
 // NewLGBMRegressor creates a new LightGBM regressor with default parameters
 func NewLGBMRegressor() *LGBMRegressor {
-	return &LGBMRegressor{
+	regressor := &LGBMRegressor{
 		NumLeaves:       31,
 		MaxDepth:        -1, // No limit
 		LearningRate:    0.1,
@@ -77,6 +79,12 @@ func NewLGBMRegressor() *LGBMRegressor {
 		Lambda:          1.5, // For Tweedie regression
 		ShowProgress:    false,
 	}
+
+	// Initialize state manager and logger
+	regressor.state = model.NewStateManager()
+	regressor.logger = log.GetLoggerWithName("LGBMRegressor")
+
+	return regressor
 }
 
 // WithNumLeaves sets the number of leaves
@@ -202,7 +210,7 @@ func (lgb *LGBMRegressor) Fit(X, y mat.Matrix) (err error) {
 	lgb.Predictor.SetDeterministic(lgb.Deterministic)
 
 	// Mark as fitted
-	lgb.SetFitted()
+	lgb.state.SetFitted()
 
 	if lgb.ShowProgress {
 		logger.Info("Training completed successfully")
@@ -213,7 +221,7 @@ func (lgb *LGBMRegressor) Fit(X, y mat.Matrix) (err error) {
 
 // Predict makes predictions for input samples
 func (lgb *LGBMRegressor) Predict(X mat.Matrix) (mat.Matrix, error) {
-	if !lgb.IsFitted() {
+	if !lgb.state.IsFitted() {
 		return nil, scigoErrors.NewNotFittedError("LGBMRegressor", "Predict")
 	}
 
@@ -228,7 +236,7 @@ func (lgb *LGBMRegressor) Predict(X mat.Matrix) (mat.Matrix, error) {
 
 // Score returns the coefficient of determination R^2 of the prediction
 func (lgb *LGBMRegressor) Score(X, y mat.Matrix) (float64, error) {
-	if !lgb.IsFitted() {
+	if !lgb.state.IsFitted() {
 		return 0, scigoErrors.NewNotFittedError("LGBMRegressor", "Score")
 	}
 
@@ -264,7 +272,7 @@ func (lgb *LGBMRegressor) LoadModel(filepath string) error {
 	// Extract objective
 	switch model.Objective {
 	case RegressionL2:
-		lgb.Objective = "regression"
+		lgb.Objective = string(RegressionL2)
 	case RegressionL1:
 		lgb.Objective = "regression_l1"
 	case RegressionHuber:
@@ -280,10 +288,10 @@ func (lgb *LGBMRegressor) LoadModel(filepath string) error {
 	case RegressionTweedie:
 		lgb.Objective = "tweedie"
 	default:
-		lgb.Objective = "regression"
+		lgb.Objective = string(RegressionL2)
 	}
 
-	lgb.SetFitted()
+	lgb.state.SetFitted()
 	return nil
 }
 
@@ -298,7 +306,7 @@ func (lgb *LGBMRegressor) LoadModelFromString(modelStr string) error {
 	lgb.Predictor = NewPredictor(model)
 	lgb.nFeatures_ = model.NumFeatures
 
-	lgb.SetFitted()
+	lgb.state.SetFitted()
 	return nil
 }
 
@@ -313,13 +321,13 @@ func (lgb *LGBMRegressor) LoadModelFromJSON(jsonData []byte) error {
 	lgb.Predictor = NewPredictor(model)
 	lgb.nFeatures_ = model.NumFeatures
 
-	lgb.SetFitted()
+	lgb.state.SetFitted()
 	return nil
 }
 
 // GetFeatureImportance returns feature importance scores
 func (lgb *LGBMRegressor) GetFeatureImportance(importanceType string) []float64 {
-	if !lgb.IsFitted() || lgb.Model == nil {
+	if !lgb.state.IsFitted() || lgb.Model == nil {
 		return nil
 	}
 
@@ -431,7 +439,7 @@ func (lgb *LGBMRegressor) SetParams(params map[string]interface{}) error {
 // PredictQuantile predicts quantiles for quantile regression
 // Only works if objective is set to "quantile"
 func (lgb *LGBMRegressor) PredictQuantile(X mat.Matrix, quantiles []float64) ([]mat.Matrix, error) {
-	if !lgb.IsFitted() {
+	if !lgb.state.IsFitted() {
 		return nil, scigoErrors.NewNotFittedError("LGBMRegressor", "PredictQuantile")
 	}
 
@@ -477,7 +485,7 @@ func (lgb *LGBMRegressor) PredictQuantile(X mat.Matrix, quantiles []float64) ([]
 
 // GetResiduals returns the residuals (y - y_pred) for the training data
 func (lgb *LGBMRegressor) GetResiduals(X, y mat.Matrix) (mat.Matrix, error) {
-	if !lgb.IsFitted() {
+	if !lgb.state.IsFitted() {
 		return nil, scigoErrors.NewNotFittedError("LGBMRegressor", "GetResiduals")
 	}
 
@@ -499,7 +507,7 @@ func (lgb *LGBMRegressor) GetResiduals(X, y mat.Matrix) (mat.Matrix, error) {
 
 // GetMSE returns the mean squared error
 func (lgb *LGBMRegressor) GetMSE(X, y mat.Matrix) (float64, error) {
-	if !lgb.IsFitted() {
+	if !lgb.state.IsFitted() {
 		return 0, scigoErrors.NewNotFittedError("LGBMRegressor", "GetMSE")
 	}
 
@@ -521,7 +529,7 @@ func (lgb *LGBMRegressor) GetMSE(X, y mat.Matrix) (float64, error) {
 
 // GetMAE returns the mean absolute error
 func (lgb *LGBMRegressor) GetMAE(X, y mat.Matrix) (float64, error) {
-	if !lgb.IsFitted() {
+	if !lgb.state.IsFitted() {
 		return 0, scigoErrors.NewNotFittedError("LGBMRegressor", "GetMAE")
 	}
 

@@ -8,7 +8,10 @@ import (
 	"github.com/YuminosukeSato/scigo/core/model"
 	"github.com/YuminosukeSato/scigo/pkg/errors"
 	"gonum.org/v1/gonum/mat"
+	"github.com/YuminosukeSato/scigo/pkg/log"
 )
+
+var globalProvider log.LoggerProvider
 
 // Step represents a single step in the pipeline.
 // Each step is a tuple of (name, transformer/estimator).
@@ -23,7 +26,9 @@ type Step struct {
 //
 // Scikit-learn compatible implementation.
 type Pipeline struct {
-	model.BaseEstimator
+	// State management using composition
+	state  *model.StateManager
+	logger log.Logger
 
 	// Pipeline configuration
 	steps   []Step // List of (name, transform/estimator) tuples
@@ -42,11 +47,20 @@ func New(steps ...Step) *Pipeline {
 		namedSteps[step.Name] = step.Estimator
 	}
 
-	return &Pipeline{
+	pipeline := &Pipeline{
 		steps:       steps,
 		namedSteps_: namedSteps,
 		verbose:     false,
 	}
+
+	// Initialize state manager and logger
+	pipeline.state = model.NewStateManager()
+	if globalProvider == nil {
+		globalProvider = log.NewZerologProvider(log.ToLogLevel("info"))
+	}
+	pipeline.logger = globalProvider.GetLoggerWithName("Pipeline")
+
+	return pipeline
 }
 
 // NewPipeline is an alias for New to match sklearn naming conventions
@@ -118,13 +132,13 @@ func (p *Pipeline) Fit(X, y mat.Matrix) error {
 		}
 	}
 
-	p.SetFitted()
+	p.state.SetFitted()
 	return nil
 }
 
 // Predict applies transforms to the data, and predict with the final estimator.
 func (p *Pipeline) Predict(X mat.Matrix) (mat.Matrix, error) {
-	if !p.IsFitted() {
+	if !p.state.IsFitted() {
 		return nil, errors.NewNotFittedError("Pipeline", "Predict")
 	}
 
@@ -156,7 +170,7 @@ func (p *Pipeline) Predict(X mat.Matrix) (mat.Matrix, error) {
 // Transform applies transforms to the data.
 // Only valid if the final step is a transformer.
 func (p *Pipeline) Transform(X mat.Matrix) (mat.Matrix, error) {
-	if !p.IsFitted() {
+	if !p.state.IsFitted() {
 		return nil, errors.NewNotFittedError("Pipeline", "Transform")
 	}
 
@@ -222,13 +236,13 @@ func (p *Pipeline) FitTransform(X, y mat.Matrix) (mat.Matrix, error) {
 		}
 	}
 
-	p.SetFitted()
+	p.state.SetFitted()
 	return Xt, nil
 }
 
 // PredictProba applies transforms to the data, and predict_proba with the final estimator.
 func (p *Pipeline) PredictProba(X mat.Matrix) (mat.Matrix, error) {
-	if !p.IsFitted() {
+	if !p.state.IsFitted() {
 		return nil, errors.NewNotFittedError("Pipeline", "PredictProba")
 	}
 
@@ -259,7 +273,7 @@ func (p *Pipeline) PredictProba(X mat.Matrix) (mat.Matrix, error) {
 
 // Score returns the score of the final estimator.
 func (p *Pipeline) Score(X, y mat.Matrix) (float64, error) {
-	if !p.IsFitted() {
+	if !p.state.IsFitted() {
 		return 0, errors.NewNotFittedError("Pipeline", "Score")
 	}
 
@@ -367,7 +381,7 @@ func (p *Pipeline) transform(X mat.Matrix) (mat.Matrix, error) {
 // InverseTransform applies inverse transformations in reverse order.
 // Only works if all steps are transformers with InverseTransform method.
 func (p *Pipeline) InverseTransform(X mat.Matrix) (mat.Matrix, error) {
-	if !p.IsFitted() {
+	if !p.state.IsFitted() {
 		return nil, errors.NewNotFittedError("Pipeline", "InverseTransform")
 	}
 
