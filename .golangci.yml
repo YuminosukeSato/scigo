@@ -9,7 +9,8 @@ run:
   modules-download-mode: readonly
 
 output:
-  format: "text"
+  formats:
+    colored-line-number: stdout
   print-issued-lines: true
   print-linter-name: true
   uniq-by-line: true
