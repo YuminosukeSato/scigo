@@ -43,14 +43,14 @@ func NewMemoryMappedDataset(filename string, rows, cols int, dtype DataType) (*M
 	fileSize := int64(rows * cols * elementSize)
 
 	if err := file.Truncate(fileSize); err != nil {
-		file.Close()
+		_ = file.Close()
 		return nil, fmt.Errorf("failed to resize file: %w", err)
 	}
 
 	mmap, err := syscall.Mmap(int(file.Fd()), 0, int(fileSize),
 		syscall.PROT_READ|syscall.PROT_WRITE, syscall.MAP_SHARED)
 	if err != nil {
-		file.Close()
+		_ = file.Close()
 		return nil, fmt.Errorf("failed to mmap: %w", err)
 	}
 
@@ -143,11 +143,12 @@ func (m *MemoryMappedDataset) Close() error {
 
 // ChunkedProcessor processes data in chunks with parallel execution
 type ChunkedProcessor struct {
-	chunkSize   int
-	parallel    bool
-	numWorkers  int
-	bufferSize  int
-	compression CompressionType
+	chunkSize  int
+	parallel   bool
+	numWorkers int
+	bufferSize int
+	// compression field reserved for future use
+	// compression CompressionType
 }
 
 // CompressionType defines compression algorithms
@@ -225,7 +226,7 @@ func (c *ChunkedProcessor) processParallel(data io.Reader, fn func(chunk [][]flo
 	// Read and send chunks
 	go func() {
 		defer close(chunks)
-		c.processSequential(data, func(chunk [][]float64) error {
+		_ = c.processSequential(data, func(chunk [][]float64) error {
 			chunks <- chunk
 			return nil
 		})
@@ -318,7 +319,13 @@ func (s *StreamingPipeline) updateMetrics(data mat.Matrix) {
 func (s *StreamingPipeline) GetMetrics() StreamMetrics {
 	s.metrics.mu.RLock()
 	defer s.metrics.mu.RUnlock()
-	return *s.metrics
+	// Return a copy without the mutex
+	return StreamMetrics{
+		ProcessedSamples: s.metrics.ProcessedSamples,
+		ProcessedBytes:   s.metrics.ProcessedBytes,
+		Throughput:       s.metrics.Throughput,
+		Latency:          s.metrics.Latency,
+	}
 }
 
 // Helper functions

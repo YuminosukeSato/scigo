@@ -87,13 +87,9 @@ func (p *Pipeline) Fit(X, y mat.Matrix) error {
 			)
 		}
 
-		// Fit and transform
-		if fitter, ok := transformer.(interface {
-			Fit(mat.Matrix, mat.Matrix) error
-		}); ok {
-			if err = fitter.Fit(Xt, y); err != nil {
-				return errors.Wrap(err, fmt.Sprintf("failed to fit step '%s'", step.Name))
-			}
+		// Fit the transformer (Transformer.Fit only takes X)
+		if err = transformer.Fit(Xt); err != nil {
+			return errors.Wrap(err, fmt.Sprintf("failed to fit step '%s'", step.Name))
 		}
 
 		Xt, err = transformer.Transform(Xt)
@@ -214,13 +210,9 @@ func (p *Pipeline) FitTransform(X, y mat.Matrix) (mat.Matrix, error) {
 			)
 		}
 
-		// Fit if possible
-		if fitter, ok := transformer.(interface {
-			Fit(mat.Matrix, mat.Matrix) error
-		}); ok {
-			if err = fitter.Fit(Xt, y); err != nil {
-				return nil, errors.Wrap(err, fmt.Sprintf("failed to fit step '%s'", step.Name))
-			}
+		// Fit the transformer (Transformer.Fit only takes X)
+		if err = transformer.Fit(Xt); err != nil {
+			return nil, errors.Wrap(err, fmt.Sprintf("failed to fit step '%s'", step.Name))
 		}
 
 		// Transform

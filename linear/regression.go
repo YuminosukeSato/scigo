@@ -347,7 +347,7 @@ func (lr *LinearRegression) LoadFromSKLearn(filename string) (err error) {
 	if err != nil {
 		return fmt.Errorf("failed to open file: %w", err)
 	}
-	defer file.Close()
+	defer func() { _ = file.Close() }()
 
 	return lr.LoadFromSKLearnReader(file)
 }
@@ -403,7 +403,7 @@ func (lr *LinearRegression) ExportToSKLearn(filename string) (err error) {
 	if err != nil {
 		return fmt.Errorf("failed to create file: %w", err)
 	}
-	defer file.Close()
+	defer func() { _ = file.Close() }()
 
 	return lr.ExportToSKLearnWriter(file)
 }

@@ -58,11 +58,11 @@ func benchmarkMemoryMapped(b *testing.B, samples, features int) {
 	if err != nil {
 		b.Fatal(err)
 	}
-	defer dataset.Close()
+	defer func() { _ = dataset.Close() }()
 
 	// Initialize with random data
 	chunkSize := 10000
-	rand.Seed(42)
+	_ = rand.New(rand.NewSource(42)) // Prepared for future use
 
 	b.ResetTimer()
 
@@ -400,7 +400,9 @@ func benchmarkLinearRegression(b *testing.B, samples, features int) {
 				runtime.GC()
 			}
 
-			batch.Allocate(bytes)
+			if err := batch.Allocate(bytes); err != nil {
+				b.Fatalf("Failed to allocate batch: %v", err)
+			}
 
 			// Generate batch data
 			X := mat.NewDense(end-start, features, nil)
@@ -442,7 +444,9 @@ func benchmarkSGDStreaming(b *testing.B, samples, features int) {
 			y := mat.NewDense(currentBatch, 1, nil)
 
 			// Partial fit
-			sgd.PartialFit(X, y, nil)
+			if err := sgd.PartialFit(X, y, nil); err != nil {
+				b.Fatalf("Failed partial fit: %v", err)
+			}
 
 			processed += currentBatch
 		}
@@ -458,7 +462,9 @@ func benchmarkBatchPrediction(b *testing.B, samples, features int) {
 	model := linear.NewLinearRegression()
 	trainX := mat.NewDense(1000, features, nil)
 	trainY := mat.NewDense(1000, 1, nil)
-	model.Fit(trainX, trainY)
+	if err := model.Fit(trainX, trainY); err != nil {
+		b.Fatalf("Failed to fit model: %v", err)
+		}
 
 	pool := performance.NewMatrixPool(10)
 
@@ -491,7 +497,8 @@ func benchmarkBatchPrediction(b *testing.B, samples, features int) {
 			// Collect predictions
 			rows, _ := pred.Dims()
 			for r := 0; r < rows; r++ {
-				predictions = append(predictions, pred.At(r, 0))
+				_ = predictions // predictions is intentionally unused in benchmark
+				_ = pred.At(r, 0)
 			}
 
 			// Return to pool

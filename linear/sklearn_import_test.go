@@ -209,7 +209,7 @@ func TestLinearRegression_RoundTrip(t *testing.T) {
 
 	// エクスポート
 	tmpFile := "test_roundtrip.json"
-	defer os.Remove(tmpFile)
+	defer func() { _ = os.Remove(tmpFile) }()
 
 	if err := lr1.ExportToSKLearn(tmpFile); err != nil {
 		t.Fatalf("Failed to export model: %v", err)

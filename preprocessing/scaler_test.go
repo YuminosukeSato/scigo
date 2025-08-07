@@ -98,7 +98,7 @@ func TestStandardScaler_FitTransform(t *testing.T) {
 
 	// 分離したFit + Transformと結果が同じか確認
 	scaler2 := preprocessing.NewStandardScalerDefault()
-	scaler2.Fit(X)
+	_ = scaler2.Fit(X)
 	XScaled2, _ := scaler2.Transform(X)
 
 	r, c := XScaled.Dims()
@@ -222,7 +222,7 @@ func TestStandardScaler_WithStdFalse(t *testing.T) {
 	// 平均: Feature1=2, Feature2=20
 	expectedValues := []float64{
 		1.0 - 2.0, 10.0 - 20.0, // [-1, -10]
-		2.0 - 2.0, 20.0 - 20.0, // [0, 0]
+		0.0, 0.0, // [0, 0] (2.0 - 2.0 = 0, 20.0 - 20.0 = 0)
 		3.0 - 2.0, 30.0 - 20.0, // [1, 10]
 	}
 
@@ -257,7 +257,7 @@ func TestStandardScaler_ErrorCases(t *testing.T) {
 	}
 
 	// 特徴量数の不一致
-	scaler.Fit(X) // 2特徴量で学習
+	_ = scaler.Fit(X) // 2特徴量で学習
 	wrongData := []float64{1.0, 2.0, 3.0}
 	XWrong := mat.NewDense(1, 3, wrongData) // 3特徴量
 
@@ -361,7 +361,7 @@ func TestStandardScaler_String(t *testing.T) {
 	// 学習後
 	data := []float64{1.0, 2.0, 3.0, 4.0}
 	X := mat.NewDense(2, 2, data)
-	scaler.Fit(X)
+	_ = scaler.Fit(X)
 
 	str = scaler.String()
 	expected = "StandardScaler(with_mean=true, with_std=false, n_features=2)"
@@ -571,7 +571,7 @@ func TestMinMaxScaler_ErrorCases(t *testing.T) {
 	}
 
 	// 特徴量数の不一致
-	scaler.Fit(X) // 2特徴量で学習
+	_ = scaler.Fit(X) // 2特徴量で学習
 	wrongData := []float64{1.0, 2.0, 3.0}
 	XWrong := mat.NewDense(1, 3, wrongData) // 3特徴量
 
@@ -606,7 +606,7 @@ func TestMinMaxScaler_String(t *testing.T) {
 	// 学習後
 	data := []float64{1.0, 2.0, 3.0, 4.0}
 	X := mat.NewDense(2, 2, data)
-	scaler.Fit(X)
+	_ = scaler.Fit(X)
 
 	str = scaler.String()
 	expected = "MinMaxScaler(feature_range=[-1.0, 2.0], n_features=2)"

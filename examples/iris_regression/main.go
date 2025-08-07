@@ -20,7 +20,7 @@ func loadIrisData(filename string) ([]float64, []float64, error) {
 	if err != nil {
 		return nil, nil, err
 	}
-	defer file.Close()
+	defer func() { _ = file.Close() }()
 
 	reader := csv.NewReader(file)
 	records, err := reader.ReadAll()
@@ -144,7 +144,7 @@ func main() {
 	if err != nil {
 		log.Fatalf("Failed to create scatter plot: %v", err)
 	}
-	scatter.GlyphStyle.Color = plotter.DefaultLineStyle.Color
+	scatter.Color = plotter.DefaultLineStyle.Color
 	p.Add(scatter)
 	p.Legend.Add("Data points", scatter)
 
@@ -153,8 +153,8 @@ func main() {
 	if err != nil {
 		log.Fatalf("Failed to create regression line: %v", err)
 	}
-	line.LineStyle.Width = vg.Points(2)
-	line.LineStyle.Dashes = []vg.Length{}
+	line.Width = vg.Points(2)
+	line.Dashes = []vg.Length{}
 	p.Add(line)
 	p.Legend.Add("Regression line", line)
 

@@ -157,10 +157,10 @@ func TestSGDRegressorWarmStart(t *testing.T) {
 		WithWarmStart(false),
 		WithRandomState(42),
 	)
-	sgd1.Fit(X, y)
+	_ = sgd1.Fit(X, y)
 
 	// 再度Fitを呼ぶ（リセットされる）
-	sgd1.Fit(X, y)
+	_ = sgd1.Fit(X, y)
 	loss2 := sgd1.GetLoss()
 
 	// ウォームスタートありで学習
@@ -169,10 +169,10 @@ func TestSGDRegressorWarmStart(t *testing.T) {
 		WithWarmStart(true),
 		WithRandomState(42),
 	)
-	sgd2.Fit(X, y)
+	_ = sgd2.Fit(X, y)
 
 	// 再度Fitを呼ぶ（継続学習）
-	sgd2.Fit(X, y)
+	_ = sgd2.Fit(X, y)
 	loss3 := sgd2.GetLoss()
 
 	// ウォームスタートありの方が損失が小さいはず
@@ -302,7 +302,7 @@ func TestSGDRegressorPredictStream(t *testing.T) {
 		WithMaxIter(100),
 		WithRandomState(42),
 	)
-	sgd.Fit(X_train, y_train)
+	_ = sgd.Fit(X_train, y_train)
 
 	ctx, cancel := context.WithTimeout(context.Background(), 1*time.Second)
 	defer cancel()

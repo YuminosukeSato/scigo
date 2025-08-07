@@ -26,7 +26,7 @@ func SaveModel(model interface{}, filename string) error {
 	if err != nil {
 		return fmt.Errorf("failed to create file: %w", err)
 	}
-	defer file.Close()
+	defer func() { _ = file.Close() }()
 
 	encoder := gob.NewEncoder(file)
 	if err := encoder.Encode(model); err != nil {
@@ -54,7 +54,7 @@ func LoadModel(model interface{}, filename string) error {
 	if err != nil {
 		return fmt.Errorf("failed to open file: %w", err)
 	}
-	defer file.Close()
+	defer func() { _ = file.Close() }()
 
 	decoder := gob.NewDecoder(file)
 	if err := decoder.Decode(model); err != nil {

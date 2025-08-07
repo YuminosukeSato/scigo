@@ -16,7 +16,7 @@ func LoadFromFile(filepath string) (*Model, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to open file: %w", err)
 	}
-	defer file.Close()
+	defer func() { _ = file.Close() }()
 
 	return LoadFromReader(file)
 }
@@ -260,11 +260,12 @@ func parseFloatArray(s string) []float64 {
 }
 
 // parseTreeStructure is kept for compatibility but not really used in text format
-func parseTreeStructure(tree *Tree, structure string) error {
-	// This function was for JSON-style tree structures
-	// The text format uses separate arrays for each parameter
-	return nil
-}
+// Deprecated: This function is no longer used and will be removed in future versions
+// func parseTreeStructure(tree *Tree, structure string) error {
+// 	// This function was for JSON-style tree structures
+// 	// The text format uses separate arrays for each parameter
+// 	return nil
+// }
 
 // LoadFromJSON loads a LightGBM model from JSON format
 // This supports the format from dump_model()

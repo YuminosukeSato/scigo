@@ -228,7 +228,7 @@ func TestNoPanicScenario(t *testing.T) {
 func BenchmarkPanicRecoveryOverhead(b *testing.B) {
 	b.Run("WithRecover", func(b *testing.B) {
 		for i := 0; i < b.N; i++ {
-			func() (err error) {
+			_ = func() (err error) {
 				defer Recover(&err, "BenchOperation")
 				// Minimal work
 				_ = i * 2
@@ -239,7 +239,7 @@ func BenchmarkPanicRecoveryOverhead(b *testing.B) {
 
 	b.Run("WithoutRecover", func(b *testing.B) {
 		for i := 0; i < b.N; i++ {
-			func() error {
+			_ = func() error {
 				// Same minimal work, no recovery
 				_ = i * 2
 				return nil

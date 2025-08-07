@@ -32,6 +32,13 @@
 // the entire machine learning pipeline.
 package model
 
+import (
+	"crypto/sha256"
+	"encoding/hex"
+	"encoding/json"
+	"fmt"
+)
+
 // EstimatorState はモデルの学習状態を表す
 type EstimatorState int
 
@@ -49,6 +56,15 @@ type BaseEstimator struct {
 
 	// logger はモデル操作のログ出力に使用されます。gobエンコードでは無視されます。
 	logger interface{} // Using interface{} to avoid circular imports, will be set to log.Logger
+	
+	// hyperparameters はモデルのハイパーパラメータを保持
+	hyperparameters map[string]interface{}
+	
+	// ModelType はモデルの種類を識別
+	ModelType string
+	
+	// Version はモデルのバージョン
+	Version string
 }
 
 // IsFitted returns whether the model has been fitted with training data.
@@ -188,4 +204,104 @@ func (e *BaseEstimator) LogError(msg string, fields ...interface{}) {
 			logger.Error(msg, fields...)
 		}
 	}
+}
+
+// GetParams はモデルのハイパーパラメータを取得（scikit-learn互換）
+func (e *BaseEstimator) GetParams(deep bool) map[string]interface{} {
+	if e.hyperparameters == nil {
+		return make(map[string]interface{})
+	}
+	
+	if !deep {
+		return e.hyperparameters
+	}
+	
+	// ディープコピーを作成
+	params := make(map[string]interface{})
+	for k, v := range e.hyperparameters {
+		params[k] = v
+	}
+	return params
+}
+
+// SetParams はモデルのハイパーパラメータを設定（scikit-learn互換）
+func (e *BaseEstimator) SetParams(params map[string]interface{}) error {
+	if e.hyperparameters == nil {
+		e.hyperparameters = make(map[string]interface{})
+	}
+	
+	for k, v := range params {
+		e.hyperparameters[k] = v
+	}
+	
+	return nil
+}
+
+// ExportWeights はモデルの重みをエクスポート（基本実装）
+func (e *BaseEstimator) ExportWeights() (*ModelWeights, error) {
+	if !e.IsFitted() {
+		return nil, fmt.Errorf("model is not fitted")
+	}
+	
+	weights := &ModelWeights{
+		ModelType:       e.ModelType,
+		Version:         e.Version,
+		IsFitted:        e.IsFitted(),
+		Hyperparameters: e.GetParams(true),
+		Metadata:        make(map[string]interface{}),
+	}
+	
+	return weights, nil
+}
+
+// ImportWeights はモデルの重みをインポート（基本実装）
+func (e *BaseEstimator) ImportWeights(weights *ModelWeights) error {
+	if weights == nil {
+		return fmt.Errorf("weights cannot be nil")
+	}
+	
+	if weights.ModelType != e.ModelType {
+		return fmt.Errorf("model type mismatch: expected %s, got %s", e.ModelType, weights.ModelType)
+	}
+	
+	e.Version = weights.Version
+	e.SetParams(weights.Hyperparameters)
+	
+	if weights.IsFitted {
+		e.SetFitted()
+	}
+	
+	return nil
+}
+
+// GetWeightHash は重みのハッシュ値を計算（検証用）
+func (e *BaseEstimator) GetWeightHash() string {
+	weights, err := e.ExportWeights()
+	if err != nil {
+		return ""
+	}
+	
+	data, err := json.Marshal(weights)
+	if err != nil {
+		return ""
+	}
+	
+	hash := sha256.Sum256(data)
+	return hex.EncodeToString(hash[:])
+}
+
+// Clone はモデルの新しいインスタンスを作成（基本実装）
+func (e *BaseEstimator) Clone() *BaseEstimator {
+	clone := &BaseEstimator{
+		State:           e.State,
+		ModelType:       e.ModelType,
+		Version:         e.Version,
+		hyperparameters: make(map[string]interface{}),
+	}
+	
+	for k, v := range e.hyperparameters {
+		clone.hyperparameters[k] = v
+	}
+	
+	return clone
 }

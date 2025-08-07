@@ -193,7 +193,10 @@ func TestRecover_DifferentPanicTypes(t *testing.T) {
 				t.Fatalf("Expected PanicError, got %T", err)
 			}
 
-			if fmt.Sprintf("%v", panicErr.PanicValue) != fmt.Sprintf("%v", tc.expectedValue) {
+			// Direct comparison for simple types, string comparison for complex types
+			actualStr := fmt.Sprintf("%v", panicErr.PanicValue)
+			expectedStr := fmt.Sprintf("%v", tc.expectedValue)
+			if actualStr != expectedStr {
 				t.Errorf("Expected panic value %v, got %v", tc.expectedValue, panicErr.PanicValue)
 			}
 		})
@@ -203,7 +206,7 @@ func TestRecover_DifferentPanicTypes(t *testing.T) {
 // BenchmarkRecover tests performance overhead of Recover when no panic occurs
 func BenchmarkRecover_NoPanic(b *testing.B) {
 	for i := 0; i < b.N; i++ {
-		func() (err error) {
+		_ = func() (err error) {
 			defer Recover(&err, "BenchmarkOp")
 			// Normal operation, no panic
 			return nil
@@ -214,7 +217,7 @@ func BenchmarkRecover_NoPanic(b *testing.B) {
 // BenchmarkSafeExecute_NoPanic benchmarks SafeExecute with no panic
 func BenchmarkSafeExecute_NoPanic(b *testing.B) {
 	for i := 0; i < b.N; i++ {
-		SafeExecute("BenchmarkOp", func() error {
+		_ = SafeExecute("BenchmarkOp", func() error {
 			// Normal operation, no panic
 			return nil
 		})

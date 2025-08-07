@@ -268,7 +268,7 @@ func (pa *PassiveAggressiveRegressor) updateWeights(x []float64, y float64) {
 	case "squared_epsilon_insensitive":
 		diff := math.Abs(y - pred)
 		if diff > pa.epsilon {
-			loss = (diff - pa.epsilon) * (diff - pa.epsilon)
+			_ = loss // loss will be used for tracking, currently not returned
 			tau = (diff - pa.epsilon) / (dotProduct(x, x) + 1.0/(2.0*pa.C))
 			if y < pred {
 				tau = -tau
@@ -462,7 +462,7 @@ func (pa *PassiveAggressiveClassifier) updateWeights(x []float64, y int) {
 			margin := target * score
 			if margin < 1 {
 				diff := 1 - margin
-				loss = 0.5 * diff * diff
+				_ = loss // loss will be set in the common code below
 				tau = diff / (dotProduct(x, x) + 1.0/(2.0*pa.C))
 				tau = tau * target
 			}

@@ -1,0 +1,298 @@
+syntax = "proto3";
+
+package scigo.ml;
+
+option go_package = "github.com/YuminosukeSato/scigo/api/proto/ml";
+
+// ModelWeights は機械学習モデルの重みを表す
+message ModelWeights {
+  // モデルの種類（LinearRegression, SGDRegressor等）
+  string model_type = 1;
+  
+  // モデルのバージョン（互換性チェック用）
+  string version = 2;
+  
+  // 重み係数（浮動小数点の完全な精度を保証）
+  repeated double coefficients = 3;
+  
+  // 切片
+  double intercept = 4;
+  
+  // 特徴量の名前（オプション）
+  repeated string features = 5;
+  
+  // ハイパーパラメータ
+  map<string, Value> hyperparameters = 6;
+  
+  // メタデータ（学習時の統計等）
+  map<string, Value> metadata = 7;
+  
+  // モデルが学習済みかどうか
+  bool is_fitted = 8;
+  
+  // チェックサム（重みの整合性検証用）
+  string checksum = 9;
+  
+  // タイムスタンプ（重みが作成された時刻）
+  int64 timestamp = 10;
+}
+
+// Value は任意の値を表す（ハイパーパラメータ用）
+message Value {
+  oneof value {
+    double double_value = 1;
+    float float_value = 2;
+    int32 int32_value = 3;
+    int64 int64_value = 4;
+    uint32 uint32_value = 5;
+    uint64 uint64_value = 6;
+    bool bool_value = 7;
+    string string_value = 8;
+    bytes bytes_value = 9;
+    ListValue list_value = 10;
+    MapValue map_value = 11;
+  }
+}
+
+// ListValue はリスト型の値
+message ListValue {
+  repeated Value values = 1;
+}
+
+// MapValue はマップ型の値
+message MapValue {
+  map<string, Value> values = 1;
+}
+
+// Matrix は行列データを表す
+message Matrix {
+  // 行数
+  int32 rows = 1;
+  
+  // 列数
+  int32 cols = 2;
+  
+  // データ（行優先順序で格納）
+  repeated double data = 3;
+  
+  // スパース行列の場合のインデックス（オプション）
+  repeated int32 row_indices = 4;
+  repeated int32 col_indices = 5;
+  
+  // 行列の形式
+  MatrixFormat format = 6;
+}
+
+// MatrixFormat は行列の格納形式
+enum MatrixFormat {
+  DENSE = 0;      // 密行列
+  CSR = 1;        // Compressed Sparse Row
+  CSC = 2;        // Compressed Sparse Column
+  COO = 3;        // Coordinate format
+}
+
+// TrainRequest は学習リクエスト
+message TrainRequest {
+  // 訓練データ
+  Matrix X = 1;
+  
+  // ターゲット値
+  Matrix y = 2;
+  
+  // モデルの種類
+  string model_type = 3;
+  
+  // ハイパーパラメータ
+  map<string, Value> hyperparameters = 4;
+  
+  // リクエストID（トレーシング用）
+  string request_id = 5;
+}
+
+// TrainResponse は学習レスポンス
+message TrainResponse {
+  // 学習済みモデルの重み
+  ModelWeights weights = 1;
+  
+  // 学習にかかった時間（ミリ秒）
+  int64 training_time_ms = 2;
+  
+  // 学習時のメトリクス
+  map<string, double> metrics = 3;
+  
+  // エラーメッセージ（エラー時のみ）
+  string error = 4;
+  
+  // リクエストID
+  string request_id = 5;
+}
+
+// PredictRequest は予測リクエスト
+message PredictRequest {
+  // 入力データ
+  Matrix X = 1;
+  
+  // モデルの重み
+  ModelWeights weights = 2;
+  
+  // バッチサイズ（ストリーミング用）
+  int32 batch_size = 3;
+  
+  // リクエストID
+  string request_id = 4;
+}
+
+// PredictResponse は予測レスポンス
+message PredictResponse {
+  // 予測結果
+  Matrix predictions = 1;
+  
+  // 予測にかかった時間（ミリ秒）
+  int64 prediction_time_ms = 2;
+  
+  // 予測時の信頼度スコア（分類の場合）
+  Matrix probabilities = 3;
+  
+  // エラーメッセージ（エラー時のみ）
+  string error = 4;
+  
+  // リクエストID
+  string request_id = 5;
+}
+
+// StreamingPredictRequest はストリーミング予測リクエスト
+message StreamingPredictRequest {
+  oneof request {
+    // 初回リクエスト時に送信
+    ModelWeights weights = 1;
+    
+    // データストリーム
+    Matrix data = 2;
+  }
+  
+  // リクエストID
+  string request_id = 3;
+}
+
+// StreamingPredictResponse はストリーミング予測レスポンス
+message StreamingPredictResponse {
+  // 予測結果
+  Matrix predictions = 1;
+  
+  // バッチ番号
+  int32 batch_number = 2;
+  
+  // エラーメッセージ（エラー時のみ）
+  string error = 3;
+  
+  // リクエストID
+  string request_id = 4;
+}
+
+// ModelService は機械学習モデルのgRPCサービス
+service ModelService {
+  // Train はモデルを学習
+  rpc Train(TrainRequest) returns (TrainResponse);
+  
+  // Predict は予測を実行
+  rpc Predict(PredictRequest) returns (PredictResponse);
+  
+  // StreamingPredict はストリーミング予測を実行
+  rpc StreamingPredict(stream StreamingPredictRequest) returns (stream StreamingPredictResponse);
+  
+  // ExportWeights はモデルの重みをエクスポート
+  rpc ExportWeights(ExportWeightsRequest) returns (ExportWeightsResponse);
+  
+  // ImportWeights はモデルの重みをインポート
+  rpc ImportWeights(ImportWeightsRequest) returns (ImportWeightsResponse);
+  
+  // ValidateWeights は重みの妥当性を検証
+  rpc ValidateWeights(ValidateWeightsRequest) returns (ValidateWeightsResponse);
+}
+
+// ExportWeightsRequest は重みエクスポートリクエスト
+message ExportWeightsRequest {
+  // モデルID
+  string model_id = 1;
+  
+  // エクスポート形式
+  ExportFormat format = 2;
+}
+
+// ExportFormat はエクスポート形式
+enum ExportFormat {
+  PROTOBUF = 0;   // Protocol Buffers形式
+  JSON = 1;       // JSON形式
+  PICKLE = 2;     // Python pickle互換形式
+  ONNX = 3;       // ONNX形式
+}
+
+// ExportWeightsResponse は重みエクスポートレスポンス
+message ExportWeightsResponse {
+  // エクスポートされた重み
+  bytes data = 1;
+  
+  // エクスポート形式
+  ExportFormat format = 2;
+  
+  // チェックサム
+  string checksum = 3;
+  
+  // エラーメッセージ（エラー時のみ）
+  string error = 4;
+}
+
+// ImportWeightsRequest は重みインポートリクエスト
+message ImportWeightsRequest {
+  // インポートする重みデータ
+  bytes data = 1;
+  
+  // インポート形式
+  ExportFormat format = 2;
+  
+  // チェックサム（検証用）
+  string checksum = 3;
+}
+
+// ImportWeightsResponse は重みインポートレスポンス
+message ImportWeightsResponse {
+  // インポートされた重み
+  ModelWeights weights = 1;
+  
+  // 検証結果
+  bool is_valid = 2;
+  
+  // エラーメッセージ（エラー時のみ）
+  string error = 3;
+}
+
+// ValidateWeightsRequest は重み検証リクエスト
+message ValidateWeightsRequest {
+  // 検証する重み
+  ModelWeights weights = 1;
+  
+  // 検証レベル
+  ValidationLevel level = 2;
+}
+
+// ValidationLevel は検証レベル
+enum ValidationLevel {
+  BASIC = 0;      // 基本的な検証
+  STRICT = 1;     // 厳密な検証
+  FULL = 2;       // 完全な検証（パフォーマンステスト含む）
+}
+
+// ValidateWeightsResponse は重み検証レスポンス
+message ValidateWeightsResponse {
+  // 検証結果
+  bool is_valid = 1;
+  
+  // 検証メッセージ
+  repeated string messages = 2;
+  
+  // 検証メトリクス
+  map<string, double> metrics = 3;
+  
+  // エラーメッセージ（エラー時のみ）
+  string error = 4;
+}

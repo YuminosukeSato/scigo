@@ -40,31 +40,31 @@ func main() {
 
 	// 1. SGDRegressor ベンチマーク
 	fmt.Println("1. SGDRegressor Benchmarks")
-	fmt.Println("-" + fmt.Sprintf("%s", repeat("=", 49)))
+	fmt.Println("-" + repeat("=", 49))
 	sgdResults := benchmarkSGDRegressor()
 	results = append(results, sgdResults...)
 
 	// 2. SGDClassifier ベンチマーク
 	fmt.Println("\n2. SGDClassifier Benchmarks")
-	fmt.Println("-" + fmt.Sprintf("%s", repeat("=", 49)))
+	fmt.Println("-" + repeat("=", 49))
 	sgdClassifierResults := benchmarkSGDClassifier()
 	results = append(results, sgdClassifierResults...)
 
 	// 3. PassiveAggressive ベンチマーク
 	fmt.Println("\n3. PassiveAggressive Benchmarks")
-	fmt.Println("-" + fmt.Sprintf("%s", repeat("=", 49)))
+	fmt.Println("-" + repeat("=", 49))
 	paResults := benchmarkPassiveAggressive()
 	results = append(results, paResults...)
 
 	// 4. MiniBatchKMeans ベンチマーク
 	fmt.Println("\n4. MiniBatchKMeans Benchmarks")
-	fmt.Println("-" + fmt.Sprintf("%s", repeat("=", 49)))
+	fmt.Println("-" + repeat("=", 49))
 	kmeansResults := benchmarkMiniBatchKMeans()
 	results = append(results, kmeansResults...)
 
 	// 5. ドリフト検出 ベンチマーク
 	fmt.Println("\n5. Drift Detection Benchmarks")
-	fmt.Println("-" + fmt.Sprintf("%s", repeat("=", 49)))
+	fmt.Println("-" + repeat("=", 49))
 	driftResults := benchmarkDriftDetection()
 	results = append(results, driftResults...)
 
@@ -135,7 +135,7 @@ func benchmarkSGDRegressorBatch(X, y mat.Matrix, samples, features int) Benchmar
 	)
 
 	start := time.Now()
-	sgd.Fit(X, y)
+	_ = sgd.Fit(X, y)
 	duration := time.Since(start)
 
 	runtime.GC()
@@ -181,7 +181,7 @@ func benchmarkSGDRegressorOnline(X, y mat.Matrix, samples, features int) Benchma
 		yDense := y.(*mat.Dense)
 		XBatch := XDense.Slice(i, end, 0, features)
 		yBatch := yDense.Slice(i, end, 0, 1)
-		sgd.PartialFit(XBatch, yBatch, nil)
+		_ = sgd.PartialFit(XBatch, yBatch, nil)
 	}
 
 	duration := time.Since(start)
@@ -246,7 +246,10 @@ func benchmarkSGDRegressorStreaming(X, y mat.Matrix, samples, features int) Benc
 	}()
 
 	// ストリーミング学習
-	sgd.FitStream(ctx, dataChan)
+	if err := sgd.FitStream(ctx, dataChan); err != nil {
+		fmt.Printf("Error in stream fit: %v\n", err)
+		return BenchmarkResult{}
+	}
 	duration := time.Since(start)
 
 	runtime.GC()
@@ -323,7 +326,7 @@ func benchmarkSGDClassifierOnline(X, y mat.Matrix, samples, features int) Benchm
 		yDense := y.(*mat.Dense)
 		XBatch := XDense.Slice(i, end, 0, features)
 		yBatch := yDense.Slice(i, end, 0, 1)
-		sgd.PartialFit(XBatch, yBatch, nil)
+		_ = sgd.PartialFit(XBatch, yBatch, nil)
 	}
 
 	duration := time.Since(start)
@@ -360,7 +363,7 @@ func benchmarkPassiveAggressive() []BenchmarkResult {
 	runtime.ReadMemStats(&m1)
 
 	start := time.Now()
-	pa.Fit(X, y)
+	_ = pa.Fit(X, y)
 	duration := time.Since(start)
 
 	runtime.GC()
@@ -401,7 +404,7 @@ func benchmarkMiniBatchKMeans() []BenchmarkResult {
 	runtime.ReadMemStats(&m1)
 
 	start := time.Now()
-	kmeans.Fit(X, nil)
+	_ = kmeans.Fit(X, nil)
 	duration := time.Since(start)
 
 	runtime.GC()
@@ -429,7 +432,7 @@ func benchmarkDriftDetection() []BenchmarkResult {
 
 	// DDM
 	ddm := drift.NewDDM()
-	rand.Seed(42)
+	rng := rand.New(rand.NewSource(42))
 
 	var m1, m2 runtime.MemStats
 	runtime.GC()
@@ -445,7 +448,7 @@ func benchmarkDriftDetection() []BenchmarkResult {
 			errorProb = 0.20
 		}
 
-		correct := rand.Float64() > errorProb
+		correct := rng.Float64() > errorProb
 		result := ddm.Update(correct)
 
 		if result.DriftDetected {
@@ -477,7 +480,7 @@ func benchmarkDriftDetection() []BenchmarkResult {
 // データ生成関数
 
 func generateRegressionData(samples, features int, seed int64) (mat.Matrix, mat.Matrix) {
-	rand.Seed(seed)
+	rng := rand.New(rand.NewSource(seed))
 
 	X := mat.NewDense(samples, features, nil)
 	y := mat.NewDense(samples, 1, nil)
@@ -485,18 +488,18 @@ func generateRegressionData(samples, features int, seed int64) (mat.Matrix, mat.
 	// 真の重み
 	weights := make([]float64, features)
 	for i := range weights {
-		weights[i] = rand.NormFloat64()
+		weights[i] = rng.NormFloat64()
 	}
 
 	for i := 0; i < samples; i++ {
 		target := 0.0
 		for j := 0; j < features; j++ {
-			value := rand.NormFloat64()
+			value := rng.NormFloat64()
 			X.Set(i, j, value)
 			target += weights[j] * value
 		}
 		// ノイズ追加
-		target += rand.NormFloat64() * 0.1
+		target += rng.NormFloat64() * 0.1
 		y.Set(i, 0, target)
 	}
 
@@ -504,18 +507,18 @@ func generateRegressionData(samples, features int, seed int64) (mat.Matrix, mat.
 }
 
 func generateClassificationData(samples, features, classes int, seed int64) (mat.Matrix, mat.Matrix) {
-	rand.Seed(seed)
+	rng := rand.New(rand.NewSource(seed))
 
 	X := mat.NewDense(samples, features, nil)
 	y := mat.NewDense(samples, 1, nil)
 
 	for i := 0; i < samples; i++ {
-		class := rand.Intn(classes)
+		class := rng.Intn(classes)
 		y.Set(i, 0, float64(class))
 
 		for j := 0; j < features; j++ {
 			// クラスに依存した特徴量
-			value := rand.NormFloat64() + float64(class)*0.5
+			value := rng.NormFloat64() + float64(class)*0.5
 			X.Set(i, j, value)
 		}
 	}
@@ -524,7 +527,7 @@ func generateClassificationData(samples, features, classes int, seed int64) (mat
 }
 
 func generateClusteringData(samples, features, clusters int, seed int64) (mat.Matrix, mat.Matrix) {
-	rand.Seed(seed)
+	rng := rand.New(rand.NewSource(seed))
 
 	X := mat.NewDense(samples, features, nil)
 
@@ -533,14 +536,14 @@ func generateClusteringData(samples, features, clusters int, seed int64) (mat.Ma
 	for c := 0; c < clusters; c++ {
 		centers[c] = make([]float64, features)
 		for j := 0; j < features; j++ {
-			centers[c][j] = rand.NormFloat64() * 5
+			centers[c][j] = rng.NormFloat64() * 5
 		}
 	}
 
 	for i := 0; i < samples; i++ {
-		cluster := rand.Intn(clusters)
+		cluster := rng.Intn(clusters)
 		for j := 0; j < features; j++ {
-			value := centers[cluster][j] + rand.NormFloat64()
+			value := centers[cluster][j] + rng.NormFloat64()
 			X.Set(i, j, value)
 		}
 	}

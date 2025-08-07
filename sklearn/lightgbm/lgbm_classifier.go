@@ -44,10 +44,11 @@ type LGBMClassifier struct {
 	ShowProgress bool // Show progress bar during training
 
 	// Internal state
-	classes_      []int    // Unique class labels
-	nClasses_     int      // Number of classes
-	featureNames_ []string // Feature names
-	nFeatures_    int      // Number of features
+	classes_   []int // Unique class labels
+	nClasses_  int   // Number of classes
+	// featureNames_ field reserved for future use
+	// featureNames_ []string // Feature names
+	nFeatures_ int // Number of features
 }
 
 // NewLGBMClassifier creates a new LightGBM classifier with default parameters

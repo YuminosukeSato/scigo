@@ -33,7 +33,7 @@ func TestSaveLoadModel(t *testing.T) {
 
 	// モデルを一時ファイルに保存
 	tmpFile := "test_model.gob"
-	defer os.Remove(tmpFile)
+	defer func() { _ = os.Remove(tmpFile) }()
 
 	err = model.SaveModel(reg, tmpFile)
 	if err != nil {

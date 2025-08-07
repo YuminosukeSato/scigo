@@ -446,7 +446,7 @@ func (nb *MultinomialNB) validateInput(X, y mat.Matrix) error {
 	yRows, yCols := y.Dims()
 
 	if xRows != yRows {
-		return fmt.Errorf("X and y must have the same number of samples: got %d and %d", xRows, yRows)
+		return fmt.Errorf("x and y must have the same number of samples: got %d and %d", xRows, yRows)
 	}
 
 	if yCols != 1 {

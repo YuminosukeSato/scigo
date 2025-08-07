@@ -374,7 +374,7 @@ func ExplainedVarianceScore(yTrue, yPred *mat.VecDense) (float64, error) {
 		diffMean += (yTrue.AtVec(i) - yPred.AtVec(i))
 	}
 	yTrueMean /= float64(n)
-	yPredMean /= float64(n)
+	_ = yPredMean // yPredMean is not used after this
 	diffMean /= float64(n)
 
 	// Calculate variances

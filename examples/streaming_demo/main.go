@@ -45,14 +45,14 @@ func compareBatchVsOnline() {
 	X := mat.NewDense(nSamples, 2, nil)
 	y := mat.NewDense(nSamples, 1, nil)
 
-	rand.Seed(42)
+	rng := rand.New(rand.NewSource(42))
 	for i := 0; i < nSamples; i++ {
-		x1 := rand.NormFloat64()
-		x2 := rand.NormFloat64()
+		x1 := rng.NormFloat64()
+		x2 := rng.NormFloat64()
 		X.Set(i, 0, x1)
 		X.Set(i, 1, x2)
 		// y = 3*x1 + 2*x2 + 1 + noise
-		y.Set(i, 0, 3*x1+2*x2+1+rand.NormFloat64()*0.1)
+		y.Set(i, 0, 3*x1+2*x2+1+rng.NormFloat64()*0.1)
 	}
 
 	// バッチ学習
@@ -120,7 +120,7 @@ func demonstrateStreamingLearning() {
 
 	go func() {
 		defer close(dataChan)
-		rand.Seed(42)
+		rng := rand.New(rand.NewSource(42))
 
 		for i := 0; i < 100; i++ {
 			// ミニバッチを生成
@@ -129,14 +129,14 @@ func demonstrateStreamingLearning() {
 			y := mat.NewDense(batchSize, 1, nil)
 
 			for j := 0; j < batchSize; j++ {
-				x1 := rand.NormFloat64()
-				x2 := rand.NormFloat64()
-				x3 := rand.NormFloat64()
+				x1 := rng.NormFloat64()
+				x2 := rng.NormFloat64()
+				x3 := rng.NormFloat64()
 				X.Set(j, 0, x1)
 				X.Set(j, 1, x2)
 				X.Set(j, 2, x3)
 				// y = 2*x1 + 3*x2 - x3 + 1
-				y.Set(j, 0, 2*x1+3*x2-x3+1+rand.NormFloat64()*0.05)
+				y.Set(j, 0, 2*x1+3*x2-x3+1+rng.NormFloat64()*0.05)
 			}
 
 			select {
@@ -174,7 +174,7 @@ func demonstrateConceptDrift() {
 		linear_model.WithRandomState(42),
 	)
 
-	rand.Seed(42)
+	rng := rand.New(rand.NewSource(42))
 	fmt.Println("Simulating concept drift...")
 
 	// フェーズ1: y = 2*x + 1
@@ -184,12 +184,15 @@ func demonstrateConceptDrift() {
 		y := mat.NewDense(10, 1, nil)
 
 		for j := 0; j < 10; j++ {
-			x := rand.NormFloat64()
+			x := rng.NormFloat64()
 			X.Set(j, 0, x)
-			y.Set(j, 0, 2*x+1+rand.NormFloat64()*0.1)
+			y.Set(j, 0, 2*x+1+rng.NormFloat64()*0.1)
 		}
 
-		sgd.PartialFit(X, y, nil)
+		if err := sgd.PartialFit(X, y, nil); err != nil {
+			fmt.Printf("Error in partial fit: %v\n", err)
+			continue
+		}
 
 		if i%10 == 0 {
 			fmt.Printf("  Iteration %d - Coef: %.3f, Intercept: %.3f, Loss: %.4f\n",
@@ -204,12 +207,15 @@ func demonstrateConceptDrift() {
 		y := mat.NewDense(10, 1, nil)
 
 		for j := 0; j < 10; j++ {
-			x := rand.NormFloat64()
+			x := rng.NormFloat64()
 			X.Set(j, 0, x)
-			y.Set(j, 0, -x+3+rand.NormFloat64()*0.1)
+			y.Set(j, 0, -x+3+rng.NormFloat64()*0.1)
 		}
 
-		sgd.PartialFit(X, y, nil)
+		if err := sgd.PartialFit(X, y, nil); err != nil {
+			fmt.Printf("Error in partial fit: %v\n", err)
+			continue
+		}
 
 		if i%10 == 0 {
 			fmt.Printf("  Iteration %d - Coef: %.3f, Intercept: %.3f, Loss: %.4f\n",
@@ -236,19 +242,19 @@ func demonstrateTestThenTrain() {
 	// データ生成
 	go func() {
 		defer close(dataChan)
-		rand.Seed(42)
+		rng := rand.New(rand.NewSource(42))
 
 		for i := 0; i < 20; i++ {
 			X := mat.NewDense(5, 2, nil)
 			y := mat.NewDense(5, 1, nil)
 
 			for j := 0; j < 5; j++ {
-				x1 := rand.Float64() * 10
-				x2 := rand.Float64() * 10
+				x1 := rng.Float64() * 10
+				x2 := rng.Float64() * 10
 				X.Set(j, 0, x1)
 				X.Set(j, 1, x2)
 				// y = 0.5*x1 + 0.3*x2 + 2
-				y.Set(j, 0, 0.5*x1+0.3*x2+2+rand.NormFloat64()*0.1)
+				y.Set(j, 0, 0.5*x1+0.3*x2+2+rng.NormFloat64()*0.1)
 			}
 
 			select {
