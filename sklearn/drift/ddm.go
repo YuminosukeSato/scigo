@@ -5,42 +5,42 @@ import (
 	"sync"
 )
 
-// DDM (Drift Detection Method) はコンセプトドリフト検出手法
-// J. Gama, P. Medas, G. Castillo, P. Rodrigues (2004)
-// "Learning with Drift Detection"で提案された手法
+// DDM (Drift Detection Method) is a concept drift detection method
+// Proposed in J. Gama, P. Medas, G. Castillo, P. Rodrigues (2004)
+// "Learning with Drift Detection"
 type DDM struct {
-	// ハイパーパラメータ
-	minNumInstances int     // 最小サンプル数
-	warningLevel    float64 // 警告レベル
-	outControlLevel float64 // コントロール外レベル
+	// Hyperparameters
+	minNumInstances int     // Minimum number of instances
+	warningLevel    float64 // Warning level
+	outControlLevel float64 // Out of control level
 
-	// 統計情報
-	numInstances int     // サンプル数
-	numErrors    int     // エラー数
-	errorRate    float64 // エラー率
-	stdDev       float64 // 標準偏差
+	// Statistics
+	numInstances int     // Number of instances
+	numErrors    int     // Number of errors
+	errorRate    float64 // Error rate
+	stdDev       float64 // Standard deviation
 
-	// 基準値（学習開始時の最小値）
-	minErrorRate float64 // 最小エラー率
-	minStdDev    float64 // 最小標準偏差
+	// Reference values (minimum values from learning start)
+	minErrorRate float64 // Minimum error rate
+	minStdDev    float64 // Minimum standard deviation
 
-	// 状態
-	warningDetected bool // 警告検出フラグ
-	driftDetected   bool // ドリフト検出フラグ
+	// State
+	warningDetected bool // Warning detection flag
+	driftDetected   bool // Drift detection flag
 
-	// 内部状態
+	// Internal state
 	mu sync.RWMutex
 }
 
-// DriftDetectionResult はドリフト検出の結果
+// DriftDetectionResult represents the result of drift detection
 type DriftDetectionResult struct {
-	WarningDetected bool    // 警告が検出されたか
-	DriftDetected   bool    // ドリフトが検出されたか
-	ErrorRate       float64 // 現在のエラー率
-	ConfidenceLevel float64 // 信頼度
+	WarningDetected bool    // Whether warning was detected
+	DriftDetected   bool    // Whether drift was detected
+	ErrorRate       float64 // Current error rate
+	ConfidenceLevel float64 // Confidence level
 }
 
-// NewDDM は新しいDDMを作成
+// NewDDM creates a new DDM instance
 func NewDDM(options ...DDMOption) *DDM {
 	ddm := &DDM{
 		minNumInstances: 30,
