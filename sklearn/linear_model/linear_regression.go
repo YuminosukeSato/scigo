@@ -11,55 +11,50 @@ import (
 	"gonum.org/v1/gonum/mat"
 )
 
-// LinearRegression は最小二乗法による線形回帰モデル
-// scikit-learnのLinearRegressionと完全互換
+// LinearRegression is a linear regression model using ordinary least squares
+// Fully compatible with scikit-learn's LinearRegression
 type LinearRegression struct {
-	model.BaseEstimator
+	state *model.StateManager // State management (composition instead of embedding)
 	
-	// ハイパーパラメータ
-	fitIntercept bool    // 切片を学習するか
-	normalize    bool    // 入力データを正規化するか（deprecated in sklearn）
-	copyX        bool    // 入力データをコピーするか
-	nJobs        int     // 並列ジョブ数
-	positive     bool    // 係数を正に制約するか
+	// Hyperparameters
+	fitIntercept bool    // Whether to learn the intercept
+	normalize    bool    // Whether to normalize input data (deprecated in sklearn)
+	copyX        bool    // Whether to copy input data
+	nJobs        int     // Number of parallel jobs
+	positive     bool    // Whether to constrain coefficients to be positive
 	
-	// 学習パラメータ
-	coef_      []float64 // 重み係数
-	intercept_ float64   // 切片
+	// Model type and version info
+	modelType    string
+	version      string
 	
-	// 統計情報
-	nFeatures_  int       // 特徴量の数
-	nSamples_   int       // サンプル数
-	singularValues_ []float64 // 特異値（診断用）
-	rank_       int       // 行列のランク
+	// Learned parameters
+	coef_      []float64 // Weight coefficients
+	intercept_ float64   // Intercept
+	
+	// Statistical information
+	nFeatures_  int       // Number of features
+	nSamples_   int       // Number of samples
+	singularValues_ []float64 // Singular values (for diagnostics)
+	rank_       int       // Matrix rank
 }
 
 // NewLinearRegression は新しいLinearRegressionモデルを作成
 func NewLinearRegression(options ...LinearRegressionOption) *LinearRegression {
 	lr := &LinearRegression{
+		state:        model.NewStateManager(),
 		fitIntercept: true,
 		normalize:    false,
 		copyX:        true,
 		nJobs:        1,
 		positive:     false,
+		modelType:    "LinearRegression",
+		version:      "1.0.0",
 	}
 	
-	lr.BaseEstimator.ModelType = "LinearRegression"
-	lr.BaseEstimator.Version = "1.0.0"
-	
-	// オプションを適用
+	// Apply options
 	for _, opt := range options {
 		opt(lr)
 	}
-	
-	// ハイパーパラメータを設定
-	lr.BaseEstimator.SetParams(map[string]interface{}{
-		"fit_intercept": lr.fitIntercept,
-		"normalize":     lr.normalize,
-		"copy_X":        lr.copyX,
-		"n_jobs":        lr.nJobs,
-		"positive":      lr.positive,
-	})
 	
 	return lr
 }
@@ -195,13 +190,14 @@ func (lr *LinearRegression) Fit(X, y mat.Matrix) error {
 		}
 	}
 	
-	lr.SetFitted()
+	lr.state.SetFitted()
+	lr.state.SetDimensions(lr.nFeatures_, lr.nSamples_)
 	return nil
 }
 
 // Predict は入力データに対する予測を行う
 func (lr *LinearRegression) Predict(X mat.Matrix) (mat.Matrix, error) {
-	if !lr.IsFitted() {
+	if !lr.state.IsFitted() {
 		return nil, errors.NewNotFittedError("LinearRegression", "Predict")
 	}
 	
@@ -271,28 +267,23 @@ func (lr *LinearRegression) Intercept() float64 {
 	return lr.intercept_
 }
 
-// GetParams はモデルのハイパーパラメータを取得（scikit-learn互換）
+// GetParams returns the model's hyperparameters (scikit-learn compatible)
 func (lr *LinearRegression) GetParams(deep bool) map[string]interface{} {
-	params := lr.BaseEstimator.GetParams(deep)
-	
-	// LinearRegression固有のパラメータを追加
-	params["fit_intercept"] = lr.fitIntercept
-	params["normalize"] = lr.normalize
-	params["copy_X"] = lr.copyX
-	params["n_jobs"] = lr.nJobs
-	params["positive"] = lr.positive
-	
-	return params
+	return map[string]interface{}{
+		"fit_intercept": lr.fitIntercept,
+		"normalize":     lr.normalize,
+		"copy_X":        lr.copyX,
+		"n_jobs":        lr.nJobs,
+		"positive":      lr.positive,
+		"fitted":        lr.state.IsFitted(),
+		"model_type":    lr.modelType,
+		"version":       lr.version,
+	}
 }
 
-// SetParams はモデルのハイパーパラメータを設定（scikit-learn互換）
+// SetParams sets the model's hyperparameters (scikit-learn compatible)
 func (lr *LinearRegression) SetParams(params map[string]interface{}) error {
-	// BaseEstimatorのパラメータを設定
-	if err := lr.BaseEstimator.SetParams(params); err != nil {
-		return err
-	}
-	
-	// LinearRegression固有のパラメータを設定
+	// Set LinearRegression-specific parameters
 	if v, ok := params["fit_intercept"].(bool); ok {
 		lr.fitIntercept = v
 	}
@@ -314,13 +305,13 @@ func (lr *LinearRegression) SetParams(params map[string]interface{}) error {
 
 // ExportWeights はモデルの重みをエクスポート（完全な再現性を保証）
 func (lr *LinearRegression) ExportWeights() (*model.ModelWeights, error) {
-	if !lr.IsFitted() {
+	if !lr.state.IsFitted() {
 		return nil, fmt.Errorf("model is not fitted")
 	}
 	
 	weights := &model.ModelWeights{
 		ModelType:       "LinearRegression",
-		Version:         lr.Version,
+		Version:         lr.version,
 		Coefficients:    lr.Coef(),
 		Intercept:       lr.intercept_,
 		IsFitted:        true,
@@ -382,13 +373,14 @@ func (lr *LinearRegression) ImportWeights(weights *model.ModelWeights) error {
 		}
 	}
 	
-	lr.SetFitted()
+	lr.state.SetFitted()
+	lr.state.SetDimensions(lr.nFeatures_, lr.nSamples_)
 	return nil
 }
 
-// GetWeightHash は重みのハッシュ値を計算（検証用）
+// GetWeightHash calculates the hash value of weights (for verification)
 func (lr *LinearRegression) GetWeightHash() string {
-	if !lr.IsFitted() {
+	if !lr.state.IsFitted() {
 		return ""
 	}
 	
@@ -396,6 +388,11 @@ func (lr *LinearRegression) GetWeightHash() string {
 	jsonData, _ := json.Marshal(data)
 	hash := sha256.Sum256(jsonData)
 	return hex.EncodeToString(hash[:])
+}
+
+// IsFitted returns whether the model has been fitted
+func (lr *LinearRegression) IsFitted() bool {
+	return lr.state.IsFitted()
 }
 
 // Clone はモデルの新しいインスタンスを作成（同じハイパーパラメータ）
@@ -408,8 +405,8 @@ func (lr *LinearRegression) Clone() model.SKLearnCompatible {
 		WithPositive(lr.positive),
 	)
 	
-	// 学習済みの場合は重みもコピー
-	if lr.IsFitted() {
+	// Copy weights if the model is trained
+	if lr.state.IsFitted() {
 		weights, _ := lr.ExportWeights()
 		clone.ImportWeights(weights)
 	}
@@ -417,9 +414,9 @@ func (lr *LinearRegression) Clone() model.SKLearnCompatible {
 	return clone
 }
 
-// String はモデルの文字列表現を返す
+// String returns the string representation of the model
 func (lr *LinearRegression) String() string {
-	if !lr.IsFitted() {
+	if !lr.state.IsFitted() {
 		return fmt.Sprintf("LinearRegression(fit_intercept=%t, normalize=%t, copy_X=%t, n_jobs=%d, positive=%t)",
 			lr.fitIntercept, lr.normalize, lr.copyX, lr.nJobs, lr.positive)
 	}

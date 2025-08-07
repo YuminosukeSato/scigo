@@ -5,66 +5,66 @@ import (
 	"gonum.org/v1/gonum/mat"
 )
 
-// Batch はストリーミング学習用のデータバッチを表す
+// Batch represents a data batch for streaming learning
 type Batch struct {
-	X mat.Matrix // 特徴量行列
-	Y mat.Matrix // ターゲット行列
+	X mat.Matrix // Feature matrix
+	Y mat.Matrix // Target matrix
 }
 
-// StreamingEstimator はチャネルベースのストリーミング学習を提供するインターフェース
+// StreamingEstimator provides channel-based streaming learning interface
 type StreamingEstimator interface {
 	IncrementalEstimator
 
-	// FitStream はデータストリームからモデルを学習する
-	// コンテキストがキャンセルされるまで、またはチャネルがクローズされるまで学習を継続
+	// FitStream trains the model from a data stream
+	// Continues learning until the context is canceled or the channel is closed
 	FitStream(ctx context.Context, dataChan <-chan *Batch) error
 
-	// PredictStream は入力ストリームに対してリアルタイム予測を行う
-	// 入力チャネルがクローズされると出力チャネルもクローズされる
+	// PredictStream performs real-time predictions on input stream
+	// Output channel is closed when input channel is closed
 	PredictStream(ctx context.Context, inputChan <-chan mat.Matrix) <-chan mat.Matrix
 
-	// FitPredictStream は学習と予測を同時に行う
-	// 新しいデータで学習しながら、同時に予測も返す（test-then-train方式）
+	// FitPredictStream performs learning and prediction simultaneously
+	// Returns predictions while training on new data (test-then-train approach)
 	FitPredictStream(ctx context.Context, dataChan <-chan *Batch) <-chan mat.Matrix
 }
 
-// StreamingMetrics はストリーミング学習中のメトリクスを提供
+// StreamingMetrics provides metrics during streaming learning
 type StreamingMetrics interface {
 	OnlineMetrics
 
-	// GetThroughput は現在のスループット（サンプル/秒）を返す
+	// GetThroughput returns current throughput (samples/second)
 	GetThroughput() float64
 
-	// GetProcessedSamples は処理されたサンプル総数を返す
+	// GetProcessedSamples returns total number of processed samples
 	GetProcessedSamples() int64
 
-	// GetAverageLatency は平均レイテンシ（ミリ秒）を返す
+	// GetAverageLatency returns average latency in milliseconds
 	GetAverageLatency() float64
 
-	// GetMemoryUsage は現在のメモリ使用量（バイト）を返す
+	// GetMemoryUsage returns current memory usage in bytes
 	GetMemoryUsage() int64
 }
 
-// BufferedStreaming はバッファリング機能を持つストリーミングインターフェース
+// BufferedStreaming is a streaming interface with buffering capabilities
 type BufferedStreaming interface {
-	// SetBufferSize はストリーミングバッファのサイズを設定
+	// SetBufferSize sets the size of streaming buffer
 	SetBufferSize(size int)
 
-	// GetBufferSize は現在のバッファサイズを返す
+	// GetBufferSize returns current buffer size
 	GetBufferSize() int
 
-	// FlushBuffer はバッファを強制的にフラッシュ
+	// FlushBuffer forces buffer flush
 	FlushBuffer() error
 }
 
-// ParallelStreaming は並列ストリーミング処理のインターフェース
+// ParallelStreaming is an interface for parallel streaming processing
 type ParallelStreaming interface {
-	// SetWorkers はワーカー数を設定
+	// SetWorkers sets the number of workers
 	SetWorkers(n int)
 
-	// GetWorkers は現在のワーカー数を返す
+	// GetWorkers returns current number of workers
 	GetWorkers() int
 
-	// SetBatchParallelism はバッチ内並列処理の有効/無効を設定
+	// SetBatchParallelism enables/disables intra-batch parallelism
 	SetBatchParallelism(enabled bool)
 }

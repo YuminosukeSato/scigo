@@ -10,71 +10,71 @@ import (
 	"gonum.org/v1/gonum/mat"
 )
 
-// PassiveAggressiveRegressor は受動的攻撃的回帰モデル
-// scikit-learnのPassiveAggressiveRegressorと互換性を持つ
+// PassiveAggressiveRegressor is a passive aggressive regression model
+// Compatible with scikit-learn's PassiveAggressiveRegressor
 type PassiveAggressiveRegressor struct {
-	model.BaseEstimator
+	state *model.StateManager // State management (composition instead of embedding)
 
-	// ハイパーパラメータ
-	C            float64 // 正則化パラメータ
-	fitIntercept bool    // 切片を学習するか
-	maxIter      int     // 最大イテレーション数
-	tol          float64 // 収束判定の許容誤差
-	shuffle      bool    // 各エポックでデータをシャッフルするか
-	verbose      int     // 詳細出力レベル
-	randomState  int64   // 乱数シード
-	warmStart    bool    // 前回の学習から継続するか
-	averagePA    bool    // 平均化PAを使用するか
-	loss         string  // 損失関数: "epsilon_insensitive", "squared_epsilon_insensitive"
-	epsilon      float64 // epsilon-insensitive損失のepsilon
+	// Hyperparameters
+	C            float64 // Regularization parameter
+	fitIntercept bool    // Whether to learn the intercept
+	maxIter      int     // Maximum number of iterations
+	tol          float64 // Tolerance for convergence
+	shuffle      bool    // Whether to shuffle data at each epoch
+	verbose      int     // Verbosity level
+	randomState  int64   // Random seed
+	warmStart    bool    // Whether to continue from previous training
+	averagePA    bool    // Whether to use averaged PA
+	loss         string  // Loss function: "epsilon_insensitive", "squared_epsilon_insensitive"
+	epsilon      float64 // Epsilon for epsilon-insensitive loss
 
-	// 学習パラメータ
-	coef_         []float64 // 重み係数
-	intercept_    float64   // 切片
-	avgCoef_      []float64 // 平均化された重み
-	avgIntercept_ float64   // 平均化された切片
+	// Learning parameters
+	coef_         []float64 // Weight coefficients
+	intercept_    float64   // Intercept
+	avgCoef_      []float64 // Averaged weights
+	avgIntercept_ float64   // Averaged intercept
 
-	// 学習状態
-	nIter_     int   // 実行されたイテレーション数
-	t_         int64 // 総ステップ数
-	converged_ bool  // 収束フラグ
+	// Learning state
+	nIter_     int   // Number of iterations executed
+	t_         int64 // Total step count
+	converged_ bool  // Convergence flag
 
-	// 内部状態
+	// Internal state
 	mu         sync.RWMutex
 	nFeatures_ int
 }
 
 // PassiveAggressiveClassifier は受動的攻撃的分類モデル
 type PassiveAggressiveClassifier struct {
-	model.BaseEstimator
+	state *model.StateManager // State management (composition instead of embedding)
 
-	// ハイパーパラメータ
-	C            float64 // 正則化パラメータ
-	fitIntercept bool    // 切片を学習するか
-	maxIter      int     // 最大イテレーション数
-	tol          float64 // 収束判定の許容誤差
-	shuffle      bool    // 各エポックでデータをシャッフルするか
-	verbose      int     // 詳細出力レベル
-	randomState  int64   // 乱数シード
-	warmStart    bool    // 前回の学習から継続するか
-	averagePA    bool    // 平均化PAを使用するか
-	loss         string  // 損失関数: "hinge", "squared_hinge"
-	classWeight  string  // クラス重み: "balanced", "none"
+	// Hyperparameters
+	C            float64 // Regularization parameter
+	fitIntercept bool    // Whether to learn the intercept
+	maxIter      int     // Maximum number of iterations
+	tol          float64 // Tolerance for convergence
+	shuffle      bool    // Whether to shuffle data at each epoch
+	verbose      int     // Verbosity level
+	randomState  int64   // Random seed
+	warmStart    bool    // Whether to continue from previous training
+	averagePA    bool    // Whether to use averaged PA
+	loss         string  // Loss function: "hinge", "squared_hinge"
+	classWeight  string  // Class weight: "balanced", "none"
 
-	// 学習パラメータ
-	coef_         [][]float64 // 重み係数（クラス数 x 特徴数）
-	intercept_    []float64   // 切片（クラス数）
-	avgCoef_      [][]float64 // 平均化された重み
-	avgIntercept_ []float64   // 平均化された切片
-	classes_      []int       // クラスラベル
-	nClasses_     int         // クラス数
+	// Learning parameters
+	coef_         [][]float64 // Weight coefficients (n_classes x n_features)
+	intercept_    []float64   // Intercept (n_classes)
+	avgCoef_      [][]float64 // Averaged weights
+	avgIntercept_ []float64   // Averaged intercept
+	classes_      []int       // Class labels
+	nClasses_     int         // Number of classes
 
-	// 学習状態
-	nIter_     int   // 実行されたイテレーション数
-	t_         int64 // 総ステップ数
-	converged_ bool  // 収束フラグ
+	// Learning state
+	nIter_     int   // Number of iterations executed
+	t_         int64 // Total step count
+	converged_ bool  // Convergence flag
 
-	// 内部状態
+	// Internal state
 	mu         sync.RWMutex
 	nFeatures_ int
 }
@@ -85,6 +85,7 @@ type PassiveAggressiveOption func(interface{})
 // NewPassiveAggressiveRegressor は新しいPassiveAggressiveRegressorを作成
 func NewPassiveAggressiveRegressor(options ...PassiveAggressiveOption) *PassiveAggressiveRegressor {
 	pa := &PassiveAggressiveRegressor{
+		state:        model.NewStateManager(),
 		C:            1.0,
 		fitIntercept: true,
 		maxIter:      1000,
@@ -108,6 +109,7 @@ func NewPassiveAggressiveRegressor(options ...PassiveAggressiveOption) *PassiveA
 // NewPassiveAggressiveClassifier は新しいPassiveAggressiveClassifierを作成
 func NewPassiveAggressiveClassifier(options ...PassiveAggressiveOption) *PassiveAggressiveClassifier {
 	pa := &PassiveAggressiveClassifier{
+		state:        model.NewStateManager(),
 		C:            1.0,
 		fitIntercept: true,
 		maxIter:      1000,
@@ -213,7 +215,7 @@ func (pa *PassiveAggressiveRegressor) Fit(X, y mat.Matrix) error {
 		pa.converged_ = true
 	}
 
-	pa.SetFitted()
+	pa.state.SetFitted()
 	return nil
 }
 
@@ -242,7 +244,7 @@ func (pa *PassiveAggressiveRegressor) PartialFit(X, y mat.Matrix, classes []int)
 		pa.updateWeights(xi, yi)
 	}
 
-	pa.SetFitted()
+	pa.state.SetFitted()
 	return nil
 }
 
@@ -313,7 +315,7 @@ func (pa *PassiveAggressiveRegressor) Predict(X mat.Matrix) (mat.Matrix, error) 
 	pa.mu.RLock()
 	defer pa.mu.RUnlock()
 
-	if !pa.IsFitted() {
+	if !pa.state.IsFitted() {
 		return nil, errors.NewNotFittedError("PassiveAggressiveRegressor", "Predict")
 	}
 
@@ -384,7 +386,7 @@ func (pa *PassiveAggressiveClassifier) Fit(X, y mat.Matrix) error {
 		pa.converged_ = true
 	}
 
-	pa.SetFitted()
+	pa.state.SetFitted()
 	return nil
 }
 
@@ -422,7 +424,7 @@ func (pa *PassiveAggressiveClassifier) PartialFit(X, y mat.Matrix, classes []int
 		pa.updateWeights(xi, yi)
 	}
 
-	pa.SetFitted()
+	pa.state.SetFitted()
 	return nil
 }
 
@@ -505,7 +507,7 @@ func (pa *PassiveAggressiveClassifier) Predict(X mat.Matrix) (mat.Matrix, error)
 	pa.mu.RLock()
 	defer pa.mu.RUnlock()
 
-	if !pa.IsFitted() {
+	if !pa.state.IsFitted() {
 		return nil, errors.NewNotFittedError("PassiveAggressiveClassifier", "Predict")
 	}
 
@@ -683,7 +685,7 @@ func (pa *PassiveAggressiveRegressor) reset() {
 	pa.avgIntercept_ = 0
 	pa.nIter_ = 0
 	pa.t_ = 0
-	pa.Reset() // BaseEstimatorのリセット
+	pa.state.Reset() // Reset state manager
 }
 
 func (pa *PassiveAggressiveClassifier) reset() {
@@ -695,7 +697,53 @@ func (pa *PassiveAggressiveClassifier) reset() {
 	pa.nClasses_ = 0
 	pa.nIter_ = 0
 	pa.t_ = 0
-	pa.Reset() // BaseEstimatorのリセット
+	pa.state.Reset() // Reset state manager
+}
+
+// IsFitted returns whether the regressor has been fitted
+func (pa *PassiveAggressiveRegressor) IsFitted() bool {
+	return pa.state.IsFitted()
+}
+
+// IsFitted returns whether the classifier has been fitted
+func (pa *PassiveAggressiveClassifier) IsFitted() bool {
+	return pa.state.IsFitted()
+}
+
+// GetParams returns the hyperparameters for regressor
+func (pa *PassiveAggressiveRegressor) GetParams() map[string]interface{} {
+	return map[string]interface{}{
+		"C":             pa.C,
+		"fit_intercept": pa.fitIntercept,
+		"max_iter":      pa.maxIter,
+		"tol":           pa.tol,
+		"shuffle":       pa.shuffle,
+		"verbose":       pa.verbose,
+		"random_state":  pa.randomState,
+		"warm_start":    pa.warmStart,
+		"average":       pa.averagePA,
+		"loss":          pa.loss,
+		"epsilon":       pa.epsilon,
+		"fitted":        pa.state.IsFitted(),
+	}
+}
+
+// GetParams returns the hyperparameters for classifier
+func (pa *PassiveAggressiveClassifier) GetParams() map[string]interface{} {
+	return map[string]interface{}{
+		"C":             pa.C,
+		"fit_intercept": pa.fitIntercept,
+		"max_iter":      pa.maxIter,
+		"tol":           pa.tol,
+		"shuffle":       pa.shuffle,
+		"verbose":       pa.verbose,
+		"random_state":  pa.randomState,
+		"warm_start":    pa.warmStart,
+		"average":       pa.averagePA,
+		"loss":          pa.loss,
+		"class_weight":  pa.classWeight,
+		"fitted":        pa.state.IsFitted(),
+	}
 }
 
 // 補助関数

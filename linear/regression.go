@@ -52,10 +52,11 @@ import (
 
 // LinearRegression is a linear regression model
 type LinearRegression struct {
-	model.BaseEstimator               // Embedded BaseEstimator
-	Weights             *mat.VecDense // Model weights (coefficients)
-	Intercept           float64       // Model intercept
-	NFeatures           int           // Number of features
+	state     *model.StateManager // State manager (composition instead of embedding)
+	Weights   *mat.VecDense       // Model weights (coefficients)
+	Intercept float64             // Model intercept
+	NFeatures int                 // Number of features
+	logger    log.Logger          // Logger instance
 }
 
 // NewLinearRegression creates a new linear regression model for ordinary least squares regression.
@@ -73,14 +74,15 @@ type LinearRegression struct {
 //	err := lr.Fit(X, y)
 //	predictions, err := lr.Predict(X_test)
 func NewLinearRegression() *LinearRegression {
-	lr := &LinearRegression{}
+	lr := &LinearRegression{
+		state: model.NewStateManager(),
+	}
 
 	// Set up logger with model context
-	logger := log.GetLoggerWithName("linear").With(
+	lr.logger = log.GetLoggerWithName("linear").With(
 		log.ModelNameKey, "LinearRegression",
 		log.ComponentKey, "linear",
 	)
-	lr.SetLogger(logger)
 
 	return lr
 }
@@ -118,12 +120,14 @@ func (lr *LinearRegression) Fit(X, y mat.Matrix) (err error) {
 	r, c := X.Dims()
 	ry, cy := y.Dims()
 
-	lr.LogInfo("Training started",
-		log.OperationKey, log.OperationFit,
-		log.PhaseKey, log.PhaseTraining,
-		log.SamplesKey, r,
-		log.FeaturesKey, c,
-	)
+	if lr.logger != nil {
+		lr.logger.Info("Training started",
+			log.OperationKey, log.OperationFit,
+			log.PhaseKey, log.PhaseTraining,
+			log.SamplesKey, r,
+			log.FeaturesKey, c,
+		)
+	}
 
 	if r == 0 || c == 0 {
 		return scigoErrors.NewModelError("LinearRegression.Fit", "empty data", scigoErrors.ErrEmptyData)
@@ -143,7 +147,7 @@ func (lr *LinearRegression) Fit(X, y mat.Matrix) (err error) {
 	// X_with_intercept = [1, X]
 	XWithIntercept := mat.NewDense(r, c+1, nil)
 
-	// 並列処理の閾値（この値以下の行数では逐次処理を使用）
+	// Parallelization threshold (use sequential processing for row counts below this value)
 	const parallelThreshold = 1000
 
 	// ParallelizeWithThresholdを使用して、データサイズに応じて並列化
@@ -192,17 +196,20 @@ func (lr *LinearRegression) Fit(X, y mat.Matrix) (err error) {
 		lr.Weights.SetVec(i, weights.AtVec(i+1))
 	}
 
-	// モデルを学習済み状態に設定
-	lr.SetFitted()
+	// Set model as fitted
+	lr.state.SetFitted()
+	lr.state.SetDimensions(lr.NFeatures, r)
 
 	duration := time.Since(startTime)
-	lr.LogInfo("Training completed",
-		log.OperationKey, log.OperationFit,
-		log.PhaseKey, log.PhaseTraining,
-		log.DurationMsKey, duration.Milliseconds(),
-		log.SamplesKey, r,
-		log.FeaturesKey, c,
-	)
+	if lr.logger != nil {
+		lr.logger.Info("Training completed",
+			log.OperationKey, log.OperationFit,
+			log.PhaseKey, log.PhaseTraining,
+			log.DurationMsKey, duration.Milliseconds(),
+			log.SamplesKey, r,
+			log.FeaturesKey, c,
+		)
+	}
 
 	return nil
 }
@@ -233,7 +240,7 @@ func (lr *LinearRegression) Fit(X, y mat.Matrix) (err error) {
 //	fmt.Printf("First prediction: %.2f\n", predictions.At(0, 0))
 func (lr *LinearRegression) Predict(X mat.Matrix) (_ mat.Matrix, err error) {
 	defer scigoErrors.Recover(&err, "LinearRegression.Predict")
-	if !lr.IsFitted() {
+	if !lr.state.IsFitted() {
 		return nil, scigoErrors.NewNotFittedError("LinearRegression", "Predict")
 	}
 
@@ -242,12 +249,14 @@ func (lr *LinearRegression) Predict(X mat.Matrix) (_ mat.Matrix, err error) {
 		return nil, scigoErrors.NewDimensionError("LinearRegression.Predict", lr.NFeatures, c, 1)
 	}
 
-	lr.LogDebug("Prediction started",
-		log.OperationKey, log.OperationPredict,
-		log.PhaseKey, log.PhaseInference,
-		log.SamplesKey, r,
-		log.FeaturesKey, c,
-	)
+	if lr.logger != nil {
+		lr.logger.Debug("Prediction started",
+			log.OperationKey, log.OperationPredict,
+			log.PhaseKey, log.PhaseInference,
+			log.SamplesKey, r,
+			log.FeaturesKey, c,
+		)
+	}
 
 	// 予測: y = X * weights + intercept
 	predictions := mat.NewDense(r, 1, nil)
@@ -260,10 +269,12 @@ func (lr *LinearRegression) Predict(X mat.Matrix) (_ mat.Matrix, err error) {
 		predictions.Set(i, 0, pred)
 	}
 
-	lr.LogDebug("Prediction completed",
-		log.OperationKey, log.OperationPredict,
-		log.PredsKey, r,
-	)
+	if lr.logger != nil {
+		lr.logger.Debug("Prediction completed",
+			log.OperationKey, log.OperationPredict,
+			log.PredsKey, r,
+		)
+	}
 
 	return predictions, nil
 }
@@ -283,7 +294,7 @@ func (lr *LinearRegression) GetWeights() []float64 {
 
 // GetIntercept は学習された切片を返す
 func (lr *LinearRegression) GetIntercept() float64 {
-	if !lr.IsFitted() {
+	if !lr.state.IsFitted() {
 		return 0
 	}
 	return lr.Intercept
@@ -292,7 +303,7 @@ func (lr *LinearRegression) GetIntercept() float64 {
 // Score はモデルの決定係数（R²）を計算する
 func (lr *LinearRegression) Score(X, y mat.Matrix) (_ float64, err error) {
 	defer scigoErrors.Recover(&err, "LinearRegression.Score")
-	if !lr.IsFitted() {
+	if !lr.state.IsFitted() {
 		return 0, scigoErrors.NewNotFittedError("LinearRegression", "Score")
 	}
 
@@ -380,8 +391,10 @@ func (lr *LinearRegression) LoadFromSKLearnReader(r io.Reader) (err error) {
 	// 係数をVecDenseに変換
 	lr.Weights = mat.NewVecDense(len(params.Coefficients), params.Coefficients)
 
-	// モデルを学習済み状態に設定
-	lr.SetFitted()
+	// Set model as fitted
+	lr.state.SetFitted()
+	// Note: sample count is not available when loading from file
+	lr.state.SetDimensions(lr.NFeatures, 0)
 
 	return nil
 }
@@ -395,7 +408,7 @@ func (lr *LinearRegression) LoadFromSKLearnReader(r io.Reader) (err error) {
 //   - error: エクスポート失敗時のエラー
 func (lr *LinearRegression) ExportToSKLearn(filename string) (err error) {
 	defer scigoErrors.Recover(&err, "LinearRegression.ExportToSKLearn")
-	if !lr.IsFitted() {
+	if !lr.state.IsFitted() {
 		return scigoErrors.NewNotFittedError("LinearRegression", "ExportToSKLearn")
 	}
 
@@ -417,7 +430,7 @@ func (lr *LinearRegression) ExportToSKLearn(filename string) (err error) {
 //   - error: エクスポート失敗時のエラー
 func (lr *LinearRegression) ExportToSKLearnWriter(w io.Writer) (err error) {
 	defer scigoErrors.Recover(&err, "LinearRegression.ExportToSKLearnWriter")
-	if !lr.IsFitted() {
+	if !lr.state.IsFitted() {
 		return scigoErrors.NewNotFittedError("LinearRegression", "ExportToSKLearnWriter")
 	}
 
@@ -454,5 +467,24 @@ func (lr *LinearRegression) ExportToSKLearnWriter(w io.Writer) (err error) {
 		return fmt.Errorf("failed to encode model: %w", err)
 	}
 
+	return nil
+}
+
+// IsFitted returns whether the model has been fitted.
+func (lr *LinearRegression) IsFitted() bool {
+	return lr.state.IsFitted()
+}
+
+// GetParams returns the model's hyperparameters.
+func (lr *LinearRegression) GetParams() map[string]interface{} {
+	return map[string]interface{}{
+		"n_features": lr.NFeatures,
+		"fitted":     lr.state.IsFitted(),
+	}
+}
+
+// SetParams sets the model's hyperparameters.
+func (lr *LinearRegression) SetParams(params map[string]interface{}) error {
+	// LinearRegression has no hyperparameters to set
 	return nil
 }

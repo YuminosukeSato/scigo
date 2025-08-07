@@ -2,51 +2,51 @@ package model
 
 import "gonum.org/v1/gonum/mat"
 
-// IncrementalEstimator はオンライン学習（逐次学習）可能なモデルのインターフェース
-// scikit-learnのpartial_fit APIと互換性を持つ
+// IncrementalEstimator is an interface for models capable of online learning (incremental learning)
+// Compatible with scikit-learn's partial_fit API
 type IncrementalEstimator interface {
 	Estimator
 
-	// PartialFit はミニバッチでモデルを逐次的に学習させる
-	// classes は分類問題の場合に全クラスラベルを指定（最初の呼び出し時のみ必須）
-	// 回帰問題の場合は nil を渡す
+	// PartialFit trains the model incrementally with mini-batches
+	// classes specifies all class labels for classification problems (required only on first call)
+	// Pass nil for regression problems
 	PartialFit(X, y mat.Matrix, classes []int) error
 
-	// NIterations は実行された学習イテレーション数を返す
+	// NIterations returns the number of training iterations executed
 	NIterations() int
 
-	// WarmStart が有効かどうかを返す
-	// true の場合、Fit 呼び出し時に既存のパラメータから学習を継続
+	// IsWarmStart returns whether warm start is enabled
+	// If true, continues learning from existing parameters when Fit is called
 	IsWarmStart() bool
 
-	// SetWarmStart はウォームスタートの有効/無効を設定
+	// SetWarmStart enables/disables warm start
 	SetWarmStart(warmStart bool)
 }
 
-// OnlineMetrics はオンライン学習中のメトリクスを追跡するインターフェース
+// OnlineMetrics is an interface for tracking metrics during online learning
 type OnlineMetrics interface {
-	// GetLoss は現在の損失値を返す
+	// GetLoss returns the current loss value
 	GetLoss() float64
 
-	// GetLossHistory は損失値の履歴を返す
+	// GetLossHistory returns the history of loss values
 	GetLossHistory() []float64
 
-	// GetConverged は収束したかどうかを返す
+	// GetConverged returns whether the model has converged
 	GetConverged() bool
 }
 
-// AdaptiveLearning は学習率を動的に調整できるモデルのインターフェース
+// AdaptiveLearning is an interface for models that can dynamically adjust learning rates
 type AdaptiveLearning interface {
-	// GetLearningRate は現在の学習率を返す
+	// GetLearningRate returns the current learning rate
 	GetLearningRate() float64
 
-	// SetLearningRate は学習率を設定する
+	// SetLearningRate sets the learning rate
 	SetLearningRate(lr float64)
 
-	// GetLearningRateSchedule は学習率スケジュールを返す
-	// "constant", "optimal", "invscaling", "adaptive" など
+	// GetLearningRateSchedule returns the learning rate schedule
+	// e.g., "constant", "optimal", "invscaling", "adaptive"
 	GetLearningRateSchedule() string
 
-	// SetLearningRateSchedule は学習率スケジュールを設定する
+	// SetLearningRateSchedule sets the learning rate schedule
 	SetLearningRateSchedule(schedule string)
 }

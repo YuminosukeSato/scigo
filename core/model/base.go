@@ -39,31 +39,31 @@ import (
 	"fmt"
 )
 
-// EstimatorState はモデルの学習状態を表す
+// EstimatorState represents the learning state of a model
 type EstimatorState int
 
 const (
-	// NotFitted はモデルが未学習の状態
+	// NotFitted indicates the model is not yet trained
 	NotFitted EstimatorState = iota
-	// Fitted はモデルが学習済みの状態
+	// Fitted indicates the model has been trained
 	Fitted
 )
 
-// BaseEstimator は全てのモデルの基底となる構造体
+// BaseEstimator is the base structure for all models
 type BaseEstimator struct {
-	// State はモデルの学習状態を保持します。gobでエンコードするために公開されています。
+	// State holds the model's learning state. Public for gob encoding.
 	State EstimatorState
 
-	// logger はモデル操作のログ出力に使用されます。gobエンコードでは無視されます。
+	// logger is used for logging model operations. Ignored by gob encoding.
 	logger interface{} // Using interface{} to avoid circular imports, will be set to log.Logger
 	
-	// hyperparameters はモデルのハイパーパラメータを保持
+	// hyperparameters holds the model's hyperparameters
 	hyperparameters map[string]interface{}
 	
-	// ModelType はモデルの種類を識別
+	// ModelType identifies the type of model
 	ModelType string
 	
-	// Version はモデルのバージョン
+	// Version is the model version
 	Version string
 }
 
@@ -206,7 +206,7 @@ func (e *BaseEstimator) LogError(msg string, fields ...interface{}) {
 	}
 }
 
-// GetParams はモデルのハイパーパラメータを取得（scikit-learn互換）
+// GetParams retrieves the model's hyperparameters (scikit-learn compatible)
 func (e *BaseEstimator) GetParams(deep bool) map[string]interface{} {
 	if e.hyperparameters == nil {
 		return make(map[string]interface{})
@@ -216,7 +216,7 @@ func (e *BaseEstimator) GetParams(deep bool) map[string]interface{} {
 		return e.hyperparameters
 	}
 	
-	// ディープコピーを作成
+	// Create deep copy
 	params := make(map[string]interface{})
 	for k, v := range e.hyperparameters {
 		params[k] = v
@@ -224,7 +224,7 @@ func (e *BaseEstimator) GetParams(deep bool) map[string]interface{} {
 	return params
 }
 
-// SetParams はモデルのハイパーパラメータを設定（scikit-learn互換）
+// SetParams sets the model's hyperparameters (scikit-learn compatible)
 func (e *BaseEstimator) SetParams(params map[string]interface{}) error {
 	if e.hyperparameters == nil {
 		e.hyperparameters = make(map[string]interface{})
@@ -237,7 +237,7 @@ func (e *BaseEstimator) SetParams(params map[string]interface{}) error {
 	return nil
 }
 
-// ExportWeights はモデルの重みをエクスポート（基本実装）
+// ExportWeights exports model weights (basic implementation)
 func (e *BaseEstimator) ExportWeights() (*ModelWeights, error) {
 	if !e.IsFitted() {
 		return nil, fmt.Errorf("model is not fitted")
@@ -254,7 +254,7 @@ func (e *BaseEstimator) ExportWeights() (*ModelWeights, error) {
 	return weights, nil
 }
 
-// ImportWeights はモデルの重みをインポート（基本実装）
+// ImportWeights imports model weights (basic implementation)
 func (e *BaseEstimator) ImportWeights(weights *ModelWeights) error {
 	if weights == nil {
 		return fmt.Errorf("weights cannot be nil")
@@ -274,7 +274,7 @@ func (e *BaseEstimator) ImportWeights(weights *ModelWeights) error {
 	return nil
 }
 
-// GetWeightHash は重みのハッシュ値を計算（検証用）
+// GetWeightHash calculates hash value of weights (for verification)
 func (e *BaseEstimator) GetWeightHash() string {
 	weights, err := e.ExportWeights()
 	if err != nil {
@@ -290,7 +290,7 @@ func (e *BaseEstimator) GetWeightHash() string {
 	return hex.EncodeToString(hash[:])
 }
 
-// Clone はモデルの新しいインスタンスを作成（基本実装）
+// Clone creates a new instance of the model (basic implementation)
 func (e *BaseEstimator) Clone() *BaseEstimator {
 	clone := &BaseEstimator{
 		State:           e.State,

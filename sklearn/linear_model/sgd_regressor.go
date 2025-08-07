@@ -13,51 +13,52 @@ import (
 	"gonum.org/v1/gonum/mat"
 )
 
-// SGDRegressor は確率的勾配降下法による線形回帰モデル
-// scikit-learnのSGDRegressorと互換性を持つ
+// SGDRegressor is a linear regression model using stochastic gradient descent
+// Compatible with scikit-learn's SGDRegressor
 type SGDRegressor struct {
-	model.BaseEstimator
+	state *model.StateManager // State management (composition instead of embedding)
 
-	// ハイパーパラメータ
-	loss          string  // 損失関数: "squared_error", "huber", "epsilon_insensitive"
-	penalty       string  // 正則化: "l2", "l1", "elasticnet", "none"
-	alpha         float64 // 正則化の強度
-	l1Ratio       float64 // Elastic Netのl1比率
-	fitIntercept  bool    // 切片を学習するか
-	maxIter       int     // 最大イテレーション数
-	tol           float64 // 収束判定の許容誤差
-	shuffle       bool    // 各エポックでデータをシャッフルするか
-	verbose       int     // 詳細出力レベル
-	epsilon       float64 // epsilon-insensitive損失のepsilon
-	randomState   int64   // 乱数シード
-	learningRate  string  // 学習率スケジュール: "constant", "optimal", "invscaling", "adaptive"
-	eta0          float64 // 初期学習率
-	power_t       float64 // invscalingの指数
-	warmStart     bool    // 前回の学習から継続するか
-	averageSGD    bool    // 平均化SGDを使用するか
-	nIterNoChange int     // 早期停止の判定イテレーション数
+	// Hyperparameters
+	loss          string  // Loss function: "squared_error", "huber", "epsilon_insensitive"
+	penalty       string  // Regularization: "l2", "l1", "elasticnet", "none"
+	alpha         float64 // Regularization strength
+	l1Ratio       float64 // L1 ratio for Elastic Net
+	fitIntercept  bool    // Whether to learn the intercept
+	maxIter       int     // Maximum number of iterations
+	tol           float64 // Tolerance for convergence
+	shuffle       bool    // Whether to shuffle data at each epoch
+	verbose       int     // Verbosity level
+	epsilon       float64 // Epsilon for epsilon-insensitive loss
+	randomState   int64   // Random seed
+	learningRate  string  // Learning rate schedule: "constant", "optimal", "invscaling", "adaptive"
+	eta0          float64 // Initial learning rate
+	power_t       float64 // Exponent for invscaling
+	warmStart     bool    // Whether to continue from previous training
+	averageSGD    bool    // Whether to use averaged SGD
+	nIterNoChange int     // Number of iterations for early stopping
 
-	// 学習パラメータ
-	coef_         []float64 // 重み係数
-	intercept_    float64   // 切片
-	avgCoef_      []float64 // 平均化された重み（averageSGD用）
-	avgIntercept_ float64   // 平均化された切片
+	// Learning parameters
+	coef_         []float64 // Weight coefficients
+	intercept_    float64   // Intercept
+	avgCoef_      []float64 // Averaged weights (for averageSGD)
+	avgIntercept_ float64   // Averaged intercept
 
-	// 学習状態
-	nIter_       int       // 実行されたイテレーション数
-	t_           int64     // 総ステップ数（学習率計算用）
-	lossHistory_ []float64 // 損失の履歴
-	converged_   bool      // 収束フラグ
+	// Learning state
+	nIter_       int       // Number of iterations executed
+	t_           int64     // Total step count (for learning rate calculation)
+	lossHistory_ []float64 // Loss history
+	converged_   bool      // Convergence flag
 
-	// 内部状態
+	// Internal state
 	mu         sync.RWMutex
 	rng        *rand.Rand
 	nFeatures_ int
 }
 
-// NewSGDRegressor は新しいSGDRegressorを作成
+// NewSGDRegressor creates a new SGDRegressor
 func NewSGDRegressor(options ...Option) *SGDRegressor {
 	sgd := &SGDRegressor{
+		state:        model.NewStateManager(),
 		loss:          "squared_error",
 		penalty:       "l2",
 		alpha:         0.0001,
@@ -91,31 +92,31 @@ func NewSGDRegressor(options ...Option) *SGDRegressor {
 	return sgd
 }
 
-// Option はSGDRegressorの設定オプション
+// Option is a configuration option for SGDRegressor
 type Option func(*SGDRegressor)
 
-// WithLoss は損失関数を設定
+// WithLoss sets the loss function
 func WithLoss(loss string) Option {
 	return func(sgd *SGDRegressor) {
 		sgd.loss = loss
 	}
 }
 
-// WithPenalty は正則化を設定
+// WithPenalty sets the regularization
 func WithPenalty(penalty string) Option {
 	return func(sgd *SGDRegressor) {
 		sgd.penalty = penalty
 	}
 }
 
-// WithAlpha は正則化の強度を設定
+// WithAlpha sets the regularization strength
 func WithAlpha(alpha float64) Option {
 	return func(sgd *SGDRegressor) {
 		sgd.alpha = alpha
 	}
 }
 
-// WithLearningRate は学習率スケジュールを設定
+// WithLearningRate sets the learning rate schedule
 func WithLearningRate(lr string) Option {
 	return func(sgd *SGDRegressor) {
 		sgd.learningRate = lr
@@ -232,7 +233,7 @@ func (sgd *SGDRegressor) Fit(X, y mat.Matrix) error {
 		errors.Warn(errors.NewConvergenceWarning("SGDRegressor", sgd.nIter_, "Maximum number of iterations reached"))
 	}
 
-	sgd.SetFitted()
+	sgd.state.SetFitted()
 	return nil
 }
 
@@ -273,7 +274,7 @@ func (sgd *SGDRegressor) PartialFit(X, y mat.Matrix, classes []int) error {
 	sgd.lossHistory_ = append(sgd.lossHistory_, batchLoss)
 	sgd.nIter_++ // Increment iteration count for PartialFit
 
-	sgd.SetFitted()
+	sgd.state.SetFitted()
 	return nil
 }
 
@@ -427,7 +428,7 @@ func (sgd *SGDRegressor) Predict(X mat.Matrix) (mat.Matrix, error) {
 	sgd.mu.RLock()
 	defer sgd.mu.RUnlock()
 
-	if !sgd.IsFitted() {
+	if !sgd.state.IsFitted() {
 		return nil, errors.NewNotFittedError("SGDRegressor", "Predict")
 	}
 
@@ -524,7 +525,7 @@ func (sgd *SGDRegressor) FitPredictStream(ctx context.Context, dataChan <-chan *
 				}
 
 				// まず予測
-				if sgd.IsFitted() {
+				if sgd.state.IsFitted() {
 					pred, err := sgd.Predict(batch.X)
 					if err == nil {
 						select {
@@ -694,7 +695,7 @@ func (sgd *SGDRegressor) reset() {
 	sgd.t_ = 0
 	sgd.lossHistory_ = make([]float64, 0)
 	sgd.converged_ = false
-	sgd.Reset() // BaseEstimatorのリセット
+	sgd.state.Reset() // Reset state manager
 }
 
 // 補助関数
@@ -714,4 +715,32 @@ func isIncreasing(values []float64) bool {
 		}
 	}
 	return true
+}
+
+// IsFitted returns whether the model has been fitted
+func (sgd *SGDRegressor) IsFitted() bool {
+	return sgd.state.IsFitted()
+}
+
+// GetParams returns the hyperparameters
+func (sgd *SGDRegressor) GetParams() map[string]interface{} {
+	return map[string]interface{}{
+		"loss":           sgd.loss,
+		"penalty":        sgd.penalty,
+		"alpha":          sgd.alpha,
+		"l1_ratio":       sgd.l1Ratio,
+		"fit_intercept":  sgd.fitIntercept,
+		"max_iter":       sgd.maxIter,
+		"tol":            sgd.tol,
+		"shuffle":        sgd.shuffle,
+		"verbose":        sgd.verbose,
+		"epsilon":        sgd.epsilon,
+		"random_state":   sgd.randomState,
+		"learning_rate":  sgd.learningRate,
+		"eta0":           sgd.eta0,
+		"power_t":        sgd.power_t,
+		"warm_start":     sgd.warmStart,
+		"average":        sgd.averageSGD,
+		"n_iter_no_change": sgd.nIterNoChange,
+	}
 }

@@ -2,14 +2,14 @@ package model
 
 import "gonum.org/v1/gonum/mat"
 
-// Transformer はデータ変換のインターフェース
+// Transformer is an interface for data transformation
 type Transformer interface {
-	// Fit は変換に必要なパラメータを学習する
+	// Fit learns parameters necessary for transformation
 	Fit(X mat.Matrix) error
 
-	// Transform はデータを変換する
+	// Transform transforms data
 	Transform(X mat.Matrix) (mat.Matrix, error)
 
-	// FitTransform はFitとTransformを同時に実行する
+	// FitTransform executes Fit and Transform simultaneously
 	FitTransform(X mat.Matrix) (mat.Matrix, error)
 }

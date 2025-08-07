@@ -13,46 +13,46 @@ import (
 	"gonum.org/v1/gonum/mat"
 )
 
-// SGDClassifier は確率的勾配降下法による分類モデル
-// scikit-learnのSGDClassifierと互換性を持つ
+// SGDClassifier is a classification model using stochastic gradient descent
+// Compatible with scikit-learn's SGDClassifier
 type SGDClassifier struct {
-	model.BaseEstimator
+	state *model.StateManager // State management (composition instead of embedding)
 
-	// ハイパーパラメータ
-	loss          string  // 損失関数: "hinge", "log_loss", "modified_huber", "squared_hinge", "perceptron"
-	penalty       string  // 正則化: "l2", "l1", "elasticnet", "none"
-	alpha         float64 // 正則化の強度
-	l1Ratio       float64 // Elastic Netのl1比率
-	fitIntercept  bool    // 切片を学習するか
-	maxIter       int     // 最大イテレーション数
-	tol           float64 // 収束判定の許容誤差
-	shuffle       bool    // 各エポックでデータをシャッフルするか
-	verbose       int     // 詳細出力レベル
-	epsilon       float64 // epsilon-insensitive損失のepsilon
-	randomState   int64   // 乱数シード
-	learningRate  string  // 学習率スケジュール: "constant", "optimal", "invscaling", "adaptive"
-	eta0          float64 // 初期学習率
-	power_t       float64 // invscalingの指数
-	warmStart     bool    // 前回の学習から継続するか
-	averageSGD    bool    // 平均化SGDを使用するか
-	nIterNoChange int     // 早期停止の判定イテレーション数
-	classWeight   string  // クラス重み: "balanced", "none"
+	// Hyperparameters
+	loss          string  // Loss function: "hinge", "log_loss", "modified_huber", "squared_hinge", "perceptron"
+	penalty       string  // Regularization: "l2", "l1", "elasticnet", "none"
+	alpha         float64 // Regularization strength
+	l1Ratio       float64 // L1 ratio for Elastic Net
+	fitIntercept  bool    // Whether to learn the intercept
+	maxIter       int     // Maximum number of iterations
+	tol           float64 // Tolerance for convergence
+	shuffle       bool    // Whether to shuffle data at each epoch
+	verbose       int     // Verbosity level
+	epsilon       float64 // Epsilon for epsilon-insensitive loss
+	randomState   int64   // Random seed
+	learningRate  string  // Learning rate schedule: "constant", "optimal", "invscaling", "adaptive"
+	eta0          float64 // Initial learning rate
+	power_t       float64 // Exponent for invscaling
+	warmStart     bool    // Whether to continue from previous training
+	averageSGD    bool    // Whether to use averaged SGD
+	nIterNoChange int     // Number of iterations for early stopping
+	classWeight   string  // Class weight: "balanced", "none"
 
-	// 学習パラメータ
-	coef_         [][]float64 // 重み係数（クラス数 x 特徴数）
-	intercept_    []float64   // 切片（クラス数）
-	avgCoef_      [][]float64 // 平均化された重み
-	avgIntercept_ []float64   // 平均化された切片
-	classes_      []int       // クラスラベル
-	nClasses_     int         // クラス数
+	// Learning parameters
+	coef_         [][]float64 // Weight coefficients (n_classes x n_features)
+	intercept_    []float64   // Intercept (n_classes)
+	avgCoef_      [][]float64 // Averaged weights
+	avgIntercept_ []float64   // Averaged intercept
+	classes_      []int       // Class labels
+	nClasses_     int         // Number of classes
 
-	// 学習状態
-	nIter_       int       // 実行されたイテレーション数
-	t_           int64     // 総ステップ数（学習率計算用）
-	lossHistory_ []float64 // 損失の履歴
-	converged_   bool      // 収束フラグ
+	// Learning state
+	nIter_       int       // Number of iterations executed
+	t_           int64     // Total step count (for learning rate calculation)
+	lossHistory_ []float64 // Loss history
+	converged_   bool      // Convergence flag
 
-	// 内部状態
+	// Internal state
 	mu         sync.RWMutex
 	rng        *rand.Rand
 	nFeatures_ int
@@ -61,6 +61,7 @@ type SGDClassifier struct {
 // NewSGDClassifier は新しいSGDClassifierを作成
 func NewSGDClassifier(options ...ClassifierOption) *SGDClassifier {
 	sgd := &SGDClassifier{
+		state:         model.NewStateManager(),
 		loss:          "hinge",
 		penalty:       "l2",
 		alpha:         0.0001,
@@ -215,7 +216,7 @@ func (sgd *SGDClassifier) Fit(X, y mat.Matrix) error {
 		errors.Warn(errors.NewConvergenceWarning("SGDClassifier", sgd.nIter_, "Maximum number of iterations reached"))
 	}
 
-	sgd.SetFitted()
+	sgd.state.SetFitted()
 	return nil
 }
 
@@ -259,7 +260,7 @@ func (sgd *SGDClassifier) PartialFit(X, y mat.Matrix, classes []int) error {
 	batchLoss /= float64(rows)
 	sgd.lossHistory_ = append(sgd.lossHistory_, batchLoss)
 
-	sgd.SetFitted()
+	sgd.state.SetFitted()
 	return nil
 }
 
@@ -398,7 +399,7 @@ func (sgd *SGDClassifier) Predict(X mat.Matrix) (mat.Matrix, error) {
 	sgd.mu.RLock()
 	defer sgd.mu.RUnlock()
 
-	if !sgd.IsFitted() {
+	if !sgd.state.IsFitted() {
 		return nil, errors.NewNotFittedError("SGDClassifier", "Predict")
 	}
 
@@ -444,7 +445,7 @@ func (sgd *SGDClassifier) PredictProba(X mat.Matrix) (mat.Matrix, error) {
 	sgd.mu.RLock()
 	defer sgd.mu.RUnlock()
 
-	if !sgd.IsFitted() {
+	if !sgd.state.IsFitted() {
 		return nil, errors.NewNotFittedError("SGDClassifier", "Predict")
 	}
 
@@ -493,7 +494,7 @@ func (sgd *SGDClassifier) DecisionFunction(X mat.Matrix) (mat.Matrix, error) {
 	sgd.mu.RLock()
 	defer sgd.mu.RUnlock()
 
-	if !sgd.IsFitted() {
+	if !sgd.state.IsFitted() {
 		return nil, errors.NewNotFittedError("SGDClassifier", "Predict")
 	}
 
@@ -591,7 +592,7 @@ func (sgd *SGDClassifier) FitPredictStream(ctx context.Context, dataChan <-chan 
 				}
 
 				// まず予測
-				if sgd.IsFitted() {
+				if sgd.state.IsFitted() {
 					pred, err := sgd.Predict(batch.X)
 					if err == nil {
 						select {
@@ -861,7 +862,7 @@ func (sgd *SGDClassifier) checkConvergence() bool {
 	return (maxLoss - minLoss) < sgd.tol
 }
 
-// reset は内部状態をリセット
+// reset resets internal state
 func (sgd *SGDClassifier) reset() {
 	sgd.coef_ = nil
 	sgd.intercept_ = nil
@@ -873,5 +874,35 @@ func (sgd *SGDClassifier) reset() {
 	sgd.t_ = 0
 	sgd.lossHistory_ = make([]float64, 0)
 	sgd.converged_ = false
-	sgd.Reset() // BaseEstimatorのリセット
+	sgd.state.Reset() // Reset state manager
+}
+
+// IsFitted returns whether the model has been fitted
+func (sgd *SGDClassifier) IsFitted() bool {
+	return sgd.state.IsFitted()
+}
+
+// GetParams returns the hyperparameters
+func (sgd *SGDClassifier) GetParams() map[string]interface{} {
+	return map[string]interface{}{
+		"loss":           sgd.loss,
+		"penalty":        sgd.penalty,
+		"alpha":          sgd.alpha,
+		"l1_ratio":       sgd.l1Ratio,
+		"fit_intercept":  sgd.fitIntercept,
+		"max_iter":       sgd.maxIter,
+		"tol":            sgd.tol,
+		"shuffle":        sgd.shuffle,
+		"verbose":        sgd.verbose,
+		"epsilon":        sgd.epsilon,
+		"random_state":   sgd.randomState,
+		"learning_rate":  sgd.learningRate,
+		"eta0":           sgd.eta0,
+		"power_t":        sgd.power_t,
+		"warm_start":     sgd.warmStart,
+		"average":        sgd.averageSGD,
+		"n_iter_no_change": sgd.nIterNoChange,
+		"class_weight":   sgd.classWeight,
+		"fitted":         sgd.state.IsFitted(),
+	}
 }

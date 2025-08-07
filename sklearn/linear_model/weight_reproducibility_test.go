@@ -143,7 +143,8 @@ func TestSGDRegressorWeightReproducibility(t *testing.T) {
 	copy(sgd2.coef_, coef1)
 	sgd2.intercept_ = intercept1
 	sgd2.nFeatures_ = 3
-	sgd2.SetFitted()
+	sgd2.state.SetFitted()
+	sgd2.state.SetDimensions(3, 50)
 	
 	// 予測結果が一致することを確認
 	pred1, err := sgd1.Predict(X)
