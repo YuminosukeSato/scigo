@@ -273,13 +273,13 @@ func TestR2Score(t *testing.T) {
 			yPred:     mat.NewVecDense(5, []float64{2.0, 3.0, 4.0, 3.0, 3.0}),
 			want:      0.0,
 			tolerance: 1e-10,
-			wantErr:   true, // 全変動が0の場合はエラー
+			wantErr:   true, // Error when total variation is 0
 		},
 		{
 			name:      "worse than mean baseline",
 			yTrue:     mat.NewVecDense(4, []float64{1.0, 2.0, 3.0, 4.0}),
 			yPred:     mat.NewVecDense(4, []float64{4.0, 3.0, 2.0, 1.0}),
-			want:      -3.0, // 負のR²値（平均値予測より悪い）
+			want:      -3.0, // Negative R² value (worse than mean prediction)
 			tolerance: 0.01,
 			wantErr:   false,
 		},
@@ -311,13 +311,13 @@ func TestR2Score(t *testing.T) {
 	}
 }
 
-// ベンチマークテスト
+// Benchmark tests
 func BenchmarkMSE(b *testing.B) {
 	size := 10000
 	yTrue := mat.NewVecDense(size, nil)
 	yPred := mat.NewVecDense(size, nil)
 
-	// ランダムなデータを生成
+	// Generate random data
 	for i := 0; i < size; i++ {
 		yTrue.SetVec(i, float64(i))
 		yPred.SetVec(i, float64(i)+0.1*float64(i%10))

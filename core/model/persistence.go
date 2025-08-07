@@ -7,19 +7,19 @@ import (
 	"os"
 )
 
-// SaveModel はモデルをファイルに保存する
+// SaveModel saves a model to a file
 //
-// パラメータ:
-//   - model: 保存するモデル（BaseEstimatorを埋め込んだ構造体）
-//   - filename: 保存先のファイルパス
+// Parameters:
+//   - model: The model to save (struct with embedded BaseEstimator)
+//   - filename: The file path to save to
 //
-// 戻り値:
-//   - error: 保存に失敗した場合のエラー
+// Returns:
+//   - error: Error if saving fails
 //
-// 使用例:
+// Example:
 //
 //	var reg linear.Regression
-//	// ... モデルの学習 ...
+//	// ... train the model ...
 //	err := model.SaveModel(&reg, "model.gob")
 func SaveModel(model interface{}, filename string) error {
 	file, err := os.Create(filename)
@@ -36,16 +36,16 @@ func SaveModel(model interface{}, filename string) error {
 	return nil
 }
 
-// LoadModel はファイルからモデルを読み込む
+// LoadModel loads a model from a file
 //
-// パラメータ:
-//   - model: 読み込み先のモデル（BaseEstimatorを埋め込んだ構造体のポインタ）
-//   - filename: 読み込み元のファイルパス
+// Parameters:
+//   - model: The target model (pointer to struct with embedded BaseEstimator)
+//   - filename: The file path to load from
 //
-// 戻り値:
-//   - error: 読み込みに失敗した場合のエラー
+// Returns:
+//   - error: Error if loading fails
 //
-// 使用例:
+// Example:
 //
 //	var reg linear.Regression
 //	err := model.LoadModel(&reg, "model.gob")
@@ -64,14 +64,14 @@ func LoadModel(model interface{}, filename string) error {
 	return nil
 }
 
-// SaveModelToWriter はモデルをio.Writerに保存する
+// SaveModelToWriter saves a model to an io.Writer
 //
-// パラメータ:
-//   - model: 保存するモデル
-//   - w: 保存先のWriter
+// Parameters:
+//   - model: The model to save
+//   - w: The target Writer
 //
-// 戻り値:
-//   - error: 保存に失敗した場合のエラー
+// Returns:
+//   - error: Error if saving fails
 func SaveModelToWriter(model interface{}, w io.Writer) error {
 	encoder := gob.NewEncoder(w)
 	if err := encoder.Encode(model); err != nil {
@@ -80,14 +80,14 @@ func SaveModelToWriter(model interface{}, w io.Writer) error {
 	return nil
 }
 
-// LoadModelFromReader はio.Readerからモデルを読み込む
+// LoadModelFromReader loads a model from an io.Reader
 //
-// パラメータ:
-//   - model: 読み込み先のモデル（ポインタ）
-//   - r: 読み込み元のReader
+// Parameters:
+//   - model: The target model (pointer)
+//   - r: The source Reader
 //
-// 戻り値:
-//   - error: 読み込みに失敗した場合のエラー
+// Returns:
+//   - error: Error if loading fails
 func LoadModelFromReader(model interface{}, r io.Reader) error {
 	decoder := gob.NewDecoder(r)
 	if err := decoder.Decode(model); err != nil {
