@@ -38,7 +38,7 @@ type LinearRegression struct {
 	rank_       int       // Matrix rank
 }
 
-// NewLinearRegression は新しいLinearRegressionモデルを作成
+// NewLinearRegression creates a new LinearRegression model
 func NewLinearRegression(options ...LinearRegressionOption) *LinearRegression {
 	lr := &LinearRegression{
 		state:        model.NewStateManager(),
@@ -59,50 +59,50 @@ func NewLinearRegression(options ...LinearRegressionOption) *LinearRegression {
 	return lr
 }
 
-// LinearRegressionOption は設定オプション
+// LinearRegressionOption is a configuration option
 type LinearRegressionOption func(*LinearRegression)
 
-// WithLRFitIntercept は切片の学習有無を設定（LinearRegression用）
+// WithLRFitIntercept sets whether to learn intercept (for LinearRegression)
 func WithLRFitIntercept(fit bool) LinearRegressionOption {
 	return func(lr *LinearRegression) {
 		lr.fitIntercept = fit
 	}
 }
 
-// WithNormalize は正規化の有無を設定（deprecated）
+// WithNormalize sets whether to normalize (deprecated)
 func WithNormalize(normalize bool) LinearRegressionOption {
 	return func(lr *LinearRegression) {
 		lr.normalize = normalize
 	}
 }
 
-// WithCopyX はデータコピーの有無を設定
+// WithCopyX sets whether to copy data
 func WithCopyX(copy bool) LinearRegressionOption {
 	return func(lr *LinearRegression) {
 		lr.copyX = copy
 	}
 }
 
-// WithNJobs は並列ジョブ数を設定
+// WithNJobs sets number of parallel jobs
 func WithNJobs(n int) LinearRegressionOption {
 	return func(lr *LinearRegression) {
 		lr.nJobs = n
 	}
 }
 
-// WithPositive は係数の正制約を設定
+// WithPositive sets positive constraint on coefficients
 func WithPositive(positive bool) LinearRegressionOption {
 	return func(lr *LinearRegression) {
 		lr.positive = positive
 	}
 }
 
-// Fit はモデルを訓練データで学習
+// Fit trains the model with training data
 func (lr *LinearRegression) Fit(X, y mat.Matrix) error {
 	rows, cols := X.Dims()
 	yRows, yCols := y.Dims()
 	
-	// 入力検証
+	// Input validation
 	if rows != yRows {
 		return errors.NewDimensionError("LinearRegression.Fit", rows, yRows, 0)
 	}
@@ -114,7 +114,7 @@ func (lr *LinearRegression) Fit(X, y mat.Matrix) error {
 	lr.nSamples_ = rows
 	lr.nFeatures_ = cols
 	
-	// データのコピー（必要な場合）
+	// Copy data if necessary
 	var XWork mat.Matrix
 	if lr.copyX {
 		XWork = mat.DenseCopyOf(X)
@@ -122,16 +122,16 @@ func (lr *LinearRegression) Fit(X, y mat.Matrix) error {
 		XWork = X
 	}
 	
-	// 切片の処理
+	// Handle intercept
 	var XFit mat.Matrix
 	if lr.fitIntercept {
-		// バイアス項を追加（最初の列に1を追加）
+		// Add bias term (add 1s to first column)
 		ones := mat.NewDense(rows, 1, nil)
 		for i := 0; i < rows; i++ {
 			ones.Set(i, 0, 1.0)
 		}
 		
-		// [ones | X] の行列を作成
+		// Create [ones | X] matrix
 		XWithIntercept := mat.NewDense(rows, cols+1, nil)
 		for i := 0; i < rows; i++ {
 			XWithIntercept.Set(i, 0, 1.0)
@@ -144,18 +144,18 @@ func (lr *LinearRegression) Fit(X, y mat.Matrix) error {
 		XFit = XWork
 	}
 	
-	// 正規方程式: (X^T * X)^(-1) * X^T * y
-	// より数値的に安定なQR分解を使用
+	// Normal equation: (X^T * X)^(-1) * X^T * y
+	// Use numerically stable QR decomposition
 	var qr mat.QR
 	qr.Factorize(XFit)
 	
-	// QR分解のランクを取得
+	// Get rank from QR decomposition
 	lr.rank_ = cols
 	if lr.fitIntercept {
 		lr.rank_++
 	}
 	
-	// 係数を計算
+	// Calculate coefficients
 	_, qrCols := XFit.Dims()
 	coefficients := mat.NewDense(qrCols, 1, nil)
 	err := qr.SolveTo(coefficients, false, y)
@@ -163,7 +163,7 @@ func (lr *LinearRegression) Fit(X, y mat.Matrix) error {
 		return fmt.Errorf("failed to solve linear system: %w", err)
 	}
 	
-	// 係数を取得
+	// Extract coefficients
 	if lr.fitIntercept {
 		lr.intercept_ = coefficients.At(0, 0)
 		lr.coef_ = make([]float64, cols)
@@ -178,7 +178,7 @@ func (lr *LinearRegression) Fit(X, y mat.Matrix) error {
 		}
 	}
 	
-	// 正の制約がある場合
+	// Apply positive constraint if enabled
 	if lr.positive {
 		for i := range lr.coef_ {
 			if lr.coef_[i] < 0 {
@@ -195,7 +195,7 @@ func (lr *LinearRegression) Fit(X, y mat.Matrix) error {
 	return nil
 }
 
-// Predict は入力データに対する予測を行う
+// Predict performs predictions on input data
 func (lr *LinearRegression) Predict(X mat.Matrix) (mat.Matrix, error) {
 	if !lr.state.IsFitted() {
 		return nil, errors.NewNotFittedError("LinearRegression", "Predict")
@@ -219,7 +219,7 @@ func (lr *LinearRegression) Predict(X mat.Matrix) (mat.Matrix, error) {
 	return predictions, nil
 }
 
-// Score はモデルの決定係数（R²）を計算
+// Score computes the coefficient of determination (R²) of the model
 func (lr *LinearRegression) Score(X, y mat.Matrix) (float64, error) {
 	predictions, err := lr.Predict(X)
 	if err != nil {
@@ -228,14 +228,14 @@ func (lr *LinearRegression) Score(X, y mat.Matrix) (float64, error) {
 	
 	rows, _ := y.Dims()
 	
-	// 平均値計算
+	// Calculate mean
 	var yMean float64
 	for i := 0; i < rows; i++ {
 		yMean += y.At(i, 0)
 	}
 	yMean /= float64(rows)
 	
-	// SS_tot と SS_res 計算
+	// Calculate SS_tot and SS_res
 	var ssTot, ssRes float64
 	for i := 0; i < rows; i++ {
 		yi := y.At(i, 0)
@@ -252,7 +252,7 @@ func (lr *LinearRegression) Score(X, y mat.Matrix) (float64, error) {
 	return 1.0 - (ssRes / ssTot), nil
 }
 
-// Coef は学習された重み係数を返す
+// Coef returns the learned weight coefficients
 func (lr *LinearRegression) Coef() []float64 {
 	if lr.coef_ == nil {
 		return nil
@@ -262,7 +262,7 @@ func (lr *LinearRegression) Coef() []float64 {
 	return coef
 }
 
-// Intercept は学習された切片を返す
+// Intercept returns the learned intercept
 func (lr *LinearRegression) Intercept() float64 {
 	return lr.intercept_
 }
@@ -303,7 +303,7 @@ func (lr *LinearRegression) SetParams(params map[string]interface{}) error {
 	return nil
 }
 
-// ExportWeights はモデルの重みをエクスポート（完全な再現性を保証）
+// ExportWeights exports model weights (guarantees complete reproducibility)
 func (lr *LinearRegression) ExportWeights() (*model.ModelWeights, error) {
 	if !lr.state.IsFitted() {
 		return nil, fmt.Errorf("model is not fitted")
@@ -323,7 +323,7 @@ func (lr *LinearRegression) ExportWeights() (*model.ModelWeights, error) {
 		},
 	}
 	
-	// チェックサムを計算
+	// Calculate checksum
 	data, _ := json.Marshal(weights.Coefficients)
 	hash := sha256.Sum256(data)
 	weights.Metadata["checksum"] = hex.EncodeToString(hash[:])
@@ -331,7 +331,7 @@ func (lr *LinearRegression) ExportWeights() (*model.ModelWeights, error) {
 	return weights, nil
 }
 
-// ImportWeights はモデルの重みをインポート（完全な再現性を保証）
+// ImportWeights imports model weights (guarantees complete reproducibility)
 func (lr *LinearRegression) ImportWeights(weights *model.ModelWeights) error {
 	if weights == nil {
 		return fmt.Errorf("weights cannot be nil")
@@ -341,17 +341,17 @@ func (lr *LinearRegression) ImportWeights(weights *model.ModelWeights) error {
 		return fmt.Errorf("model type mismatch: expected LinearRegression, got %s", weights.ModelType)
 	}
 	
-	// ハイパーパラメータを設定
+	// Set hyperparameters
 	if err := lr.SetParams(weights.Hyperparameters); err != nil {
 		return err
 	}
 	
-	// 重みを設定
+	// Set weights
 	lr.coef_ = make([]float64, len(weights.Coefficients))
 	copy(lr.coef_, weights.Coefficients)
 	lr.intercept_ = weights.Intercept
 	
-	// メタデータを設定
+	// Set metadata
 	if v, ok := weights.Metadata["n_features"].(float64); ok {
 		lr.nFeatures_ = int(v)
 	}
@@ -362,7 +362,7 @@ func (lr *LinearRegression) ImportWeights(weights *model.ModelWeights) error {
 		lr.rank_ = int(v)
 	}
 	
-	// チェックサムを検証
+	// Verify checksum
 	if checksumStr, ok := weights.Metadata["checksum"].(string); ok {
 		data, _ := json.Marshal(weights.Coefficients)
 		hash := sha256.Sum256(data)
@@ -395,7 +395,7 @@ func (lr *LinearRegression) IsFitted() bool {
 	return lr.state.IsFitted()
 }
 
-// Clone はモデルの新しいインスタンスを作成（同じハイパーパラメータ）
+// Clone creates a new instance of the model (with same hyperparameters)
 func (lr *LinearRegression) Clone() model.SKLearnCompatible {
 	clone := NewLinearRegression(
 		WithLRFitIntercept(lr.fitIntercept),

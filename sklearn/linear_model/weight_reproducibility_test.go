@@ -9,13 +9,13 @@ import (
 	"gonum.org/v1/gonum/mat"
 )
 
-// TestLinearRegressionWeightReproducibility は重みの完全な再現性をテスト
+// TestLinearRegressionWeightReproducibility tests complete weight reproducibility
 func TestLinearRegressionWeightReproducibility(t *testing.T) {
-	// テストデータを作成
+	// Create test data
 	X := mat.NewDense(100, 3, nil)
 	y := mat.NewDense(100, 1, nil)
 	
-	// データを生成（固定シードで再現可能）
+	// Generate data (reproducible with fixed seed)
 	for i := 0; i < 100; i++ {
 		X.Set(i, 0, math.Sin(float64(i)/10.0))
 		X.Set(i, 1, math.Cos(float64(i)/10.0))
@@ -24,37 +24,37 @@ func TestLinearRegressionWeightReproducibility(t *testing.T) {
 		y.Set(i, 0, 2*X.At(i, 0) + 3*X.At(i, 1) - X.At(i, 2) + 5 + float64(i%5)/100.0)
 	}
 	
-	// モデル1を学習
+	// Train model1
 	model1 := NewLinearRegression(WithLRFitIntercept(true))
 	if err := model1.Fit(X, y); err != nil {
 		t.Fatalf("Failed to fit model1: %v", err)
 	}
 	
-	// 重みをエクスポート
+	// Export weights
 	weights, err := model1.ExportWeights()
 	if err != nil {
 		t.Fatalf("Failed to export weights: %v", err)
 	}
 	
-	// 重みをJSONにシリアライズ
+	// Serialize weights to JSON
 	jsonData, err := json.Marshal(weights)
 	if err != nil {
 		t.Fatalf("Failed to serialize weights: %v", err)
 	}
 	
-	// JSONから重みをデシリアライズ
+	// Deserialize weights from JSON
 	loadedWeights := &model.ModelWeights{}
 	if err := json.Unmarshal(jsonData, loadedWeights); err != nil {
 		t.Fatalf("Failed to deserialize weights: %v", err)
 	}
 	
-	// モデル2に重みをインポート
+	// Import weights to model2
 	model2 := NewLinearRegression()
 	if err := model2.ImportWeights(loadedWeights); err != nil {
 		t.Fatalf("Failed to import weights: %v", err)
 	}
 	
-	// 両モデルの係数が完全に一致することを確認
+	// Verify that coefficients of both models match exactly
 	coef1 := model1.Coef()
 	coef2 := model2.Coef()
 	
@@ -68,12 +68,12 @@ func TestLinearRegressionWeightReproducibility(t *testing.T) {
 		}
 	}
 	
-	// 切片も一致することを確認
+	// Verify that intercepts also match
 	if model1.Intercept() != model2.Intercept() {
 		t.Errorf("Intercept mismatch: %.15f vs %.15f", model1.Intercept(), model2.Intercept())
 	}
 	
-	// 予測結果が完全に一致することを確認
+	// Verify that prediction results match exactly
 	pred1, err := model1.Predict(X)
 	if err != nil {
 		t.Fatalf("Failed to predict with model1: %v", err)
@@ -93,7 +93,7 @@ func TestLinearRegressionWeightReproducibility(t *testing.T) {
 		}
 	}
 	
-	// ハッシュ値が一致することを確認
+	// Verify that hash values match
 	hash1 := model1.GetWeightHash()
 	hash2 := model2.GetWeightHash()
 	
@@ -102,13 +102,13 @@ func TestLinearRegressionWeightReproducibility(t *testing.T) {
 	}
 }
 
-// TestSGDRegressorWeightReproducibility はSGDRegressorの重み再現性をテスト
+// TestSGDRegressorWeightReproducibility tests SGDRegressor weight reproducibility
 func TestSGDRegressorWeightReproducibility(t *testing.T) {
-	// テストデータを作成
+	// Create test data
 	X := mat.NewDense(50, 3, nil)
 	y := mat.NewDense(50, 1, nil)
 	
-	// データを生成
+	// Generate data
 	for i := 0; i < 50; i++ {
 		for j := 0; j < 3; j++ {
 			X.Set(i, j, float64(i+j+1)/10.0)
@@ -116,7 +116,7 @@ func TestSGDRegressorWeightReproducibility(t *testing.T) {
 		y.Set(i, 0, 2*X.At(i, 0) + 3*X.At(i, 1) - X.At(i, 2) + 5)
 	}
 	
-	// SGDRegressorを学習（固定シード）
+	// Train SGDRegressor (with fixed seed)
 	sgd1 := NewSGDRegressor(
 		WithRandomState(42),
 		WithMaxIter(100),
@@ -127,18 +127,18 @@ func TestSGDRegressorWeightReproducibility(t *testing.T) {
 		t.Fatalf("Failed to fit SGDRegressor: %v", err)
 	}
 	
-	// 係数を取得
+	// Get coefficients
 	coef1 := sgd1.Coef()
 	intercept1 := sgd1.Intercept()
 	
-	// 別のSGDRegressorを作成して重みを設定
+	// Create another SGDRegressor and set weights
 	sgd2 := NewSGDRegressor(
 		WithRandomState(42),
 		WithMaxIter(100),
 		WithTol(1e-4),
 	)
 	
-	// 手動で重みを設定（実際の実装では ImportWeights を使用）
+	// Manually set weights (in actual implementation, use ImportWeights)
 	sgd2.coef_ = make([]float64, len(coef1))
 	copy(sgd2.coef_, coef1)
 	sgd2.intercept_ = intercept1
@@ -146,7 +146,7 @@ func TestSGDRegressorWeightReproducibility(t *testing.T) {
 	sgd2.state.SetFitted()
 	sgd2.state.SetDimensions(3, 50)
 	
-	// 予測結果が一致することを確認
+	// Verify that prediction results match
 	pred1, err := sgd1.Predict(X)
 	if err != nil {
 		t.Fatalf("Failed to predict with sgd1: %v", err)
@@ -168,7 +168,7 @@ func TestSGDRegressorWeightReproducibility(t *testing.T) {
 	}
 }
 
-// TestWeightValidation は重みの妥当性検証をテスト
+// TestWeightValidation tests weight validation
 func TestWeightValidation(t *testing.T) {
 	weights := &model.ModelWeights{
 		ModelType:    "LinearRegression",
@@ -182,19 +182,19 @@ func TestWeightValidation(t *testing.T) {
 		},
 	}
 	
-	// 妥当な重みは検証を通過
+	// Valid weights should pass validation
 	if err := weights.Validate(); err != nil {
 		t.Errorf("Valid weights failed validation: %v", err)
 	}
 	
-	// モデルタイプが空の場合はエラー
+	// Error if model type is empty
 	invalidWeights := weights.Clone()
 	invalidWeights.ModelType = ""
 	if err := invalidWeights.Validate(); err == nil {
 		t.Error("Invalid weights (empty model_type) passed validation")
 	}
 	
-	// 学習済みなのに係数がない場合はエラー
+	// Error if trained but no coefficients
 	invalidWeights2 := weights.Clone()
 	invalidWeights2.Coefficients = nil
 	if err := invalidWeights2.Validate(); err == nil {
@@ -202,9 +202,9 @@ func TestWeightValidation(t *testing.T) {
 	}
 }
 
-// TestWeightFloatPrecision は浮動小数点精度の保持をテスト
+// TestWeightFloatPrecision tests floating-point precision preservation
 func TestWeightFloatPrecision(t *testing.T) {
-	// 精度の高い数値を用意
+	// Prepare high-precision values
 	preciseValues := []float64{
 		math.Pi,
 		math.E,
@@ -221,7 +221,7 @@ func TestWeightFloatPrecision(t *testing.T) {
 		IsFitted:     true,
 	}
 	
-	// JSONシリアライゼーション経由でも精度が保持されることを確認
+	// Verify precision is preserved even through JSON serialization
 	jsonData, err := weights.ToJSON()
 	if err != nil {
 		t.Fatalf("Failed to serialize weights: %v", err)
@@ -232,7 +232,7 @@ func TestWeightFloatPrecision(t *testing.T) {
 		t.Fatalf("Failed to deserialize weights: %v", err)
 	}
 	
-	// 係数の精度が保持されていることを確認
+	// Verify coefficient precision is preserved
 	for i, original := range preciseValues {
 		loaded := loadedWeights.Coefficients[i]
 		if original != loaded {
@@ -241,16 +241,16 @@ func TestWeightFloatPrecision(t *testing.T) {
 		}
 	}
 	
-	// 切片の精度も確認
+	// Also verify intercept precision
 	if weights.Intercept != loadedWeights.Intercept {
 		t.Errorf("Intercept precision loss: original=%.17f, loaded=%.17f",
 			weights.Intercept, loadedWeights.Intercept)
 	}
 }
 
-// BenchmarkWeightExportImport は重みのエクスポート/インポートのパフォーマンスを測定
+// BenchmarkWeightExportImport measures performance of weight export/import
 func BenchmarkWeightExportImport(b *testing.B) {
-	// 大きめのモデルを作成
+	// Create a larger model
 	X := mat.NewDense(1000, 100, nil)
 	y := mat.NewDense(1000, 1, nil)
 	
@@ -267,16 +267,16 @@ func BenchmarkWeightExportImport(b *testing.B) {
 	b.ResetTimer()
 	
 	for i := 0; i < b.N; i++ {
-		// エクスポート
+		// Export
 		weights, _ := mdl.ExportWeights()
 		
-		// JSONシリアライゼーション
+		// JSON serialization
 		jsonData, _ := json.Marshal(weights)
 		
-		// JSONデシリアライゼーション - この部分を一時的に簡略化
-		_ = jsonData // 使用しないようにマーク
+		// JSON deserialization - temporarily simplified
+		_ = jsonData // Mark as unused
 		
-		// インポート
+		// Import
 		newModel := NewLinearRegression()
 		_ = newModel.ImportWeights(weights)
 	}

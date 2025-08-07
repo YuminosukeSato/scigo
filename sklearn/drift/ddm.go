@@ -57,33 +57,33 @@ func NewDDM(options ...DDMOption) *DDM {
 	return ddm
 }
 
-// DDMOption はDDMの設定オプション
+// DDMOption is a DDM configuration option
 type DDMOption func(*DDM)
 
-// WithDDMMinNumInstances は最小サンプル数を設定
+// WithDDMMinNumInstances sets the minimum number of samples
 func WithDDMMinNumInstances(n int) DDMOption {
 	return func(ddm *DDM) {
 		ddm.minNumInstances = n
 	}
 }
 
-// WithDDMWarningLevel は警告レベルを設定
+// WithDDMWarningLevel sets the warning level
 func WithDDMWarningLevel(level float64) DDMOption {
 	return func(ddm *DDM) {
 		ddm.warningLevel = level
 	}
 }
 
-// WithDDMOutControlLevel はコントロール外レベルを設定
+// WithDDMOutControlLevel sets the out-of-control level
 func WithDDMOutControlLevel(level float64) DDMOption {
 	return func(ddm *DDM) {
 		ddm.outControlLevel = level
 	}
 }
 
-// Update は予測結果でドリフト検出器を更新
-// correct: 予測が正しかったかどうか
-// 戻り値: ドリフト検出結果
+// Update updates the drift detector with prediction results
+// correct: whether the prediction was correct
+// return: drift detection result
 func (ddm *DDM) Update(correct bool) *DriftDetectionResult {
 	ddm.mu.Lock()
 	defer ddm.mu.Unlock()
@@ -93,7 +93,7 @@ func (ddm *DDM) Update(correct bool) *DriftDetectionResult {
 		ddm.numErrors++
 	}
 
-	// 最小サンプル数に達していない場合は検出しない
+	// Do not detect if minimum sample size is not reached
 	if ddm.numInstances < ddm.minNumInstances {
 		return &DriftDetectionResult{
 			WarningDetected: false,
@@ -103,7 +103,7 @@ func (ddm *DDM) Update(correct bool) *DriftDetectionResult {
 		}
 	}
 
-	// エラー率と標準偏差の計算
+	// Calculate error rate and standard deviation
 	ddm.errorRate = float64(ddm.numErrors) / float64(ddm.numInstances)
 	ddm.stdDev = math.Sqrt(ddm.errorRate * (1.0 - ddm.errorRate) / float64(ddm.numInstances))
 
@@ -156,7 +156,7 @@ func (ddm *DDM) UpdateWithPrediction(predicted, actual float64) *DriftDetectionR
 
 // UpdateWithError はエラー値でドリフト検出器を更新
 func (ddm *DDM) UpdateWithError(error float64) *DriftDetectionResult {
-	// エラーが閾値以下なら正解とみなす
+	// Consider as correct if error is below threshold
 	correct := error < 0.1
 	return ddm.Update(correct)
 }
