@@ -3,10 +3,17 @@ name: Release
 on:
   push:
     tags:
-      - 'v*'
+      - 'v*.*.*'
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Tag to release (e.g., v0.2.0)'
+        required: true
+        type: string
 
 permissions:
   contents: write
+  packages: write
   
 jobs:
   release:
@@ -47,33 +54,65 @@ jobs:
         GOOS=darwin GOARCH=arm64 go build -o scigo-darwin-arm64 ./cmd/scigo
         GOOS=windows GOARCH=amd64 go build -o scigo-windows-amd64.exe ./cmd/scigo
         
-    - name: Generate changelog
+    - name: Generate release notes
       id: changelog
       run: |
-        # Extract version from tag
+        # Extract version from tag or input
         VERSION=${GITHUB_REF#refs/tags/}
+        if [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
+          VERSION=${{ github.event.inputs.tag }}
+        fi
         echo "VERSION=$VERSION" >> $GITHUB_OUTPUT
         
-        # Extract changelog for this version
-        sed -n "/## \[$VERSION\]/,/## \[/p" CHANGELOG.md | sed '$d' > release_notes.md
-        
-        # If empty, use unreleased section
-        if [ ! -s release_notes.md ]; then
+        # Extract changelog section for this version
+        if grep -q "## \[$VERSION\]" CHANGELOG.md; then
+          sed -n "/## \[$VERSION\]/,/## \[/p" CHANGELOG.md | sed '$d' > release_notes.md
+        else
           sed -n "/## \[Unreleased\]/,/## \[/p" CHANGELOG.md | sed '$d' > release_notes.md
         fi
         
+        # Add installation instructions
+        cat >> release_notes.md << 'EOF'
+        
+        ## Installation
+        
+        ### Go Install (Recommended)
+        ```bash
+        go install github.com/YuminosukeSato/scigo@latest
+        ```
+        
+        ### Go Module
+        ```bash
+        go get github.com/YuminosukeSato/scigo@VERSION
+        ```
+        
+        ## Documentation
+        
+        - [API Documentation](https://pkg.go.dev/github.com/YuminosukeSato/scigo)
+        - [Examples](https://github.com/YuminosukeSato/scigo/tree/main/examples)
+        - [Migration Guide](https://github.com/YuminosukeSato/scigo#-scikit-learn-compatibility)
+        EOF
+        
+        # Replace VERSION placeholder
+        sed -i "s/@VERSION/@$VERSION/g" release_notes.md
+        
     - name: Create Release
-      uses: softprops/action-gh-release@v1
+      uses: softprops/action-gh-release@v2
       with:
+        tag_name: ${{ steps.changelog.outputs.VERSION }}
+        name: Release ${{ steps.changelog.outputs.VERSION }}
         body_path: release_notes.md
         draft: false
-        prerelease: ${{ contains(github.ref, '-alpha') || contains(github.ref, '-beta') || contains(github.ref, '-rc') }}
+        prerelease: ${{ contains(steps.changelog.outputs.VERSION, '-alpha') || contains(steps.changelog.outputs.VERSION, '-beta') || contains(steps.changelog.outputs.VERSION, '-rc') }}
         files: |
           scigo-linux-amd64
           scigo-linux-arm64
           scigo-darwin-amd64
           scigo-darwin-arm64
           scigo-windows-amd64.exe
+        generate_release_notes: true
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           
     - name: Update pkg.go.dev
       run: |

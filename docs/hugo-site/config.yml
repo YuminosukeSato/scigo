@@ -1,0 +1,75 @@
+baseURL: "https://yuminosukesato.github.io/scigo"
+languageCode: "en-us"
+title: "SciGo - ML for Go"
+theme: "docsy"
+
+# Repository info
+params:
+  github_repo: "https://github.com/YuminosukeSato/scigo"
+  github_branch: "main"
+  
+  # Site info
+  site_description: "The blazing-fast scikit-learn compatible ML library for Go"
+  site_keywords: ["machine learning", "go", "scikit-learn", "golang", "ml", "ai"]
+  
+  # SEO
+  images: ["images/scigo-social.png"]
+  
+  # Navigation
+  version_menu: true
+  version: "v0.2.0"
+  
+  # Features
+  features:
+    - title: "🔥 Blazing Fast"
+      description: "Native Go implementation with built-in parallelization"
+    - title: "🎯 scikit-learn Compatible"
+      description: "Familiar Fit/Predict API for easy migration"
+    - title: "🌲 LightGBM Support"
+      description: "Full compatibility with Python LightGBM models"
+    - title: "📖 Well Documented"
+      description: "Complete API documentation with examples"
+    - title: "🌊 Streaming Support"
+      description: "Online learning algorithms for real-time data"
+    - title: "🚀 Zero Heavy Dependencies"
+      description: "Pure Go implementation with scientific essentials only"
+
+  # Social links
+  social:
+    - name: "GitHub"
+      url: "https://github.com/YuminosukeSato/scigo"
+      icon: "fab fa-github"
+    - name: "Go Package"
+      url: "https://pkg.go.dev/github.com/YuminosukeSato/scigo"
+      icon: "fas fa-cube"
+
+# Menu configuration
+menu:
+  main:
+    - name: "Documentation"
+      url: "/docs/"
+      weight: 10
+    - name: "API Reference"
+      url: "https://pkg.go.dev/github.com/YuminosukeSato/scigo"
+      weight: 20
+    - name: "Examples"
+      url: "/examples/"
+      weight: 30
+    - name: "GitHub"
+      url: "https://github.com/YuminosukeSato/scigo"
+      weight: 40
+
+# Markup configuration
+markup:
+  goldmark:
+    renderer:
+      unsafe: true
+  highlight:
+    lineNos: true
+    style: github
+
+# Module configuration
+module:
+  hugoVersion:
+    extended: true
+    min: "0.115.0"

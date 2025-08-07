@@ -1,0 +1,107 @@
+# GitPod Configuration for SciGo
+# Provides instant development environment for machine learning in Go
+
+image:
+  file: .gitpod.Dockerfile
+
+# VS Code extensions to install
+vscode:
+  extensions:
+    - golang.Go
+    - ms-vscode.vscode-json
+    - redhat.vscode-yaml
+    - ms-python.python
+    - ms-toolsai.jupyter
+    - GitHub.vscode-pull-request-github
+    - eamodio.gitlens
+    - streetsidesoftware.code-spell-checker
+
+# Tasks to run on workspace startup
+tasks:
+  - name: Setup Go Environment
+    init: |
+      # Install Go tools
+      go install golang.org/x/tools/cmd/goimports@latest
+      go install golang.org/x/tools/cmd/godoc@latest
+      go install golang.org/x/lint/golint@latest
+      go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest
+      
+      # Download dependencies
+      go mod download
+      
+      echo "🚀 SciGo development environment is ready!"
+      echo "📚 Try: go run ./examples/quick-start"
+    
+    command: |
+      # Welcome message
+      echo "🎉 Welcome to SciGo development!"
+      echo "================================="
+      echo ""
+      echo "Quick start commands:"
+      echo "  go run ./examples/quick-start     # Run quick demo"
+      echo "  go test ./...                     # Run all tests"
+      echo "  make lint                         # Run linter"
+      echo "  docker-compose up scigo-demo     # Docker demo"
+      echo ""
+      echo "📖 Documentation: https://pkg.go.dev/github.com/YuminosukeSato/scigo"
+      echo "🐙 Repository: https://github.com/YuminosukeSato/scigo"
+      echo ""
+      echo "Ready, Set, SciGo! 🚀"
+
+  - name: Run Quick Demo
+    command: |
+      echo "🎯 Running SciGo Quick Demo..."
+      sleep 2
+      go run ./examples/quick-start
+
+  - name: Documentation Server
+    init: |
+      # Install Hugo if not available
+      if ! command -v hugo &> /dev/null; then
+        echo "📚 Installing Hugo for documentation..."
+        wget https://github.com/gohugoio/hugo/releases/download/v0.120.4/hugo_extended_0.120.4_Linux-64bit.tar.gz
+        tar -xzf hugo_extended_0.120.4_Linux-64bit.tar.gz
+        sudo mv hugo /usr/local/bin/
+        rm hugo_extended_0.120.4_Linux-64bit.tar.gz
+      fi
+    command: |
+      cd docs/hugo-site
+      hugo server --bind 0.0.0.0 --port 1313 --buildDrafts --buildFuture
+
+# Ports to expose
+ports:
+  - name: Documentation Server
+    port: 1313
+    onOpen: notify
+    description: Hugo documentation server
+  - name: Development Server
+    port: 8080
+    onOpen: ignore
+    description: Application development server
+
+# GitHub integration
+github:
+  prebuilds:
+    master: true
+    branches: true
+    pullRequests: true
+    pullRequestsFromForks: false
+    addCheck: true
+    addComment: true
+    addBadge: false
+
+# Workspace configuration
+workspaceLocation: "."
+
+# Prebuild configuration
+prebuild: |
+  # Download Go dependencies
+  go mod download
+  
+  # Pre-compile common packages
+  go build -o /tmp/quick-start ./examples/quick-start
+  
+  # Run quick tests to warm up
+  go test -short ./linear ./preprocessing ./metrics
+  
+  echo "✅ Prebuild completed"

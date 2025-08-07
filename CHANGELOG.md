@@ -8,6 +8,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- GitHub Releases automation with multi-platform binaries
+- Enhanced CI/CD pipeline with security scanning
+
+### Changed
+- Improved release workflow with automatic changelog generation
+
+## [0.2.0] - 2025-08-07
+
+### Added
 - LightGBM inference support with Python model compatibility
 - Comprehensive error handling with panic recovery
 - Structured logging with slog-compatible interface
@@ -16,6 +25,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 - Improved API documentation with pkg.go.dev compatibility
 - Enhanced test coverage to 76.7%
+- Updated CI/CD pipeline with dependency scanning
 
 ### Fixed
 - Type conversion issues in metrics package
@@ -56,5 +66,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - No support for missing values or categorical variables
 - No ONNX/Pickle compatibility
 
-[Unreleased]: https://github.com/YuminosukeSato/scigo/compare/v0.1.0...HEAD
+[Unreleased]: https://github.com/YuminosukeSato/scigo/compare/v0.2.0...HEAD
+[0.2.0]: https://github.com/YuminosukeSato/scigo/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/YuminosukeSato/scigo/releases/tag/v0.1.0

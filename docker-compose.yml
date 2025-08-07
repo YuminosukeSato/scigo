@@ -1,0 +1,72 @@
+version: '3.8'
+
+services:
+  # SciGo Quick Start Demo
+  scigo-demo:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: scigo:latest
+    container_name: scigo-demo
+    restart: "no"
+    environment:
+      - SCIGO_LOG_LEVEL=info
+    volumes:
+      # Optional: Mount local directory for development
+      - ./examples:/home/scigouser/local-examples:ro
+    stdin_open: true
+    tty: true
+    command: ["scigo-demo", "all"]
+    
+  # Development environment
+  scigo-dev:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: builder
+    image: scigo:dev
+    container_name: scigo-dev
+    restart: "no"
+    working_dir: /app
+    volumes:
+      - .:/app
+      - go-mod-cache:/go/pkg/mod
+    environment:
+      - CGO_ENABLED=0
+      - GOOS=linux
+    stdin_open: true
+    tty: true
+    command: ["sh"]
+
+  # Documentation server (Hugo)
+  scigo-docs:
+    image: klakegg/hugo:0.111.3-ext-alpine
+    container_name: scigo-docs
+    restart: "no"
+    ports:
+      - "1313:1313"
+    volumes:
+      - ./docs/hugo-site:/src
+    working_dir: /src
+    command: ["server", "--bind=0.0.0.0", "--buildDrafts", "--buildFuture"]
+    
+  # Jupyter notebook for Python comparison (optional)
+  jupyter-comparison:
+    image: jupyter/scipy-notebook:latest
+    container_name: scigo-jupyter
+    restart: "no"
+    ports:
+      - "8888:8888"
+    volumes:
+      - ./examples/sklearn:/home/jovyan/work
+    environment:
+      - JUPYTER_ENABLE_LAB=yes
+    command: ["start-notebook.sh", "--NotebookApp.token=''", "--NotebookApp.password=''"]
+
+volumes:
+  go-mod-cache:
+    driver: local
+
+networks:
+  default:
+    name: scigo-network

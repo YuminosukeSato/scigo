@@ -1,0 +1,103 @@
+# SciGo Docker ignore file
+
+# Git files
+.git
+.gitignore
+.gitattributes
+
+# Go build artifacts
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+*.test
+*.out
+*.prof
+*.pprof
+
+# Go coverage files
+coverage.out
+coverage.txt
+coverage.html
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Documentation build
+docs/hugo-site/public/
+docs/hugo-site/resources/
+
+# Temporary files
+tmp/
+temp/
+*.tmp
+*.temp
+
+# Node modules (if any)
+node_modules/
+
+# Python files (if any)
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+env/
+pip-log.txt
+pip-delete-this-directory.txt
+
+# Logs
+*.log
+logs/
+
+# Runtime data
+pids
+*.pid
+*.seed
+*.pid.lock
+
+# Dependency directories
+vendor/
+
+# Test data
+testdata/*/large_*
+
+# Benchmarks
+benchmark.txt
+*.bench
+
+# CI/CD
+.github/
+.circleci/
+.travis.yml
+.appveyor.yml
+
+# Documentation source (we copy built docs separately)
+README.md
+CONTRIBUTING.md
+CHANGELOG.md
+LICENSE
+CODE_OF_CONDUCT.md
+SECURITY.md
+
+# Scripts (unless specifically needed)
+scripts/
+
+# Docker files themselves
+Dockerfile*
+docker-compose*.yml
+.dockerignore

@@ -9,10 +9,12 @@
   Say "Goodbye" to slow ML, "Sci-Go" to fast learning!
   
   [![CI](https://github.com/YuminosukeSato/scigo/actions/workflows/ci.yml/badge.svg)](https://github.com/YuminosukeSato/scigo/actions/workflows/ci.yml)
+  [![Codecov](https://codecov.io/gh/YuminosukeSato/scigo/branch/main/graph/badge.svg)](https://codecov.io/gh/YuminosukeSato/scigo)
   [![Go Report Card](https://goreportcard.com/badge/github.com/YuminosukeSato/scigo)](https://goreportcard.com/report/github.com/YuminosukeSato/scigo)
   [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
   [![Go Version](https://img.shields.io/badge/Go-1.23%2B-blue.svg)](https://go.dev/)
   [![GoDoc](https://pkg.go.dev/badge/github.com/YuminosukeSato/scigo)](https://pkg.go.dev/github.com/YuminosukeSato/scigo)
+  [![Release](https://img.shields.io/github/v/release/YuminosukeSato/scigo)](https://github.com/YuminosukeSato/scigo/releases)
 </div>
 
 ---
@@ -35,9 +37,15 @@ SciGo brings the power and familiarity of scikit-learn to the Go ecosystem, offe
 
 ## 📦 Installation
 
+### Go Module (Recommended)
 ```bash
-go get github.com/YuminosukeSato/scigo
+go get github.com/YuminosukeSato/scigo@latest
 ```
+
+### Quick Start Options
+- **🐳 Docker**: `docker run --rm -it ghcr.io/yuminosukesato/scigo:latest`
+- **☁️ GitPod**: [![Open in Gitpod](https://gitpod.io/button/open-in-gitpod.svg)](https://gitpod.io/#https://github.com/YuminosukeSato/scigo)
+- **📦 Go Install**: `go install github.com/YuminosukeSato/scigo/examples/quick-start@latest`
 
 ## 🚀 Quick Start
 
@@ -351,10 +359,11 @@ golangci-lint run
 | `LinearRegression` | linear | [pkg.go.dev/linear.LinearRegression](https://pkg.go.dev/github.com/YuminosukeSato/scigo/linear#LinearRegression) |
 | `BaseEstimator` | core/model | [pkg.go.dev/model.BaseEstimator](https://pkg.go.dev/github.com/YuminosukeSato/scigo/core/model#BaseEstimator) |
 
-### Guides (Coming Soon)
-- [Migration from scikit-learn](docs/migration_guide.md)
-- [Streaming Guide](docs/streaming.md)
-- [Performance Tuning](docs/performance.md)
+### Migration & Advanced Guides
+- **[📚 scikit-learn Migration Guide](docs/sklearn-migration-guide.md)** - Complete guide for Python developers
+- **[🏗️ API Stability Analysis](docs/api-stability.md)** - v1.0.0 roadmap and compatibility
+- [🌊 Streaming Guide](docs/streaming.md) (Coming Soon)
+- [⚡ Performance Tuning](docs/performance.md) (Coming Soon)
 
 ## 🙏 Acknowledgments
 
