@@ -32,7 +32,7 @@ jobs:
         curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b $(go env GOPATH)/bin v1.61.0
     
     - name: Run golangci-lint
-      run: golangci-lint run --timeout=5m ./...
+      run: golangci-lint run --timeout=5m --enable=errcheck,govet,ineffassign,staticcheck,unused,misspell ./...
     
     - name: Check go mod tidy
       run: |
@@ -42,14 +42,20 @@ jobs:
   # テストの実行とカバレッジ測定
   test:
     name: Test
-    runs-on: ubuntu-latest
+    runs-on: ${{ matrix.os }}
 
     strategy:
       matrix:
         go: ['1.23']
         os: [ubuntu-latest, macos-latest, windows-latest]
 
-
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+    
+    - name: Set up Go
+      uses: actions/setup-go@v5
+      with:
         go-version: ${{ matrix.go }}
         cache: true
     
@@ -115,9 +121,9 @@ jobs:
         name: gosec-report
         path: gosec-report.json
     
-    - name: Run nancy (check dependencies)
+    - name: Check for dependency updates
       run: |
-        go list -json -deps ./... | docker run --rm -i sonatypecorp/nancy:latest sleuth || true
+        go list -u -m all
 
   # ビルドチェック
   build:
