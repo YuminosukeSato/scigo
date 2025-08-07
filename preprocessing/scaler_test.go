@@ -8,10 +8,10 @@ import (
 	"gonum.org/v1/gonum/mat"
 )
 
-const epsilon = 1e-10 // 浮動小数点比較の許容誤差
+const epsilon = 1e-10 // Tolerance for floating-point comparisons
 
 func TestStandardScaler_BasicFunctionality(t *testing.T) {
-	// テストデータ: 3サンプル、2特徴量
+	// Test data: 3 samples, 2 features
 	// Feature 1: [1, 2, 3] -> mean=2, std=0.816
 	// Feature 2: [4, 5, 6] -> mean=5, std=0.816
 	data := []float64{
@@ -29,7 +29,7 @@ func TestStandardScaler_BasicFunctionality(t *testing.T) {
 		t.Fatalf("Fit failed: %v", err)
 	}
 
-	// 統計情報の確認
+	// Verify statistics
 	expectedMean := []float64{2.0, 5.0}
 	expectedStd := []float64{0.816496580927726, 0.816496580927726}
 
@@ -391,7 +391,7 @@ func TestMinMaxScaler_BasicFunctionality(t *testing.T) {
 		t.Fatalf("Fit failed: %v", err)
 	}
 
-	// 統計情報の確認
+	// Verify statistics
 	expectedDataMin := []float64{1.0, 4.0}
 	expectedDataMax := []float64{3.0, 6.0}
 	expectedScale := []float64{2.0, 2.0}
