@@ -143,24 +143,24 @@ func (lr *LinearRegression) Fit(X, y mat.Matrix) (err error) {
 
 	lr.NFeatures = c
 
-	// 切片項のために X に 1 の列を追加
+	// Add column of 1s to X for intercept term
 	// X_with_intercept = [1, X]
 	XWithIntercept := mat.NewDense(r, c+1, nil)
 
 	// Parallelization threshold (use sequential processing for row counts below this value)
 	const parallelThreshold = 1000
 
-	// ParallelizeWithThresholdを使用して、データサイズに応じて並列化
+	// Use ParallelizeWithThreshold for parallelization based on data size
 	parallel.ParallelizeWithThreshold(r, parallelThreshold, func(start, end int) {
 		for i := start; i < end; i++ {
-			XWithIntercept.Set(i, 0, 1.0) // 切片項
+			XWithIntercept.Set(i, 0, 1.0) // Intercept term
 			for j := 0; j < c; j++ {
 				XWithIntercept.Set(i, j+1, X.At(i, j))
 			}
 		}
 	})
 
-	// 正規方程式を解く
+	// Solve normal equations
 	// (X^T * X)^(-1) * X^T * y
 	var XT mat.Dense
 	XT.CloneFrom(XWithIntercept.T())
@@ -168,15 +168,15 @@ func (lr *LinearRegression) Fit(X, y mat.Matrix) (err error) {
 	var XTX mat.Dense
 	XTX.Mul(&XT, XWithIntercept)
 
-	// 逆行列を計算
+	// Calculate inverse matrix
 	var XTXInv mat.Dense
 	err = XTXInv.Inverse(&XTX)
 	if err != nil {
 		return scigoErrors.NewModelError("LinearRegression.Fit", "singular matrix", scigoErrors.ErrSingularMatrix)
 	}
 
-	// X^T * y を計算
-	// y を VecDense に変換
+	// Calculate X^T * y
+	// Convert y to VecDense
 	yVec := mat.NewVecDense(r, nil)
 	for i := 0; i < r; i++ {
 		yVec.SetVec(i, y.At(i, 0))
@@ -185,11 +185,11 @@ func (lr *LinearRegression) Fit(X, y mat.Matrix) (err error) {
 	var XTy mat.VecDense
 	XTy.MulVec(&XT, yVec)
 
-	// 重みを計算: (X^T * X)^(-1) * X^T * y
+	// Calculate weights: (X^T * X)^(-1) * X^T * y
 	weights := mat.NewVecDense(c+1, nil)
 	weights.MulVec(&XTXInv, &XTy)
 
-	// 切片と重みを分離
+	// Separate intercept and weights
 	lr.Intercept = weights.AtVec(0)
 	lr.Weights = mat.NewVecDense(c, nil)
 	for i := 0; i < c; i++ {
@@ -258,7 +258,7 @@ func (lr *LinearRegression) Predict(X mat.Matrix) (_ mat.Matrix, err error) {
 		)
 	}
 
-	// 予測: y = X * weights + intercept
+	// Prediction: y = X * weights + intercept
 	predictions := mat.NewDense(r, 1, nil)
 
 	for i := 0; i < r; i++ {
@@ -279,7 +279,7 @@ func (lr *LinearRegression) Predict(X mat.Matrix) (_ mat.Matrix, err error) {
 	return predictions, nil
 }
 
-// GetWeights は学習された重み（係数）を返す
+// GetWeights returns the learned weights (coefficients)
 func (lr *LinearRegression) GetWeights() []float64 {
 	if lr.Weights == nil {
 		return nil
@@ -292,7 +292,7 @@ func (lr *LinearRegression) GetWeights() []float64 {
 	return weights
 }
 
-// GetIntercept は学習された切片を返す
+// GetIntercept returns the learned intercept
 func (lr *LinearRegression) GetIntercept() float64 {
 	if !lr.state.IsFitted() {
 		return 0
@@ -300,14 +300,14 @@ func (lr *LinearRegression) GetIntercept() float64 {
 	return lr.Intercept
 }
 
-// Score はモデルの決定係数（R²）を計算する
+// Score calculates the coefficient of determination (R²) of the model
 func (lr *LinearRegression) Score(X, y mat.Matrix) (_ float64, err error) {
 	defer scigoErrors.Recover(&err, "LinearRegression.Score")
 	if !lr.state.IsFitted() {
 		return 0, scigoErrors.NewNotFittedError("LinearRegression", "Score")
 	}
 
-	// 予測値を計算
+	// Calculate predicted values
 	yPred, err := lr.Predict(X)
 	if err != nil {
 		return 0, err
@@ -315,14 +315,14 @@ func (lr *LinearRegression) Score(X, y mat.Matrix) (_ float64, err error) {
 
 	r, _ := y.Dims()
 
-	// y の平均を計算
+	// Calculate mean of y
 	var yMean float64
 	for i := 0; i < r; i++ {
 		yMean += y.At(i, 0)
 	}
 	yMean /= float64(r)
 
-	// 全変動 (TSS) と残差変動 (RSS) を計算
+	// Calculate total sum of squares (TSS) and residual sum of squares (RSS)
 	var tss, rss float64
 	for i := 0; i < r; i++ {
 		yTrue := y.At(i, 0)
@@ -340,15 +340,15 @@ func (lr *LinearRegression) Score(X, y mat.Matrix) (_ float64, err error) {
 	return 1 - rss/tss, nil
 }
 
-// LoadFromSKLearn はscikit-learnからエクスポートされたJSONファイルからモデルを読み込む
+// LoadFromSKLearn loads a model from a JSON file exported from scikit-learn
 //
-// パラメータ:
-//   - filename: JSONファイルのパス
+// Parameters:
+//   - filename: Path to the JSON file
 //
-// 戻り値:
-//   - error: 読み込みエラー
+// Returns:
+//   - error: Loading error
 //
-// 使用例:
+// Example:
 //
 //	lr := NewLinearRegression()
 //	err := lr.LoadFromSKLearn("sklearn_model.json")
@@ -363,32 +363,32 @@ func (lr *LinearRegression) LoadFromSKLearn(filename string) (err error) {
 	return lr.LoadFromSKLearnReader(file)
 }
 
-// LoadFromSKLearnReader はReaderからscikit-learnモデルを読み込む
+// LoadFromSKLearnReader loads a scikit-learn model from a Reader
 //
-// パラメータ:
-//   - r: JSONデータを含むReader
+// Parameters:
+//   - r: Reader containing JSON data
 //
-// 戻り値:
-//   - error: 読み込みエラー
+// Returns:
+//   - error: Loading error
 func (lr *LinearRegression) LoadFromSKLearnReader(r io.Reader) (err error) {
 	defer scigoErrors.Recover(&err, "LinearRegression.LoadFromSKLearnReader")
-	// JSONモデルを読み込み
+	// Load JSON model
 	skModel, err := model.LoadSKLearnModelFromReader(r)
 	if err != nil {
 		return fmt.Errorf("failed to load sklearn model: %w", err)
 	}
 
-	// LinearRegressionのパラメータを抽出
+	// Extract LinearRegression parameters
 	params, err := model.LoadLinearRegressionParams(skModel)
 	if err != nil {
 		return fmt.Errorf("failed to load linear regression params: %w", err)
 	}
 
-	// パラメータを設定
+	// Set parameters
 	lr.NFeatures = params.NFeatures
 	lr.Intercept = params.Intercept
 
-	// 係数をVecDenseに変換
+	// Convert coefficients to VecDense
 	lr.Weights = mat.NewVecDense(len(params.Coefficients), params.Coefficients)
 
 	// Set model as fitted
@@ -399,13 +399,13 @@ func (lr *LinearRegression) LoadFromSKLearnReader(r io.Reader) (err error) {
 	return nil
 }
 
-// ExportToSKLearn はモデルをscikit-learn互換のJSON形式でエクスポート
+// ExportToSKLearn exports the model in scikit-learn compatible JSON format
 //
-// パラメータ:
-//   - filename: 出力ファイル名
+// Parameters:
+//   - filename: Output filename
 //
-// 戻り値:
-//   - error: エクスポート失敗時のエラー
+// Returns:
+//   - error: Error if export fails
 func (lr *LinearRegression) ExportToSKLearn(filename string) (err error) {
 	defer scigoErrors.Recover(&err, "LinearRegression.ExportToSKLearn")
 	if !lr.state.IsFitted() {
@@ -421,33 +421,33 @@ func (lr *LinearRegression) ExportToSKLearn(filename string) (err error) {
 	return lr.ExportToSKLearnWriter(file)
 }
 
-// ExportToSKLearnWriter はモデルをWriterにscikit-learn互換形式でエクスポート
+// ExportToSKLearnWriter exports the model to a Writer in scikit-learn compatible format
 //
-// パラメータ:
-//   - w: 出力先Writer
+// Parameters:
+//   - w: Output Writer
 //
-// 戻り値:
-//   - error: エクスポート失敗時のエラー
+// Returns:
+//   - error: Error if export fails
 func (lr *LinearRegression) ExportToSKLearnWriter(w io.Writer) (err error) {
 	defer scigoErrors.Recover(&err, "LinearRegression.ExportToSKLearnWriter")
 	if !lr.state.IsFitted() {
 		return scigoErrors.NewNotFittedError("LinearRegression", "ExportToSKLearnWriter")
 	}
 
-	// 係数を配列に変換
+	// Convert coefficients to array
 	coefficients := make([]float64, lr.Weights.Len())
 	for i := 0; i < lr.Weights.Len(); i++ {
 		coefficients[i] = lr.Weights.AtVec(i)
 	}
 
-	// パラメータを作成
+	// Create parameters
 	params := model.SKLearnLinearRegressionParams{
 		Coefficients: coefficients,
 		Intercept:    lr.Intercept,
 		NFeatures:    lr.NFeatures,
 	}
 
-	// JSON形式でエクスポート
+	// Export in JSON format
 	skModel := model.SKLearnModel{
 		ModelSpec: model.SKLearnModelSpec{
 			Name:          "LinearRegression",
