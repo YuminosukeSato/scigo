@@ -9,9 +9,7 @@ run:
   modules-download-mode: readonly
 
 output:
-  formats:
-    text:
-      path: stdout
+  format: "text"
   print-issued-lines: true
   print-linter-name: true
   uniq-by-line: true
