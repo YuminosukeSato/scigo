@@ -28,7 +28,7 @@ func TestPythonModelCompatibility(t *testing.T) {
 				{6.2, 3.4, 5.4, 2.3},
 			},
 			expectedOutput: [][]float64{
-				{0.18514822574281953},  // Expected probability from Python
+				{0.18514822574281953}, // Expected probability from Python
 				{0.18514822574281953},
 				{0.815802544297422},
 			},
@@ -89,7 +89,7 @@ func TestPythonModelCompatibility(t *testing.T) {
 					got := predictions.At(i, j)
 					expected := tc.expectedOutput[i][j]
 					diff := math.Abs(got - expected)
-					
+
 					if diff > tc.tolerance {
 						t.Errorf("Row %d, Col %d: got %.6f, expected %.6f (diff: %.6f > tolerance: %.6f)",
 							i, j, got, expected, diff, tc.tolerance)
@@ -229,7 +229,7 @@ func TestJSONModelLoading(t *testing.T) {
 	// Test prediction
 	predictor := NewPredictor(model)
 	X := mat.NewDense(1, 4, []float64{4.0, 0, 0, 0})
-	
+
 	predictions, err := predictor.Predict(X)
 	if err != nil {
 		t.Fatalf("Failed to predict: %v", err)
@@ -255,7 +255,7 @@ func TestClassifierVsRegressor(t *testing.T) {
 	// Test classifier
 	t.Run("Classifier", func(t *testing.T) {
 		y := mat.NewDense(3, 1, []float64{0, 1, 0})
-		
+
 		clf := NewLGBMClassifier()
 		err := clf.Fit(X, y)
 		if err != nil {
@@ -293,7 +293,7 @@ func TestClassifierVsRegressor(t *testing.T) {
 	// Test regressor
 	t.Run("Regressor", func(t *testing.T) {
 		y := mat.NewDense(3, 1, []float64{1.5, 2.5, 3.5})
-		
+
 		reg := NewLGBMRegressor()
 		err := reg.Fit(X, y)
 		if err != nil {
@@ -404,7 +404,7 @@ func BenchmarkParallelPrediction(b *testing.B) {
 	}
 
 	predictor := NewPredictor(model)
-	predictor.SetNumThreads(4) // Use 4 threads
+	predictor.SetNumThreads(4)       // Use 4 threads
 	X := mat.NewDense(1000, 10, nil) // 1000 samples
 
 	b.ResetTimer()

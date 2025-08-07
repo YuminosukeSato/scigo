@@ -19,42 +19,42 @@ type SGDClassifier struct {
 	model.BaseEstimator
 
 	// ハイパーパラメータ
-	loss           string  // 損失関数: "hinge", "log_loss", "modified_huber", "squared_hinge", "perceptron"
-	penalty        string  // 正則化: "l2", "l1", "elasticnet", "none"
-	alpha          float64 // 正則化の強度
-	l1Ratio        float64 // Elastic Netのl1比率
-	fitIntercept   bool    // 切片を学習するか
-	maxIter        int     // 最大イテレーション数
-	tol            float64 // 収束判定の許容誤差
-	shuffle        bool    // 各エポックでデータをシャッフルするか
-	verbose        int     // 詳細出力レベル
-	epsilon        float64 // epsilon-insensitive損失のepsilon
-	randomState    int64   // 乱数シード
-	learningRate   string  // 学習率スケジュール: "constant", "optimal", "invscaling", "adaptive"
-	eta0           float64 // 初期学習率
-	power_t        float64 // invscalingの指数
-	warmStart      bool    // 前回の学習から継続するか
-	averageSGD     bool    // 平均化SGDを使用するか
-	nIterNoChange  int     // 早期停止の判定イテレーション数
-	classWeight    string  // クラス重み: "balanced", "none"
+	loss          string  // 損失関数: "hinge", "log_loss", "modified_huber", "squared_hinge", "perceptron"
+	penalty       string  // 正則化: "l2", "l1", "elasticnet", "none"
+	alpha         float64 // 正則化の強度
+	l1Ratio       float64 // Elastic Netのl1比率
+	fitIntercept  bool    // 切片を学習するか
+	maxIter       int     // 最大イテレーション数
+	tol           float64 // 収束判定の許容誤差
+	shuffle       bool    // 各エポックでデータをシャッフルするか
+	verbose       int     // 詳細出力レベル
+	epsilon       float64 // epsilon-insensitive損失のepsilon
+	randomState   int64   // 乱数シード
+	learningRate  string  // 学習率スケジュール: "constant", "optimal", "invscaling", "adaptive"
+	eta0          float64 // 初期学習率
+	power_t       float64 // invscalingの指数
+	warmStart     bool    // 前回の学習から継続するか
+	averageSGD    bool    // 平均化SGDを使用するか
+	nIterNoChange int     // 早期停止の判定イテレーション数
+	classWeight   string  // クラス重み: "balanced", "none"
 
 	// 学習パラメータ
-	coef_      [][]float64 // 重み係数（クラス数 x 特徴数）
-	intercept_ []float64   // 切片（クラス数）
-	avgCoef_   [][]float64 // 平均化された重み
-	avgIntercept_ []float64 // 平均化された切片
-	classes_   []int       // クラスラベル
-	nClasses_  int         // クラス数
+	coef_         [][]float64 // 重み係数（クラス数 x 特徴数）
+	intercept_    []float64   // 切片（クラス数）
+	avgCoef_      [][]float64 // 平均化された重み
+	avgIntercept_ []float64   // 平均化された切片
+	classes_      []int       // クラスラベル
+	nClasses_     int         // クラス数
 
 	// 学習状態
 	nIter_       int       // 実行されたイテレーション数
 	t_           int64     // 総ステップ数（学習率計算用）
 	lossHistory_ []float64 // 損失の履歴
 	converged_   bool      // 収束フラグ
-	
+
 	// 内部状態
-	mu       sync.RWMutex
-	rng      *rand.Rand
+	mu         sync.RWMutex
+	rng        *rand.Rand
 	nFeatures_ int
 }
 
@@ -175,7 +175,7 @@ func (sgd *SGDClassifier) Fit(X, y mat.Matrix) error {
 	// バッチSGD実装
 	for iter := 0; iter < sgd.maxIter; iter++ {
 		epochLoss := 0.0
-		
+
 		// データのシャッフル
 		indices := make([]int, rows)
 		for i := range indices {
@@ -191,7 +191,7 @@ func (sgd *SGDClassifier) Fit(X, y mat.Matrix) error {
 		for _, idx := range indices {
 			xi := mat.Row(nil, idx, X)
 			yi := int(y.At(idx, 0))
-			
+
 			loss := sgd.updateWeights(xi, yi)
 			epochLoss += loss
 		}
@@ -225,11 +225,11 @@ func (sgd *SGDClassifier) PartialFit(X, y mat.Matrix, classes []int) error {
 	defer sgd.mu.Unlock()
 
 	rows, cols := X.Dims()
-	
+
 	// 初回呼び出し時の初期化
 	if sgd.coef_ == nil {
 		sgd.nFeatures_ = cols
-		
+
 		// classesが指定されている場合はそれを使用
 		if classes != nil {
 			sgd.classes_ = make([]int, len(classes))
@@ -238,7 +238,7 @@ func (sgd *SGDClassifier) PartialFit(X, y mat.Matrix, classes []int) error {
 		} else {
 			sgd.extractClasses(y)
 		}
-		
+
 		sgd.initializeWeights()
 	}
 
@@ -251,14 +251,14 @@ func (sgd *SGDClassifier) PartialFit(X, y mat.Matrix, classes []int) error {
 	for i := 0; i < rows; i++ {
 		xi := mat.Row(nil, i, X)
 		yi := int(y.At(i, 0))
-		
+
 		loss := sgd.updateWeights(xi, yi)
 		batchLoss += loss
 	}
 
 	batchLoss /= float64(rows)
 	sgd.lossHistory_ = append(sgd.lossHistory_, batchLoss)
-	
+
 	sgd.SetFitted()
 	return nil
 }
@@ -317,7 +317,7 @@ func (sgd *SGDClassifier) updateWeights(x []float64, y int) float64 {
 				dloss = -target * exp_z / (1 + exp_z)
 			} else {
 				exp_z := math.Exp(z)
-				loss = -z + math.Log(1 + exp_z)
+				loss = -z + math.Log(1+exp_z)
 				dloss = -target * exp_z / (1 + exp_z)
 			}
 		case "modified_huber":
@@ -361,7 +361,7 @@ func (sgd *SGDClassifier) updateWeights(x []float64, y int) float64 {
 		// 重み更新（勾配降下 + 正則化）
 		for i, xi := range x {
 			grad := dloss * xi
-			
+
 			// 正則化項の勾配
 			switch sgd.penalty {
 			case "l2":
@@ -371,9 +371,9 @@ func (sgd *SGDClassifier) updateWeights(x []float64, y int) float64 {
 			case "elasticnet":
 				grad += sgd.alpha * (sgd.l1Ratio*sign(sgd.coef_[c][i]) + (1-sgd.l1Ratio)*sgd.coef_[c][i])
 			}
-			
+
 			sgd.coef_[c][i] -= lr * grad
-			
+
 			// 平均化SGD
 			if sgd.averageSGD {
 				sgd.avgCoef_[c][i] = (sgd.avgCoef_[c][i]*float64(sgd.t_-1) + sgd.coef_[c][i]) / float64(sgd.t_)
@@ -408,7 +408,7 @@ func (sgd *SGDClassifier) Predict(X mat.Matrix) (mat.Matrix, error) {
 	}
 
 	predictions := mat.NewDense(rows, 1, nil)
-	
+
 	coef := sgd.coef_
 	intercept := sgd.intercept_
 	if sgd.averageSGD && sgd.avgCoef_ != nil {
@@ -419,20 +419,20 @@ func (sgd *SGDClassifier) Predict(X mat.Matrix) (mat.Matrix, error) {
 	for i := 0; i < rows; i++ {
 		maxScore := math.Inf(-1)
 		predictedClass := sgd.classes_[0]
-		
+
 		// 各クラスのスコアを計算
 		for c := 0; c < sgd.nClasses_; c++ {
 			score := intercept[c]
 			for j := 0; j < cols; j++ {
 				score += X.At(i, j) * coef[c][j]
 			}
-			
+
 			if score > maxScore {
 				maxScore = score
 				predictedClass = sgd.classes_[c]
 			}
 		}
-		
+
 		predictions.Set(i, 0, float64(predictedClass))
 	}
 
@@ -454,7 +454,7 @@ func (sgd *SGDClassifier) PredictProba(X mat.Matrix) (mat.Matrix, error) {
 	}
 
 	probabilities := mat.NewDense(rows, sgd.nClasses_, nil)
-	
+
 	coef := sgd.coef_
 	intercept := sgd.intercept_
 	if sgd.averageSGD && sgd.avgCoef_ != nil {
@@ -464,7 +464,7 @@ func (sgd *SGDClassifier) PredictProba(X mat.Matrix) (mat.Matrix, error) {
 
 	for i := 0; i < rows; i++ {
 		scores := make([]float64, sgd.nClasses_)
-		
+
 		// 各クラスのスコアを計算
 		for c := 0; c < sgd.nClasses_; c++ {
 			scores[c] = intercept[c]
@@ -472,14 +472,14 @@ func (sgd *SGDClassifier) PredictProba(X mat.Matrix) (mat.Matrix, error) {
 				scores[c] += X.At(i, j) * coef[c][j]
 			}
 		}
-		
+
 		// ソフトマックス変換
 		expSum := 0.0
 		for c := 0; c < sgd.nClasses_; c++ {
 			scores[c] = math.Exp(scores[c])
 			expSum += scores[c]
 		}
-		
+
 		for c := 0; c < sgd.nClasses_; c++ {
 			probabilities.Set(i, c, scores[c]/expSum)
 		}
@@ -503,7 +503,7 @@ func (sgd *SGDClassifier) DecisionFunction(X mat.Matrix) (mat.Matrix, error) {
 	}
 
 	decisions := mat.NewDense(rows, sgd.nClasses_, nil)
-	
+
 	coef := sgd.coef_
 	intercept := sgd.intercept_
 	if sgd.averageSGD && sgd.avgCoef_ != nil {
@@ -544,10 +544,10 @@ func (sgd *SGDClassifier) FitStream(ctx context.Context, dataChan <-chan *model.
 // PredictStream は入力ストリームに対してリアルタイム予測
 func (sgd *SGDClassifier) PredictStream(ctx context.Context, inputChan <-chan mat.Matrix) <-chan mat.Matrix {
 	outputChan := make(chan mat.Matrix)
-	
+
 	go func() {
 		defer close(outputChan)
-		
+
 		for {
 			select {
 			case <-ctx.Done():
@@ -556,12 +556,12 @@ func (sgd *SGDClassifier) PredictStream(ctx context.Context, inputChan <-chan ma
 				if !ok {
 					return
 				}
-				
+
 				pred, err := sgd.Predict(X)
 				if err != nil {
 					continue
 				}
-				
+
 				select {
 				case outputChan <- pred:
 				case <-ctx.Done():
@@ -570,17 +570,17 @@ func (sgd *SGDClassifier) PredictStream(ctx context.Context, inputChan <-chan ma
 			}
 		}
 	}()
-	
+
 	return outputChan
 }
 
 // FitPredictStream は学習と予測を同時に行う（test-then-train方式）
 func (sgd *SGDClassifier) FitPredictStream(ctx context.Context, dataChan <-chan *model.Batch) <-chan mat.Matrix {
 	outputChan := make(chan mat.Matrix)
-	
+
 	go func() {
 		defer close(outputChan)
-		
+
 		for {
 			select {
 			case <-ctx.Done():
@@ -589,7 +589,7 @@ func (sgd *SGDClassifier) FitPredictStream(ctx context.Context, dataChan <-chan 
 				if !ok {
 					return
 				}
-				
+
 				// まず予測
 				if sgd.IsFitted() {
 					pred, err := sgd.Predict(batch.X)
@@ -601,7 +601,7 @@ func (sgd *SGDClassifier) FitPredictStream(ctx context.Context, dataChan <-chan 
 						}
 					}
 				}
-				
+
 				// その後学習
 				if err := sgd.PartialFit(batch.X, batch.Y, nil); err != nil {
 					continue
@@ -609,7 +609,7 @@ func (sgd *SGDClassifier) FitPredictStream(ctx context.Context, dataChan <-chan 
 			}
 		}
 	}()
-	
+
 	return outputChan
 }
 
@@ -640,7 +640,7 @@ func (sgd *SGDClassifier) SetWarmStart(warmStart bool) {
 func (sgd *SGDClassifier) GetLoss() float64 {
 	sgd.mu.RLock()
 	defer sgd.mu.RUnlock()
-	
+
 	if len(sgd.lossHistory_) == 0 {
 		return math.Inf(1)
 	}
@@ -651,7 +651,7 @@ func (sgd *SGDClassifier) GetLoss() float64 {
 func (sgd *SGDClassifier) GetLossHistory() []float64 {
 	sgd.mu.RLock()
 	defer sgd.mu.RUnlock()
-	
+
 	history := make([]float64, len(sgd.lossHistory_))
 	copy(history, sgd.lossHistory_)
 	return history
@@ -696,7 +696,7 @@ func (sgd *SGDClassifier) SetLearningRateSchedule(schedule string) {
 func (sgd *SGDClassifier) Coef() [][]float64 {
 	sgd.mu.RLock()
 	defer sgd.mu.RUnlock()
-	
+
 	if sgd.averageSGD && sgd.avgCoef_ != nil {
 		coef := make([][]float64, len(sgd.avgCoef_))
 		for i := range sgd.avgCoef_ {
@@ -705,7 +705,7 @@ func (sgd *SGDClassifier) Coef() [][]float64 {
 		}
 		return coef
 	}
-	
+
 	coef := make([][]float64, len(sgd.coef_))
 	for i := range sgd.coef_ {
 		coef[i] = make([]float64, len(sgd.coef_[i]))
@@ -718,13 +718,13 @@ func (sgd *SGDClassifier) Coef() [][]float64 {
 func (sgd *SGDClassifier) Intercept() []float64 {
 	sgd.mu.RLock()
 	defer sgd.mu.RUnlock()
-	
+
 	if sgd.averageSGD && sgd.avgIntercept_ != nil {
 		intercept := make([]float64, len(sgd.avgIntercept_))
 		copy(intercept, sgd.avgIntercept_)
 		return intercept
 	}
-	
+
 	intercept := make([]float64, len(sgd.intercept_))
 	copy(intercept, sgd.intercept_)
 	return intercept
@@ -734,7 +734,7 @@ func (sgd *SGDClassifier) Intercept() []float64 {
 func (sgd *SGDClassifier) Classes() []int {
 	sgd.mu.RLock()
 	defer sgd.mu.RUnlock()
-	
+
 	classes := make([]int, len(sgd.classes_))
 	copy(classes, sgd.classes_)
 	return classes
@@ -749,7 +749,7 @@ func (sgd *SGDClassifier) Score(X, y mat.Matrix) (float64, error) {
 
 	rows, _ := y.Dims()
 	correct := 0
-	
+
 	for i := 0; i < rows; i++ {
 		if int(predictions.At(i, 0)) == int(y.At(i, 0)) {
 			correct++
@@ -765,17 +765,17 @@ func (sgd *SGDClassifier) Score(X, y mat.Matrix) (float64, error) {
 func (sgd *SGDClassifier) extractClasses(y mat.Matrix) {
 	rows, _ := y.Dims()
 	classSet := make(map[int]bool)
-	
+
 	for i := 0; i < rows; i++ {
 		class := int(y.At(i, 0))
 		classSet[class] = true
 	}
-	
+
 	classes := make([]int, 0, len(classSet))
 	for class := range classSet {
 		classes = append(classes, class)
 	}
-	
+
 	// ソート
 	for i := 0; i < len(classes); i++ {
 		for j := i + 1; j < len(classes); j++ {
@@ -784,7 +784,7 @@ func (sgd *SGDClassifier) extractClasses(y mat.Matrix) {
 			}
 		}
 	}
-	
+
 	sgd.classes_ = classes
 	sgd.nClasses_ = len(classes)
 }
@@ -795,12 +795,12 @@ func (sgd *SGDClassifier) initializeWeights() {
 	sgd.intercept_ = make([]float64, sgd.nClasses_)
 	sgd.avgCoef_ = make([][]float64, sgd.nClasses_)
 	sgd.avgIntercept_ = make([]float64, sgd.nClasses_)
-	
+
 	scale := math.Sqrt(2.0 / float64(sgd.nFeatures_))
 	for c := 0; c < sgd.nClasses_; c++ {
 		sgd.coef_[c] = make([]float64, sgd.nFeatures_)
 		sgd.avgCoef_[c] = make([]float64, sgd.nFeatures_)
-		
+
 		for i := 0; i < sgd.nFeatures_; i++ {
 			sgd.coef_[c][i] = sgd.rng.NormFloat64() * scale
 		}
@@ -848,7 +848,7 @@ func (sgd *SGDClassifier) checkConvergence() bool {
 	recent := sgd.lossHistory_[len(sgd.lossHistory_)-sgd.nIterNoChange:]
 	maxLoss := recent[0]
 	minLoss := recent[0]
-	
+
 	for _, loss := range recent {
 		if loss > maxLoss {
 			maxLoss = loss

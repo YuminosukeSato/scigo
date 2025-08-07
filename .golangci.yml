@@ -1,8 +1,8 @@
-# .golangci.yml - Go 1.23対応、LightGBM機械学習プロジェクト向け設定
-# Enterprise-grade quality checks with 79 linters, 70% test coverage threshold
+# .golangci.yml - Go 1.24対応
+version: "2"
 
 run:
-  go: "1.23"
+  go: "1.24"
   timeout: 5m
   issues-exit-code: 1
   tests: true
@@ -17,104 +17,129 @@ run:
     - ".*_generated\\.go$"
 
 output:
-  # colored-line-number|line-number|json|tab|checkstyle|code-climate|junit-xml|github-actions
-  format: colored-line-number
+  formats:
+    text:
+      path: stdout
   print-issued-lines: true
   print-linter-name: true
   uniq-by-line: true
-  path-prefix: ""
   sort-results: true
 
+linters:
+  disable-all: true
+  enable:
+    # Core linters
+    - errcheck
+    - govet
+    - ineffassign
+    - staticcheck
+    - unused
+    
+    # Style and formatting
+    - misspell
+    - whitespace
+    - unconvert
+    - unparam
+    - wsl
+    - nlreturn
+    - nolintlint
+    - goheader
+    - godot
+    - godox
+    - grouper
+    - importas
+    - nilerr
+    - nilnil
+    - thelper
+    - tparallel
+    - revive
+    - gomodguard
+    - forbidigo
+    - containedctx
+    - contextcheck
+    - decorder
+    - depguard
+    - dogsled
+    - dupl
+    - durationcheck
+    - errname
+    - errorlint
+    - exhaustive
+    - forcetypeassert
+    - goconst
+    - gocritic
+    - gocyclo
+    - maintidx
+    
+    # Complexity
+    - funlen
+    - nestif
+    - gocognit
+    - cyclop
+    
+    # Performance
+    - prealloc
+    - bodyclose
+    - noctx
+    
+    # Security
+    - gosec
+    
+    # Code quality
+    - lll
+    - nakedret
+    - rowserrcheck
+    - sqlclosecheck
+    - wastedassign
+    - predeclared
+    - reassign
+    - usestdlibvars
+    - varnamelen
+
 linters-settings:
-  # 複雑度制限（機械学習アルゴリズム向けに調整）
   gocyclo:
-    min-complexity: 15  # デフォルト10から緩和（数学的アルゴリズム考慮）
-    
+    min-complexity: 15
+  
   funlen:
-    lines: 120          # デフォルト60から緩和（LightGBM実装考慮）
-    statements: 60      # デフォルト40から緩和
-    
+    lines: 120
+    statements: 60
+  
   gocognit:
-    min-complexity: 20  # 認知的複雑度制限
-    
-  # エラーチェック設定
+    min-complexity: 20
+  
   errcheck:
     check-type-assertions: true
     check-blank: true
-    exclude-functions:
-      - (io.Closer).Close
-      - (*os.File).Close
-      - (io.Writer).Write
-      - (*bytes.Buffer).Write
-      - (*bytes.Buffer).WriteByte
-      - (*bytes.Buffer).WriteString
     ignore: fmt:.*,math/rand:.*
-    
-  # 未使用パラメータ（数学関数では一般的）
+  
   unparam:
     check-exported: false
-    
-  # セキュリティチェック
+  
   gosec:
     excludes:
-      - G101 # Look for hard coded credentials (数学定数は除外)
-      - G404 # Insecure random number source (テスト用のrand使用許可)
-      - G107 # Url provided to HTTP request as taint input
-    exclude-generated: true
-    
-  # コード重複検出
+      - G101
+      - G404
+      - G107
+  
   dupl:
     threshold: 150
-    
-  # 行長制限
+  
   lll:
-    line-length: 120  # モダンなエディタに合わせて120文字
-    
-  # Magic number検出
-  gomnd:
-    ignored-numbers:
-      - "0"
-      - "1" 
-      - "2"
-      - "3"
-      - "10"
-      - "16"
-      - "24"
-      - "32"
-      - "64"
-      - "100"
-      - "255"
-      - "256"
-      - "1000"
-      - "1024"
-    ignored-functions:
-      - "math.*"
-      - "time.Duration"
-      - "make"
-      - "strconv.FormatFloat"
-      - "strconv.ParseFloat"
-      
-  # インポート設定
-  goimports:
-    local-prefixes: github.com/YuminosukeSato/scigo
-    
-  # ネストレベル制限
-  nestif:
-    min-complexity: 6
-    
-  # 定数検出
+    line-length: 120
+  
   goconst:
     min-len: 3
     min-occurrences: 3
     ignore-tests: true
-    
-  # パフォーマンス改善提案
+  
+  nestif:
+    min-complexity: 6
+  
   prealloc:
     simple: true
     range-loops: true
     for-loops: true
-    
-  # 高度なコード解析
+  
   gocritic:
     enabled-tags:
       - diagnostic
@@ -125,16 +150,10 @@ linters-settings:
     disabled-checks:
       - commentedOutCode
       - whyNoLint
-      - unnamedResult    # 数学関数では戻り値名が不要な場合が多い
-      - hugeParam       # 機械学習では大きな構造体を渡すことがある
-      - rangeValCopy    # gonumマトリクス操作で必要な場合がある
-    settings:
-      captLocal:
-        paramsOnly: true
-      underef:
-        skipRecvDeref: true
-        
-  # Null安全性
+      - unnamedResult
+      - hugeParam
+      - rangeValCopy
+  
   nilnil:
     checked-types:
       - ptr
@@ -142,8 +161,7 @@ linters-settings:
       - iface
       - map
       - chan
-      
-  # 変数宣言スタイル
+  
   varnamelen:
     min-name-length: 2
     ignore-type-assert-ok: true
@@ -161,209 +179,54 @@ linters-settings:
       - y float64
       - z float64
 
-linters:
-  disable-all: true
-  enable:
-    # Core Go tools (必須)
-    - errcheck      # エラーチェック漏れ検出
-    - gosimple     # 簡略化提案  
-    - govet        # Go標準の静的解析
-    - ineffassign  # 無効な代入検出
-    - staticcheck  # 高度な静的解析
-    - typecheck    # 型チェック
-    - unused       # 未使用コード検出
-    
-    # Deprecated but still useful for Go 1.23
-    - deadcode     # 到達不能コード検出
-    - structcheck  # 未使用構造体フィールド
-    - varcheck     # 未使用変数検出
-    
-    # Style & formatting (38 linters for comprehensive style checking)
-    - gofmt        # Go標準フォーマット
-    - goimports    # インポート整理
-    - misspell     # スペルミス検出
-    - whitespace   # 空白文字の問題検出
-    - gofumpt      # 厳密なフォーマット
-    - unconvert    # 不要な型変換検出
-    - unparam      # 未使用パラメータ検出
-    - wsl          # 空行スタイル検出
-    - nlreturn     # return前の空行チェック
-    - exportloopref # ループ変数エクスポート問題
-    - nolintlint   # nolintディレクティブ検証
-    - goheader     # ファイルヘッダー形式
-    - gci          # インポート順序
-    - godot        # コメント句読点
-    - godox        # TODO/FIXME検出
-    - grouper      # インポートグループ化
-    - importas     # インポート名前付け
-    - nilerr       # nilエラー処理
-    - nilnil       # nil比較問題
-    - tenv         # テスト環境変数
-    - testpackage  # テストパッケージ名
-    - thelper      # テストヘルパー関数
-    - tparallel    # 並列テスト
-    - revive       # 高度なスタイルチェック
-    - stylecheck   # Go公式スタイルガイド
-    - gomodguard   # モジュールガード
-    - forbidigo    # 禁止機能検出
-    - containedctx # コンテキスト含有検出
-    - contextcheck # コンテキスト使用チェック
-    - cyclop       # パッケージ循環複雑度
-    - decorder     # 宣言順序チェック
-    - depguard     # 依存関係ガード
-    - dogsled      # 空の識別子チェック
-    - dupl         # コード重複検出
-    - durationcheck # time.Duration使用チェック
-    - errname      # エラー命名チェック
-    - errorlint    # エラーハンドリング改善
-    - execinquery  # SQL実行チェック
-    - exhaustive   # switch文網羅性
-    - forcetypeassert # 強制型アサーション
-    - goconst      # 定数化提案
-    - gocritic     # 包括的コード改善
-    - gocyclo      # 循環複雑度
-    - maintidx     # 保守性指数
-    
-    # Complexity (複雑度管理)
-    - funlen       # 関数長制限
-    - nestif       # ネストif制限
-    - gocognit     # 認知的複雑度
-    - cyclop       # パッケージレベル複雑度
-    
-    # Performance (パフォーマンス)
-    - prealloc     # スライス事前確保
-    - bodyclose    # HTTPボディクローズ
-    - noctx        # HTTPリクエストコンテキスト
-    
-    # Security (セキュリティ)
-    - gosec        # セキュリティ脆弱性検出
-    
-    # Code quality
-    - goconst      # 定数化提案
-    - gomnd        # マジックナンバー検出  
-    - lll          # 行長制限
-    - nakedret     # naked return制限
-    - rowserrcheck # SQLエラーチェック
-    - sqlclosecheck # SQL接続クローズ
-    - wastedassign # 無駄な代入検出
-    - predeclared  # 事前宣言済み識別子
-    - reassign     # 再代入検出
-    - usestdlibvars # 標準ライブラリ変数使用
-    - varnamelen   # 変数名長制限
-
-    # 合計79 linters - enterprise-grade comprehensive analysis
-
 issues:
-  # 最大問題数制限なし（全ての問題を報告）
   max-issues-per-linter: 0
   max-same-issues: 0
-  
-  # 新しいコードのみチェック（既存コードの段階的改善）
   new: false
-  
   exclude-use-default: false
   exclude-case-sensitive: false
   
   exclude-rules:
-    # 機械学習アルゴリズム実装での特別扱い
     - path: "sklearn/lightgbm.*\\.go"
       linters:
-        - funlen      # アルゴリズム実装は長くなりがち
-        - gocyclo     # 複雑な数学計算
-        - gomnd       # 数学定数多用
-        - gocognit    # 認知的複雑度（数学的思考）
-        - nestif      # アルゴリズムロジック
-        - dupl        # 類似アルゴリズム実装
-        
-    # テストファイルでの制約緩和
+        - funlen
+        - gocyclo
+        - gocognit
+        - nestif
+        - dupl
+    
     - path: "_test\\.go"
       linters:
-        - funlen      # テスト関数は長くなりがち
-        - gocyclo     # テストロジック複雑度
-        - dupl        # テストケースの重複
-        - gomnd       # テストデータの数値
-        - lll         # テストでの長い行
-        - maintidx    # テストの保守性
-        - varnamelen  # テスト変数名
-        - goconst     # テスト用定数
-        
-    # Examples（学習・デモ用コード）での制約緩和  
+        - funlen
+        - gocyclo
+        - dupl
+        - lll
+        - maintidx
+        - varnamelen
+        - goconst
+    
     - path: "examples/.*\\.go"
       linters:
-        - gomnd       # デモ用の数値
-        - gocritic    # デモコード最適化
-        - errcheck    # デモでのエラー処理簡略化
-        - gosec       # デモ用の簡単な実装
-        - funlen      # デモ関数の長さ
-        - lll         # デモコードの行長
-        - revive      # デモコードのスタイル
-        - stylecheck  # デモコードの公式スタイル
-        
-    # パッケージレベルのドキュメント例外
+        - gocritic
+        - errcheck
+        - gosec
+        - funlen
+        - lll
+        - revive
+    
     - text: "should have a package comment"
       linters:
         - revive
-        - stylecheck
-        
-    # 数学的定数の例外（π、e、黄金比等）
-    - text: "Magic number: 3.14159"
-      linters:
-        - gomnd
-    - text: "Magic number: 2.71828"
-      linters:
-        - gomnd
-    - text: "Magic number: 1.61803"
-      linters:  
-        - gomnd
-        
-    # gonumライブラリ使用での型変換警告抑制
-    - text: "type assertion on error will fail"
-      path: ".*gonum.*"
-      linters:
-        - errorlint
-        
-    # 機械学習特有のパターン許可
+    
     - text: "consider giving a name to these results"
       path: "sklearn/lightgbm.*\\.go"
       linters:
         - gocritic
-        
-    # ログ出力での文字列フォーマット許可  
-    - text: "printf-like formatting function"
-      path: ".*\\.go"
-      linters:
-        - gocritic
-      source: "logger\\."
-        
-  # 除外パターン（コメントやドキュメント）
+  
   exclude:
-    # errcheck: ファイル操作の一般的なパターン
     - "Error return value of .((os\\.)?std(out|err)\\..*|.*Close|.*Flush|os\\.Remove(All)?|.*print(f|ln)?|os\\.(Un)?Setenv). is not checked"
-    
-    # gosec: テスト用の弱い暗号化
     - "G101: Potential hardcoded credentials"
     - "G204: Subprocess launched with function call as argument or cmd arguments"
     - "G304: File path provided as taint input"
-    
-    # revive: パッケージコメント
     - "package-comments: should have a package comment"
-    
-    # stylecheck: アンダースコア命名（テストで使用）
     - "ST1003: should not use underscores in Go names"
-    
-severity:
-  default-severity: error
-  case-sensitive: false
-  rules:
-    - linters:
-        - dupl
-        - gomnd  
-        - goconst
-        - lll
-      severity: warning
-    - linters:
-        - errcheck
-        - gosec
-        - govet
-        - staticcheck
-      severity: error

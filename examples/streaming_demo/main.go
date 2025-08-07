@@ -44,7 +44,7 @@ func compareBatchVsOnline() {
 	nSamples := 1000
 	X := mat.NewDense(nSamples, 2, nil)
 	y := mat.NewDense(nSamples, 1, nil)
-	
+
 	rand.Seed(42)
 	for i := 0; i < nSamples; i++ {
 		x1 := rand.NormFloat64()
@@ -52,7 +52,7 @@ func compareBatchVsOnline() {
 		X.Set(i, 0, x1)
 		X.Set(i, 1, x2)
 		// y = 3*x1 + 2*x2 + 1 + noise
-		y.Set(i, 0, 3*x1 + 2*x2 + 1 + rand.NormFloat64()*0.1)
+		y.Set(i, 0, 3*x1+2*x2+1+rand.NormFloat64()*0.1)
 	}
 
 	// バッチ学習
@@ -60,7 +60,7 @@ func compareBatchVsOnline() {
 		linear_model.WithMaxIter(100),
 		linear_model.WithRandomState(42),
 	)
-	
+
 	startTime := time.Now()
 	err := batchModel.Fit(X, y)
 	if err != nil {
@@ -72,7 +72,7 @@ func compareBatchVsOnline() {
 	onlineModel := linear_model.NewSGDRegressor(
 		linear_model.WithRandomState(42),
 	)
-	
+
 	startTime = time.Now()
 	batchSize := 10
 	for i := 0; i < nSamples; i += batchSize {
@@ -80,10 +80,10 @@ func compareBatchVsOnline() {
 		if end > nSamples {
 			end = nSamples
 		}
-		
+
 		XBatch := X.Slice(i, end, 0, 2)
 		yBatch := y.Slice(i, end, 0, 1)
-		
+
 		err := onlineModel.PartialFit(XBatch, yBatch, nil)
 		if err != nil {
 			log.Fatalf("Online learning failed: %v", err)
@@ -96,7 +96,7 @@ func compareBatchVsOnline() {
 	fmt.Printf("  Time: %v\n", batchTime)
 	fmt.Printf("  Coefficients: %.3f\n", batchModel.Coef())
 	fmt.Printf("  Intercept: %.3f\n", batchModel.Intercept())
-	
+
 	fmt.Printf("\nOnline Learning:\n")
 	fmt.Printf("  Time: %v\n", onlineTime)
 	fmt.Printf("  Coefficients: %.3f\n", onlineModel.Coef())
@@ -117,17 +117,17 @@ func demonstrateStreamingLearning() {
 
 	// データストリームを生成
 	dataChan := make(chan *model.Batch, 10)
-	
+
 	go func() {
 		defer close(dataChan)
 		rand.Seed(42)
-		
+
 		for i := 0; i < 100; i++ {
 			// ミニバッチを生成
 			batchSize := 5
 			X := mat.NewDense(batchSize, 3, nil)
 			y := mat.NewDense(batchSize, 1, nil)
-			
+
 			for j := 0; j < batchSize; j++ {
 				x1 := rand.NormFloat64()
 				x2 := rand.NormFloat64()
@@ -136,9 +136,9 @@ func demonstrateStreamingLearning() {
 				X.Set(j, 1, x2)
 				X.Set(j, 2, x3)
 				// y = 2*x1 + 3*x2 - x3 + 1
-				y.Set(j, 0, 2*x1 + 3*x2 - x3 + 1 + rand.NormFloat64()*0.05)
+				y.Set(j, 0, 2*x1+3*x2-x3+1+rand.NormFloat64()*0.05)
 			}
-			
+
 			select {
 			case dataChan <- &model.Batch{X: X, Y: y}:
 				if i%10 == 0 {
@@ -147,7 +147,7 @@ func demonstrateStreamingLearning() {
 			case <-ctx.Done():
 				return
 			}
-			
+
 			time.Sleep(30 * time.Millisecond) // ストリーミングをシミュレート
 		}
 	}()
@@ -176,21 +176,21 @@ func demonstrateConceptDrift() {
 
 	rand.Seed(42)
 	fmt.Println("Simulating concept drift...")
-	
+
 	// フェーズ1: y = 2*x + 1
 	fmt.Println("\nPhase 1: y = 2*x + 1")
 	for i := 0; i < 50; i++ {
 		X := mat.NewDense(10, 1, nil)
 		y := mat.NewDense(10, 1, nil)
-		
+
 		for j := 0; j < 10; j++ {
 			x := rand.NormFloat64()
 			X.Set(j, 0, x)
-			y.Set(j, 0, 2*x + 1 + rand.NormFloat64()*0.1)
+			y.Set(j, 0, 2*x+1+rand.NormFloat64()*0.1)
 		}
-		
+
 		sgd.PartialFit(X, y, nil)
-		
+
 		if i%10 == 0 {
 			fmt.Printf("  Iteration %d - Coef: %.3f, Intercept: %.3f, Loss: %.4f\n",
 				i, sgd.Coef()[0], sgd.Intercept(), sgd.GetLoss())
@@ -202,15 +202,15 @@ func demonstrateConceptDrift() {
 	for i := 0; i < 50; i++ {
 		X := mat.NewDense(10, 1, nil)
 		y := mat.NewDense(10, 1, nil)
-		
+
 		for j := 0; j < 10; j++ {
 			x := rand.NormFloat64()
 			X.Set(j, 0, x)
-			y.Set(j, 0, -x + 3 + rand.NormFloat64()*0.1)
+			y.Set(j, 0, -x+3+rand.NormFloat64()*0.1)
 		}
-		
+
 		sgd.PartialFit(X, y, nil)
-		
+
 		if i%10 == 0 {
 			fmt.Printf("  Iteration %d - Coef: %.3f, Intercept: %.3f, Loss: %.4f\n",
 				50+i, sgd.Coef()[0], sgd.Intercept(), sgd.GetLoss())
@@ -232,31 +232,31 @@ func demonstrateTestThenTrain() {
 	defer cancel()
 
 	dataChan := make(chan *model.Batch, 5)
-	
+
 	// データ生成
 	go func() {
 		defer close(dataChan)
 		rand.Seed(42)
-		
+
 		for i := 0; i < 20; i++ {
 			X := mat.NewDense(5, 2, nil)
 			y := mat.NewDense(5, 1, nil)
-			
+
 			for j := 0; j < 5; j++ {
 				x1 := rand.Float64() * 10
 				x2 := rand.Float64() * 10
 				X.Set(j, 0, x1)
 				X.Set(j, 1, x2)
 				// y = 0.5*x1 + 0.3*x2 + 2
-				y.Set(j, 0, 0.5*x1 + 0.3*x2 + 2 + rand.NormFloat64()*0.1)
+				y.Set(j, 0, 0.5*x1+0.3*x2+2+rand.NormFloat64()*0.1)
 			}
-			
+
 			select {
 			case dataChan <- &model.Batch{X: X, Y: y}:
 			case <-ctx.Done():
 				return
 			}
-			
+
 			time.Sleep(50 * time.Millisecond)
 		}
 	}()
@@ -264,19 +264,19 @@ func demonstrateTestThenTrain() {
 	// Test-then-train評価
 	fmt.Println("Starting test-then-train evaluation...")
 	outputChan := sgd.FitPredictStream(ctx, dataChan)
-	
+
 	totalError := 0.0
 	nPredictions := 0
-	
+
 	// 真の値を計算するための関数
 	truePrediction := func(x1, x2 float64) float64 {
 		return 0.5*x1 + 0.3*x2 + 2
 	}
-	
+
 	batchIdx := 0
 	for pred := range outputChan {
 		rows, _ := pred.Dims()
-		
+
 		// 各予測の誤差を計算
 		batchError := 0.0
 		for i := 0; i < rows; i++ {
@@ -285,14 +285,14 @@ func demonstrateTestThenTrain() {
 			predVal := pred.At(i, 0)
 			batchError += math.Abs(trueVal - predVal)
 		}
-		
+
 		avgError := batchError / float64(rows)
 		totalError += batchError
 		nPredictions += rows
-		
+
 		fmt.Printf("  Batch %d - Avg Error: %.4f, Cumulative Avg Error: %.4f\n",
 			batchIdx, avgError, totalError/float64(nPredictions))
-		
+
 		batchIdx++
 	}
 
@@ -302,4 +302,3 @@ func demonstrateTestThenTrain() {
 	fmt.Printf("  Final coefficients: %.3f\n", sgd.Coef())
 	fmt.Printf("  Final intercept: %.3f\n", sgd.Intercept())
 }
-

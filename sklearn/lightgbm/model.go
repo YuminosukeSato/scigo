@@ -52,10 +52,10 @@ func (n *Node) IsLeaf() bool {
 // Tree represents a single decision tree in the ensemble
 type Tree struct {
 	// Tree metadata
-	TreeIndex    int     // Index of the tree in ensemble
-	NumLeaves    int     // Number of leaf nodes
-	NumNodes     int     // Total number of nodes
-	MaxDepth     int     // Maximum depth of the tree
+	TreeIndex     int     // Index of the tree in ensemble
+	NumLeaves     int     // Number of leaf nodes
+	NumNodes      int     // Total number of nodes
+	MaxDepth      int     // Maximum depth of the tree
 	ShrinkageRate float64 // Learning rate applied to this tree
 
 	// Node storage
@@ -69,14 +69,14 @@ type Tree struct {
 // Predict makes a prediction for a single sample using this tree
 func (t *Tree) Predict(features []float64) float64 {
 	nodeID := 0 // Start from root
-	
+
 	for nodeID >= 0 && nodeID < len(t.Nodes) {
 		node := &t.Nodes[nodeID]
-		
+
 		if node.IsLeaf() {
 			return node.LeafValue * t.ShrinkageRate
 		}
-		
+
 		// Handle missing values
 		featureValue := features[node.SplitFeature]
 		if isNaN(featureValue) {
@@ -87,7 +87,7 @@ func (t *Tree) Predict(features []float64) float64 {
 			}
 			continue
 		}
-		
+
 		// Make decision based on node type
 		switch node.NodeType {
 		case NumericalNode:
@@ -116,7 +116,7 @@ func (t *Tree) Predict(features []float64) float64 {
 			return 0.0
 		}
 	}
-	
+
 	return 0.0
 }
 
@@ -125,23 +125,23 @@ type ObjectiveType string
 
 const (
 	// Regression objectives
-	RegressionL2    ObjectiveType = "regression"
-	RegressionL1    ObjectiveType = "regression_l1"
-	RegressionHuber ObjectiveType = "huber"
-	RegressionFair  ObjectiveType = "fair"
-	RegressionPoisson ObjectiveType = "poisson"
+	RegressionL2       ObjectiveType = "regression"
+	RegressionL1       ObjectiveType = "regression_l1"
+	RegressionHuber    ObjectiveType = "huber"
+	RegressionFair     ObjectiveType = "fair"
+	RegressionPoisson  ObjectiveType = "poisson"
 	RegressionQuantile ObjectiveType = "quantile"
-	RegressionMAE   ObjectiveType = "mae"
-	RegressionGamma ObjectiveType = "gamma"
-	RegressionTweedie ObjectiveType = "tweedie"
+	RegressionMAE      ObjectiveType = "mae"
+	RegressionGamma    ObjectiveType = "gamma"
+	RegressionTweedie  ObjectiveType = "tweedie"
 
 	// Binary classification objectives
-	BinaryLogistic  ObjectiveType = "binary"
+	BinaryLogistic     ObjectiveType = "binary"
 	BinaryCrossEntropy ObjectiveType = "cross_entropy"
 
 	// Multiclass classification objectives
 	MulticlassSoftmax ObjectiveType = "multiclass"
-	MulticlassOVA    ObjectiveType = "multiclassova"
+	MulticlassOVA     ObjectiveType = "multiclassova"
 
 	// Ranking objectives
 	LambdaRank ObjectiveType = "lambdarank"
@@ -152,43 +152,43 @@ const (
 type BoostingType string
 
 const (
-	GBDT BoostingType = "gbdt"  // Gradient Boosting Decision Tree
-	DART BoostingType = "dart"  // Dropouts meet Multiple Additive Regression Trees
-	GOSS BoostingType = "goss"  // Gradient-based One-Side Sampling
-	RF   BoostingType = "rf"    // Random Forest
+	GBDT BoostingType = "gbdt" // Gradient Boosting Decision Tree
+	DART BoostingType = "dart" // Dropouts meet Multiple Additive Regression Trees
+	GOSS BoostingType = "goss" // Gradient-based One-Side Sampling
+	RF   BoostingType = "rf"   // Random Forest
 )
 
 // Model represents a complete LightGBM model ensemble
 type Model struct {
 	// Model configuration
-	Objective     ObjectiveType // Objective function
-	BoostingType  BoostingType  // Boosting algorithm
-	NumClass      int           // Number of classes (for multiclass)
-	NumIteration  int           // Number of boosting iterations
-	LearningRate  float64       // Base learning rate
-	NumLeaves     int           // Maximum number of leaves per tree
-	MaxDepth      int           // Maximum tree depth
-	
+	Objective    ObjectiveType // Objective function
+	BoostingType BoostingType  // Boosting algorithm
+	NumClass     int           // Number of classes (for multiclass)
+	NumIteration int           // Number of boosting iterations
+	LearningRate float64       // Base learning rate
+	NumLeaves    int           // Maximum number of leaves per tree
+	MaxDepth     int           // Maximum tree depth
+
 	// Trees
 	Trees []Tree // All trees in the ensemble
-	
+
 	// Feature information
-	NumFeatures       int      // Number of features
-	FeatureNames      []string // Feature names (optional)
+	NumFeatures       int       // Number of features
+	FeatureNames      []string  // Feature names (optional)
 	FeatureImportance []float64 // Global feature importance
-	
+
 	// Model metadata
-	Version      string                 // LightGBM version
-	Parameters   map[string]interface{} // All model parameters
-	BestIteration int                   // Best iteration (if early stopping used)
-	
+	Version       string                 // LightGBM version
+	Parameters    map[string]interface{} // All model parameters
+	BestIteration int                    // Best iteration (if early stopping used)
+
 	// Preprocessing
-	InitScore    float64   // Initial score (baseline prediction)
-	Sigmoid      float64   // Sigmoid parameter for binary classification
-	
+	InitScore float64 // Initial score (baseline prediction)
+	Sigmoid   float64 // Sigmoid parameter for binary classification
+
 	// For deterministic predictions
-	Deterministic bool     // Enable deterministic mode
-	RandomSeed    int      // Random seed for deterministic mode
+	Deterministic bool // Enable deterministic mode
+	RandomSeed    int  // Random seed for deterministic mode
 }
 
 // NewModel creates a new empty LightGBM model
@@ -208,7 +208,7 @@ func (m *Model) Predict(X mat.Matrix) (mat.Matrix, error) {
 	if cols != m.NumFeatures {
 		return nil, fmt.Errorf("feature dimension mismatch: expected %d, got %d", m.NumFeatures, cols)
 	}
-	
+
 	// Prepare output matrix
 	var outputCols int
 	if m.NumClass > 2 {
@@ -217,12 +217,12 @@ func (m *Model) Predict(X mat.Matrix) (mat.Matrix, error) {
 		outputCols = 1
 	}
 	predictions := mat.NewDense(rows, outputCols, nil)
-	
+
 	// Process each sample
 	for i := 0; i < rows; i++ {
 		features := mat.Row(nil, i, X)
 		pred := m.PredictSingle(features, -1) // -1 means use all trees
-		
+
 		if m.NumClass > 2 {
 			// Multiclass: pred contains all class scores
 			predictions.SetRow(i, pred)
@@ -231,7 +231,7 @@ func (m *Model) Predict(X mat.Matrix) (mat.Matrix, error) {
 			predictions.Set(i, 0, pred[0])
 		}
 	}
-	
+
 	return predictions, nil
 }
 
@@ -241,7 +241,7 @@ func (m *Model) PredictSingle(features []float64, numIteration int) []float64 {
 	if numIteration < 0 || numIteration > len(m.Trees) {
 		numIteration = len(m.Trees)
 	}
-	
+
 	// Initialize predictions
 	var predictions []float64
 	if m.NumClass > 2 {
@@ -253,12 +253,12 @@ func (m *Model) PredictSingle(features []float64, numIteration int) []float64 {
 	} else {
 		predictions = []float64{m.InitScore}
 	}
-	
+
 	// Accumulate predictions from trees
 	for i := 0; i < numIteration; i++ {
 		tree := &m.Trees[i]
 		treeOutput := tree.Predict(features)
-		
+
 		if m.NumClass > 2 {
 			// For multiclass, trees are arranged by class
 			classIdx := i % m.NumClass
@@ -267,7 +267,7 @@ func (m *Model) PredictSingle(features []float64, numIteration int) []float64 {
 			predictions[0] += treeOutput
 		}
 	}
-	
+
 	// Apply final transformation based on objective
 	switch m.Objective {
 	case BinaryLogistic, BinaryCrossEntropy:
@@ -277,14 +277,14 @@ func (m *Model) PredictSingle(features []float64, numIteration int) []float64 {
 		// Apply softmax for multiclass
 		predictions = softmax(predictions)
 	}
-	
+
 	return predictions
 }
 
 // GetFeatureImportance calculates and returns feature importance scores
 func (m *Model) GetFeatureImportance(importanceType string) []float64 {
 	importance := make([]float64, m.NumFeatures)
-	
+
 	for _, tree := range m.Trees {
 		for _, node := range tree.Nodes {
 			if !node.IsLeaf() {
@@ -299,7 +299,7 @@ func (m *Model) GetFeatureImportance(importanceType string) []float64 {
 			}
 		}
 	}
-	
+
 	// Normalize importance scores
 	total := 0.0
 	for _, v := range importance {
@@ -310,7 +310,7 @@ func (m *Model) GetFeatureImportance(importanceType string) []float64 {
 			importance[i] /= total
 		}
 	}
-	
+
 	return importance
 }
 
@@ -333,7 +333,7 @@ func exp(x float64) float64 {
 	if x < -700 {
 		return 0 // Avoid underflow
 	}
-	
+
 	// Simplified exp calculation for demonstration
 	// In production, use math.Exp
 	result := 1.0
@@ -353,7 +353,7 @@ func softmax(x []float64) []float64 {
 			maxVal = v
 		}
 	}
-	
+
 	// Compute exp(x - max)
 	expSum := 0.0
 	result := make([]float64, len(x))
@@ -361,11 +361,11 @@ func softmax(x []float64) []float64 {
 		result[i] = exp(v - maxVal)
 		expSum += result[i]
 	}
-	
+
 	// Normalize
 	for i := range result {
 		result[i] /= expSum
 	}
-	
+
 	return result
 }

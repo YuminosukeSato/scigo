@@ -19,7 +19,7 @@ import (
 var (
 	warningMutex   sync.Mutex
 	warningHandler = func(w error) {
-		// デフォルトのハンドラは標準エラー出力にログを出す  
+		// デフォルトのハンドラは標準エラー出力にログを出す
 		log.Printf("GoML-Warning: %v\n", w)
 	}
 	// zerologロガー（循環importを避けるため遅延初期化）
@@ -52,13 +52,13 @@ func SetZerologWarnFunc(warnFunc func(warning error)) {
 func Warn(w error) {
 	warningMutex.Lock()
 	defer warningMutex.Unlock()
-	
+
 	// zerologが設定されている場合は優先的に使用
 	if zerologWarnFunc != nil {
 		zerologWarnFunc(w)
 		return
 	}
-	
+
 	// フォールバック: 従来のハンドラ
 	if warningHandler != nil {
 		warningHandler(w)
@@ -125,9 +125,9 @@ func NewDataConversionWarning(from, to, reason string) *DataConversionWarning {
 // UndefinedMetricWarning は評価指標が計算できない場合に発生する警告です。
 // 例えば、適合率(precision)を計算する際に、陽性クラスの予測が一つもなかった場合など。
 type UndefinedMetricWarning struct {
-	Metric     string
-	Condition  string
-	Result     float64 // この条件で返される値
+	Metric    string
+	Condition string
+	Result    float64 // この条件で返される値
 }
 
 func (w *UndefinedMetricWarning) Error() string {
@@ -339,7 +339,7 @@ func (e *NumericalInstabilityError) Error() string {
 		}
 		valStr += fmt.Sprintf("%.6g", v)
 	}
-	return fmt.Sprintf("goml: numerical instability detected in %s at iteration %d. Values: [%s]", 
+	return fmt.Sprintf("goml: numerical instability detected in %s at iteration %d. Values: [%s]",
 		e.Operation, e.Iteration, valStr)
 }
 
@@ -442,10 +442,10 @@ func NewCatastrophicForgettingWarning(metric string, oldPerf, newPerf float64) *
 var (
 	// ErrNotImplemented は機能が未実装の場合のエラーです。
 	ErrNotImplemented = New("not implemented")
-	
+
 	// ErrEmptyData は空のデータが渡された場合のエラーです。
 	ErrEmptyData = New("empty data")
-	
+
 	// ErrSingularMatrix は特異行列の場合のエラーです。
 	ErrSingularMatrix = New("singular matrix")
 )

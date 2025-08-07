@@ -40,10 +40,10 @@ func ExampleBaseEstimator_workflowPattern() {
 	// Check if model needs training
 	if !myModel.IsFitted() {
 		fmt.Println("Model needs training")
-		
+
 		// Simulate training process
 		// ... training logic would go here ...
-		
+
 		// Mark as fitted after successful training
 		myModel.SetFitted()
 		fmt.Println("Model trained successfully")

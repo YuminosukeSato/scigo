@@ -6,9 +6,9 @@ import (
 	"os"
 	"strings"
 
+	"github.com/cockroachdb/errors"
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
-	"github.com/cockroachdb/errors"
 )
 
 // GlobalLogger はプロジェクト全体で使用するzerologインスタンスです。
@@ -20,7 +20,7 @@ var globalProvider LoggerProvider
 // SetupLogger はグローバルロガーを設定します。
 func SetupLogger(loglevel string) {
 	level := ToLogLevel(loglevel)
-	
+
 	zerolog.TimeFieldFormat = zerolog.TimeFormatUnix
 	zerolog.SetGlobalLevel(level)
 
@@ -32,7 +32,7 @@ func SetupLogger(loglevel string) {
 
 	// グローバルロガーとして設定
 	log.Logger = GlobalLogger
-	
+
 	// Initialize the global provider
 	globalProvider = NewZerologProvider(level)
 }
@@ -74,30 +74,30 @@ func GetLogger() zerolog.Logger {
 // scikit-learnスタイルの詳細なエラー情報を構造化ログとして記録します。
 func LogError(err error, msg string) {
 	event := GlobalLogger.Error().Err(err)
-	
+
 	// zerolog.LogObjectMarshalerインターフェースを実装している場合は構造化データを追加
 	if marshaler, ok := err.(zerolog.LogObjectMarshaler); ok {
 		event = event.Object("details", marshaler)
 	}
-	
+
 	// cockroachdb/errorsのスタックトレースを抽出
 	stacktrace := extractStacktrace(err)
 	if stacktrace != "" {
 		event = event.Str(StacktraceAttrKey, stacktrace)
 	}
-	
+
 	event.Msg(msg)
 }
 
 // LogWarningWithDetails は構造化された警告ログを出力します。
 func LogWarningWithDetails(warning error) {
 	event := GlobalLogger.Warn()
-	
+
 	// zerolog.LogObjectMarshalerインターフェースを実装している場合は構造化データを追加
 	if marshaler, ok := warning.(zerolog.LogObjectMarshaler); ok {
 		event = event.Object("warning_details", marshaler)
 	}
-	
+
 	event.Msg(warning.Error())
 }
 
@@ -106,7 +106,7 @@ func LogWarn(msg string) {
 	GlobalLogger.Warn().Msg(msg)
 }
 
-// LogInfo は情報ログを出力します。  
+// LogInfo は情報ログを出力します。
 func LogInfo(msg string) {
 	GlobalLogger.Info().Msg(msg)
 }
@@ -154,25 +154,25 @@ func (z *zerologLogger) Warn(msg string, fields ...any) {
 // Error implements Logger.Error.
 func (z *zerologLogger) Error(msg string, fields ...any) {
 	event := z.logger.Error()
-	
+
 	// Check if the first field is an error for special handling
 	if len(fields) > 0 {
 		if err, ok := fields[0].(error); ok {
 			event = event.Err(err)
-			
+
 			// Add stack trace if available
 			stacktrace := extractStacktrace(err)
 			if stacktrace != "" {
 				event = event.Str(StacktraceAttrKey, stacktrace)
 			}
-			
+
 			// Process remaining fields
 			z.addFields(event, fields[1:]...)
 		} else {
 			z.addFields(event, fields...)
 		}
 	}
-	
+
 	event.Msg(msg)
 }
 
@@ -194,7 +194,7 @@ func (z *zerologLogger) addFields(event *zerolog.Event, fields ...any) {
 	for i := 0; i < len(fields)-1; i += 2 {
 		key := fmt.Sprintf("%v", fields[i])
 		value := fields[i+1]
-		
+
 		switch v := value.(type) {
 		case string:
 			event.Str(key, v)
@@ -219,7 +219,7 @@ func (z *zerologLogger) addFieldsToContext(ctx zerolog.Context, fields ...any) {
 	for i := 0; i < len(fields)-1; i += 2 {
 		key := fmt.Sprintf("%v", fields[i])
 		value := fields[i+1]
-		
+
 		switch v := value.(type) {
 		case string:
 			ctx = ctx.Str(key, v)

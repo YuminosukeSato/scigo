@@ -92,7 +92,7 @@ func (p *Predictor) predictSequential(X, predictions *mat.Dense) {
 	for i := 0; i < rows; i++ {
 		features := mat.Row(nil, i, X)
 		pred := p.predictSingleSample(features)
-		
+
 		if p.model.NumClass > 2 {
 			predictions.SetRow(i, pred)
 		} else {
@@ -104,30 +104,30 @@ func (p *Predictor) predictSequential(X, predictions *mat.Dense) {
 // predictParallel processes predictions in parallel
 func (p *Predictor) predictParallel(X, predictions *mat.Dense) {
 	rows, _ := X.Dims()
-	
+
 	// Create worker pool
 	numWorkers := p.numThreads
 	if numWorkers > rows {
 		numWorkers = rows
 	}
-	
+
 	chunkSize := (rows + numWorkers - 1) / numWorkers
 	var wg sync.WaitGroup
 	wg.Add(numWorkers)
-	
+
 	for w := 0; w < numWorkers; w++ {
 		start := w * chunkSize
 		end := start + chunkSize
 		if end > rows {
 			end = rows
 		}
-		
+
 		go func(start, end int) {
 			defer wg.Done()
 			for i := start; i < end; i++ {
 				features := mat.Row(nil, i, X)
 				pred := p.predictSingleSample(features)
-				
+
 				if p.model.NumClass > 2 {
 					predictions.SetRow(i, pred)
 				} else {
@@ -136,7 +136,7 @@ func (p *Predictor) predictParallel(X, predictions *mat.Dense) {
 			}
 		}(start, end)
 	}
-	
+
 	wg.Wait()
 }
 
@@ -152,18 +152,18 @@ func (p *Predictor) predictSingleSample(features []float64) []float64 {
 	} else {
 		predictions = []float64{p.ensurePrecision(p.model.InitScore)}
 	}
-	
+
 	// Use best iteration if available, otherwise all trees
 	numIteration := p.model.NumIteration
 	if p.model.BestIteration > 0 && p.model.BestIteration < numIteration {
 		numIteration = p.model.BestIteration
 	}
-	
+
 	// Accumulate predictions from trees with precision handling
 	for i := 0; i < numIteration && i < len(p.model.Trees); i++ {
 		tree := &p.model.Trees[i]
 		treeOutput := p.predictTree(tree, features)
-		
+
 		if p.model.NumClass > 2 {
 			// For multiclass, trees are arranged by class
 			classIdx := i % p.model.NumClass
@@ -172,25 +172,25 @@ func (p *Predictor) predictSingleSample(features []float64) []float64 {
 			predictions[0] = p.ensurePrecision(predictions[0] + treeOutput)
 		}
 	}
-	
+
 	// Apply final transformation with numerical stability
 	predictions = p.applyObjectiveTransformation(predictions)
-	
+
 	return predictions
 }
 
 // predictTree makes a prediction using a single tree with precision guarantees
 func (p *Predictor) predictTree(tree *Tree, features []float64) float64 {
 	nodeIdx := 0 // Start from root
-	
+
 	for nodeIdx >= 0 && nodeIdx < len(tree.Nodes) {
 		node := &tree.Nodes[nodeIdx]
-		
+
 		if node.IsLeaf() {
 			// Apply shrinkage and ensure precision
 			return p.ensurePrecision(node.LeafValue * tree.ShrinkageRate)
 		}
-		
+
 		// Get feature value with bounds checking
 		if node.SplitFeature >= len(features) {
 			// Invalid feature index, use default direction
@@ -201,9 +201,9 @@ func (p *Predictor) predictTree(tree *Tree, features []float64) float64 {
 			}
 			continue
 		}
-		
+
 		featureValue := features[node.SplitFeature]
-		
+
 		// Handle missing values (NaN)
 		if math.IsNaN(featureValue) {
 			if node.DefaultLeft {
@@ -213,7 +213,7 @@ func (p *Predictor) predictTree(tree *Tree, features []float64) float64 {
 			}
 			continue
 		}
-		
+
 		// Make decision based on node type with numerical precision
 		switch node.NodeType {
 		case NumericalNode:
@@ -243,7 +243,7 @@ func (p *Predictor) predictTree(tree *Tree, features []float64) float64 {
 			return 0.0
 		}
 	}
-	
+
 	return 0.0
 }
 
@@ -272,7 +272,7 @@ func (p *Predictor) applyObjectiveTransformation(predictions []float64) []float6
 			predictions[i] = p.stableExp(predictions[i])
 		}
 	}
-	
+
 	return predictions
 }
 
@@ -282,12 +282,12 @@ func (p *Predictor) ensurePrecision(x float64) float64 {
 	if math.IsNaN(x) || math.IsInf(x, 0) {
 		return x
 	}
-	
+
 	// Round to machine precision to match Python's behavior
 	if math.Abs(x) < p.epsilon {
 		return 0.0
 	}
-	
+
 	// Use Kahan summation technique for better precision
 	// This matches numpy's precision handling
 	return x
@@ -296,12 +296,12 @@ func (p *Predictor) ensurePrecision(x float64) float64 {
 // compareWithPrecision compares two float64 values with precision tolerance
 func (p *Predictor) compareWithPrecision(a, b float64) int {
 	diff := a - b
-	
+
 	// Check if difference is within machine epsilon
 	if math.Abs(diff) < p.epsilon {
 		return 0 // Equal within precision
 	}
-	
+
 	if diff < 0 {
 		return -1 // a < b
 	}
@@ -317,7 +317,7 @@ func (p *Predictor) stableSigmoid(x float64) float64 {
 	if x < -500 {
 		return 0.0
 	}
-	
+
 	// Use stable sigmoid computation
 	if x >= 0 {
 		exp_neg_x := math.Exp(-x)
@@ -338,7 +338,7 @@ func (p *Predictor) stableExp(x float64) float64 {
 	if x < -700 {
 		return 0.0
 	}
-	
+
 	return p.ensurePrecision(math.Exp(x))
 }
 
@@ -351,7 +351,7 @@ func (p *Predictor) stableSoftmax(x []float64) []float64 {
 			maxVal = v
 		}
 	}
-	
+
 	// Compute exp(x - max) and sum
 	expSum := 0.0
 	result := make([]float64, len(x))
@@ -359,14 +359,14 @@ func (p *Predictor) stableSoftmax(x []float64) []float64 {
 		result[i] = p.stableExp(v - maxVal)
 		expSum += result[i]
 	}
-	
+
 	// Normalize with precision
 	if expSum > 0 {
 		for i := range result {
 			result[i] = p.ensurePrecision(result[i] / expSum)
 		}
 	}
-	
+
 	return result
 }
 
@@ -379,9 +379,9 @@ func (p *Predictor) PredictProba(X mat.Matrix) (mat.Matrix, error) {
 	if err != nil {
 		return nil, err
 	}
-	
+
 	rows, _ := predictions.Dims()
-	
+
 	// Handle different objectives
 	switch p.model.Objective {
 	case BinaryLogistic, BinaryCrossEntropy:
@@ -390,14 +390,14 @@ func (p *Predictor) PredictProba(X mat.Matrix) (mat.Matrix, error) {
 		for i := 0; i < rows; i++ {
 			p1 := predictions.At(i, 0)
 			proba.Set(i, 0, p.ensurePrecision(1.0-p1)) // Probability of class 0
-			proba.Set(i, 1, p1)                         // Probability of class 1
+			proba.Set(i, 1, p1)                        // Probability of class 1
 		}
 		return proba, nil
-		
+
 	case MulticlassSoftmax:
 		// Already returns probabilities
 		return predictions, nil
-		
+
 	default:
 		// For regression, just return raw predictions
 		return predictions, nil
@@ -411,52 +411,52 @@ func (p *Predictor) PredictLeafIndex(X mat.Matrix) ([][]int, error) {
 	if cols != p.model.NumFeatures {
 		return nil, fmt.Errorf("feature dimension mismatch: expected %d, got %d", p.model.NumFeatures, cols)
 	}
-	
+
 	leafIndices := make([][]int, rows)
-	
+
 	for i := 0; i < rows; i++ {
 		features := mat.Row(nil, i, X)
 		leafIndices[i] = p.getLeafIndices(features)
 	}
-	
+
 	return leafIndices, nil
 }
 
 // getLeafIndices returns the leaf index for each tree
 func (p *Predictor) getLeafIndices(features []float64) []int {
 	indices := make([]int, len(p.model.Trees))
-	
+
 	for treeIdx, tree := range p.model.Trees {
 		nodeIdx := 0 // Start from root
 		leafCounter := 0
-		
+
 		// Traverse tree to find leaf
 		nodeIdx = p.traverseToLeaf(&tree, features, nodeIdx)
-		
+
 		// Count leaf index (leaves are numbered sequentially)
 		for i := 0; i < nodeIdx; i++ {
 			if tree.Nodes[i].IsLeaf() {
 				leafCounter++
 			}
 		}
-		
+
 		indices[treeIdx] = leafCounter
 	}
-	
+
 	return indices
 }
 
 // traverseToLeaf traverses a tree to find the leaf node for given features
 func (p *Predictor) traverseToLeaf(tree *Tree, features []float64, startNode int) int {
 	nodeIdx := startNode
-	
+
 	for nodeIdx >= 0 && nodeIdx < len(tree.Nodes) {
 		node := &tree.Nodes[nodeIdx]
-		
+
 		if node.IsLeaf() {
 			return nodeIdx
 		}
-		
+
 		// Get feature value
 		if node.SplitFeature >= len(features) {
 			if node.DefaultLeft {
@@ -466,9 +466,9 @@ func (p *Predictor) traverseToLeaf(tree *Tree, features []float64, startNode int
 			}
 			continue
 		}
-		
+
 		featureValue := features[node.SplitFeature]
-		
+
 		// Handle missing values
 		if math.IsNaN(featureValue) {
 			if node.DefaultLeft {
@@ -478,7 +478,7 @@ func (p *Predictor) traverseToLeaf(tree *Tree, features []float64, startNode int
 			}
 			continue
 		}
-		
+
 		// Make decision
 		switch node.NodeType {
 		case NumericalNode:
@@ -505,6 +505,6 @@ func (p *Predictor) traverseToLeaf(tree *Tree, features []float64, startNode int
 			return nodeIdx
 		}
 	}
-	
+
 	return nodeIdx
 }

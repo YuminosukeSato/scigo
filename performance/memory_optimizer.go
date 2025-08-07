@@ -37,7 +37,7 @@ func NewMatrixPool(maxSize int) *MatrixPool {
 	mp := &MatrixPool{
 		maxSize: maxSize,
 	}
-	
+
 	mp.pool = sync.Pool{
 		New: func() interface{} {
 			atomic.AddInt64(&mp.created, 1)
@@ -46,29 +46,29 @@ func NewMatrixPool(maxSize int) *MatrixPool {
 			}
 		},
 	}
-	
+
 	return mp
 }
 
 // Get retrieves a matrix from the pool
 func (mp *MatrixPool) Get(rows, cols int) *PooledMatrix {
 	atomic.AddInt64(&mp.inUse, 1)
-	
+
 	m := mp.pool.Get().(*PooledMatrix)
-	
+
 	// Resize if necessary
 	if m.data == nil || len(m.data) < rows*cols {
 		m.data = make([]float64, rows*cols)
 	}
-	
+
 	m.rows = rows
 	m.cols = cols
 	m.released = false
-	
+
 	// Update stats
 	current := atomic.LoadInt64(&mp.inUse)
 	mp.updatePeakUsage(current)
-	
+
 	return m
 }
 
@@ -77,16 +77,16 @@ func (mp *MatrixPool) Put(m *PooledMatrix) {
 	if m.released {
 		return // Already released
 	}
-	
+
 	m.released = true
 	atomic.AddInt64(&mp.inUse, -1)
 	atomic.AddInt64(&mp.recycled, 1)
-	
+
 	// Clear the data for reuse
 	for i := range m.data {
 		m.data[i] = 0
 	}
-	
+
 	mp.pool.Put(m)
 }
 
@@ -94,16 +94,16 @@ func (mp *MatrixPool) Put(m *PooledMatrix) {
 func (mp *MatrixPool) GetStats() PoolStats {
 	mp.mu.RLock()
 	defer mp.mu.RUnlock()
-	
+
 	total := atomic.LoadInt64(&mp.created)
 	recycled := atomic.LoadInt64(&mp.recycled)
 	inUse := atomic.LoadInt64(&mp.inUse)
-	
+
 	reuseRate := float64(0)
 	if total > 0 {
 		reuseRate = float64(recycled) / float64(total)
 	}
-	
+
 	return PoolStats{
 		TotalAllocated:   total,
 		TotalRecycled:    recycled,
@@ -116,7 +116,7 @@ func (mp *MatrixPool) GetStats() PoolStats {
 func (mp *MatrixPool) updatePeakUsage(current int64) {
 	mp.mu.Lock()
 	defer mp.mu.Unlock()
-	
+
 	if current > mp.stats.PeakUsage {
 		mp.stats.PeakUsage = current
 	}
@@ -171,7 +171,7 @@ func NewZeroCopyMatrix(data []float64, rows, cols int) *ZeroCopyMatrix {
 	if len(data) < rows*cols {
 		panic("data too small for matrix dimensions")
 	}
-	
+
 	return &ZeroCopyMatrix{
 		data:   unsafe.Pointer(&data[0]),
 		rows:   rows,
@@ -185,7 +185,7 @@ func (m *ZeroCopyMatrix) At(i, j int) float64 {
 	if i < 0 || i >= m.rows || j < 0 || j >= m.cols {
 		panic(fmt.Sprintf("matrix index out of range: (%d, %d) for matrix of size (%d, %d)", i, j, m.rows, m.cols))
 	}
-	ptr := (*float64)(unsafe.Pointer(uintptr(m.data) + 
+	ptr := (*float64)(unsafe.Pointer(uintptr(m.data) +
 		uintptr(i*m.stride+j)*unsafe.Sizeof(float64(0))))
 	return *ptr
 }
@@ -195,7 +195,7 @@ func (m *ZeroCopyMatrix) Set(i, j int, v float64) {
 	if i < 0 || i >= m.rows || j < 0 || j >= m.cols {
 		panic(fmt.Sprintf("matrix index out of range: (%d, %d) for matrix of size (%d, %d)", i, j, m.rows, m.cols))
 	}
-	ptr := (*float64)(unsafe.Pointer(uintptr(m.data) + 
+	ptr := (*float64)(unsafe.Pointer(uintptr(m.data) +
 		uintptr(i*m.stride+j)*unsafe.Sizeof(float64(0))))
 	*ptr = v
 }
@@ -206,9 +206,9 @@ func (m *ZeroCopyMatrix) Slice(i0, i1, j0, j1 int) *ZeroCopyMatrix {
 		panic(fmt.Sprintf("invalid slice bounds: [%d:%d, %d:%d] for matrix of size (%d, %d)", i0, i1, j0, j1, m.rows, m.cols))
 	}
 	offset := i0*m.stride + j0
-	ptr := (*float64)(unsafe.Pointer(uintptr(m.data) + 
+	ptr := (*float64)(unsafe.Pointer(uintptr(m.data) +
 		uintptr(offset)*unsafe.Sizeof(float64(0))))
-	
+
 	return &ZeroCopyMatrix{
 		data:   unsafe.Pointer(ptr),
 		rows:   i1 - i0,
@@ -224,14 +224,14 @@ func (m *ZeroCopyMatrix) Dims() (int, int) {
 
 // GCOptimizer manages garbage collection for better performance
 type GCOptimizer struct {
-	gcPercent     int
-	maxPause      time.Duration
-	memLimit      int64
-	enabled       bool
-	mu            sync.RWMutex
-	lastGC        time.Time
-	gcCount       uint32
-	totalPause    time.Duration
+	gcPercent  int
+	maxPause   time.Duration
+	memLimit   int64
+	enabled    bool
+	mu         sync.RWMutex
+	lastGC     time.Time
+	gcCount    uint32
+	totalPause time.Duration
 }
 
 // NewGCOptimizer creates a new GC optimizer
@@ -248,17 +248,17 @@ func NewGCOptimizer(gcPercent int, maxPause time.Duration) *GCOptimizer {
 func (g *GCOptimizer) Start() {
 	g.mu.Lock()
 	defer g.mu.Unlock()
-	
+
 	if !g.enabled {
 		return
 	}
-	
+
 	// Set GC percentage
 	debug.SetGCPercent(g.gcPercent)
-	
+
 	// Set memory limit if supported
 	debug.SetMemoryLimit(g.memLimit)
-	
+
 	// Start monitoring goroutine
 	go g.monitor()
 }
@@ -267,7 +267,7 @@ func (g *GCOptimizer) Start() {
 func (g *GCOptimizer) Stop() {
 	g.mu.Lock()
 	defer g.mu.Unlock()
-	
+
 	g.enabled = false
 	debug.SetGCPercent(100) // Reset to default
 }
@@ -276,7 +276,7 @@ func (g *GCOptimizer) Stop() {
 func (g *GCOptimizer) ForceGC() {
 	g.mu.Lock()
 	defer g.mu.Unlock()
-	
+
 	if time.Since(g.lastGC) > g.maxPause {
 		runtime.GC()
 		g.lastGC = time.Now()
@@ -288,15 +288,15 @@ func (g *GCOptimizer) ForceGC() {
 func (g *GCOptimizer) GetStats() map[string]interface{} {
 	g.mu.RLock()
 	defer g.mu.RUnlock()
-	
+
 	var ms runtime.MemStats
 	runtime.ReadMemStats(&ms)
-	
+
 	avgPause := time.Duration(0)
 	if g.gcCount > 0 {
 		avgPause = g.totalPause / time.Duration(g.gcCount)
 	}
-	
+
 	return map[string]interface{}{
 		"gc_count":       g.gcCount,
 		"last_gc":        g.lastGC,
@@ -311,20 +311,20 @@ func (g *GCOptimizer) GetStats() map[string]interface{} {
 func (g *GCOptimizer) monitor() {
 	ticker := time.NewTicker(10 * time.Second)
 	defer ticker.Stop()
-	
+
 	for range ticker.C {
 		g.mu.RLock()
 		enabled := g.enabled
 		g.mu.RUnlock()
-		
+
 		if !enabled {
 			return
 		}
-		
+
 		// Check memory usage and trigger GC if needed
 		var ms runtime.MemStats
 		runtime.ReadMemStats(&ms)
-		
+
 		if ms.HeapAlloc > uint64(g.memLimit)*9/10 { // 90% of limit
 			g.ForceGC()
 		}
@@ -349,7 +349,7 @@ func NewMemoryEfficientBatch(maxMemoryMB int64) *MemoryEfficientBatch {
 func (m *MemoryEfficientBatch) CanAllocate(bytes int64) bool {
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	
+
 	return m.currentUsed+bytes <= m.maxMemory
 }
 
@@ -357,12 +357,12 @@ func (m *MemoryEfficientBatch) CanAllocate(bytes int64) bool {
 func (m *MemoryEfficientBatch) Allocate(bytes int64) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	
+
 	if m.currentUsed+bytes > m.maxMemory {
-		return fmt.Errorf("memory limit exceeded: %d + %d > %d", 
+		return fmt.Errorf("memory limit exceeded: %d + %d > %d",
 			m.currentUsed, bytes, m.maxMemory)
 	}
-	
+
 	m.currentUsed += bytes
 	return nil
 }
@@ -371,7 +371,7 @@ func (m *MemoryEfficientBatch) Allocate(bytes int64) error {
 func (m *MemoryEfficientBatch) Free(bytes int64) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	
+
 	m.currentUsed -= bytes
 	if m.currentUsed < 0 {
 		m.currentUsed = 0
@@ -382,7 +382,7 @@ func (m *MemoryEfficientBatch) Free(bytes int64) {
 func (m *MemoryEfficientBatch) GetUsage() (used, max int64) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	
+
 	return m.currentUsed, m.maxMemory
 }
 
@@ -391,13 +391,13 @@ func OptimizeDataLayout(data []float64, rows, cols int) []float64 {
 	// Convert row-major to column-major for better cache locality
 	// in certain operations
 	optimized := make([]float64, len(data))
-	
+
 	for i := 0; i < rows; i++ {
 		for j := 0; j < cols; j++ {
 			optimized[j*rows+i] = data[i*cols+j]
 		}
 	}
-	
+
 	return optimized
 }
 
@@ -405,11 +405,11 @@ func OptimizeDataLayout(data []float64, rows, cols int) []float64 {
 func AlignedAlloc(size int, alignment int) []float64 {
 	// Allocate extra space for alignment
 	raw := make([]float64, size+alignment/8)
-	
+
 	// Find aligned address
 	addr := uintptr(unsafe.Pointer(&raw[0]))
 	offset := (alignment - int(addr%uintptr(alignment))) % alignment
-	
+
 	// Return aligned slice
 	return raw[offset/8 : offset/8+size]
 }

@@ -36,12 +36,12 @@ func TestNewModelError(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			err := NewModelError(tt.op, tt.kind, tt.err)
-			
+
 			// 基本的なエラーメッセージの確認
 			if err.Error() != tt.wantMsg {
 				t.Errorf("Error() = %v, want %v", err.Error(), tt.wantMsg)
 			}
-			
+
 			// スタックトレースの存在確認
 			if tt.hasStack {
 				formatted := fmt.Sprintf("%+v", err)
@@ -49,13 +49,13 @@ func TestNewModelError(t *testing.T) {
 					t.Error("Expected stack trace to contain test file name")
 				}
 			}
-			
+
 			// ModelError型にキャスト可能か確認
 			var modelErr *ModelError
 			if !As(err, &modelErr) {
 				t.Error("Error should be castable to *ModelError")
 			}
-			
+
 			// ModelError型へのキャストのみ確認
 		})
 	}
@@ -63,31 +63,31 @@ func TestNewModelError(t *testing.T) {
 
 func TestNewDimensionError(t *testing.T) {
 	err := NewDimensionError("Predict", 10, 10, 0)
-	
+
 	// 基本的なエラーメッセージの確認
 	want := "goml: Predict: dimension mismatch on axis 0 (rows). Expected 10, got 10"
 	if err.Error() != want {
 		t.Errorf("Error() = %v, want %v", err.Error(), want)
 	}
-	
+
 	// DimensionError型にキャスト可能か確認
 	var dimErr *DimensionError
 	if !As(err, &dimErr) {
 		t.Error("Error should be castable to *DimensionError")
 	}
-	
+
 	// DimensionError型へのキャストのみ確認
 }
 
 func TestNewNotFittedError(t *testing.T) {
 	err := NewNotFittedError("LinearRegression", "Predict")
-	
+
 	// 基本的なエラーメッセージの確認
 	want := "goml: LinearRegression: this model is not fitted yet. Call Fit() before using Predict()"
 	if err.Error() != want {
 		t.Errorf("Error() = %v, want %v", err.Error(), want)
 	}
-	
+
 	// NotFittedError型にキャスト可能か確認
 	var notFittedErr *NotFittedError
 	if !As(err, &notFittedErr) {
@@ -130,11 +130,11 @@ func TestNewValueError(t *testing.T) {
 			} else {
 				err = NewValueError(tt.op, fmt.Sprintf("%s: %v", tt.param, tt.value))
 			}
-			
+
 			if err.Error() != tt.wantMsg {
 				t.Errorf("Error() = %v, want %v", err.Error(), tt.wantMsg)
 			}
-			
+
 			// ValueError型にキャスト可能か確認
 			var valErr *ValueError
 			if !As(err, &valErr) {
@@ -146,13 +146,13 @@ func TestNewValueError(t *testing.T) {
 
 func TestNewConvergenceWarning(t *testing.T) {
 	warn := NewConvergenceWarning("GradientDescent", 1000, "loss did not decrease")
-	
+
 	// 基本的なエラーメッセージの確認
 	want := "GradientDescent failed to converge after 1000 iterations: loss did not decrease"
 	if warn.Error() != want {
 		t.Errorf("Error() = %v, want %v", warn.Error(), want)
 	}
-	
+
 	// ConvergenceWarning型へのキャストのみ確認
 	var convWarn *ConvergenceWarning
 	if !As(warn, &convWarn) {
@@ -163,15 +163,15 @@ func TestNewConvergenceWarning(t *testing.T) {
 func TestWrapAndIs(t *testing.T) {
 	// 元のエラー
 	baseErr := ErrNotImplemented
-	
+
 	// ラップ
 	wrapped := Wrap(baseErr, "in LinearRegression.Predict")
-	
+
 	// Is関数でチェック
 	if !Is(wrapped, ErrNotImplemented) {
 		t.Error("Expected Is(wrapped, ErrNotImplemented) to be true")
 	}
-	
+
 	// エラーメッセージの確認
 	if !strings.Contains(wrapped.Error(), "in LinearRegression.Predict") {
 		t.Error("Expected wrapped error to contain wrapping message")
@@ -181,15 +181,15 @@ func TestWrapAndIs(t *testing.T) {
 func TestWrapf(t *testing.T) {
 	// 元のエラー
 	baseErr := ErrEmptyData
-	
+
 	// フォーマット付きラップ
 	wrapped := Wrapf(baseErr, "in %s: expected %d, got %d", "Predict", 10, 5)
-	
+
 	// Is関数でチェック
 	if !Is(wrapped, ErrEmptyData) {
 		t.Error("Expected Is(wrapped, ErrEmptyData) to be true")
 	}
-	
+
 	// エラーメッセージの確認
 	expectedMsg := "in Predict: expected 10, got 5"
 	if !strings.Contains(wrapped.Error(), expectedMsg) {
@@ -202,12 +202,12 @@ func TestErrorChaining(t *testing.T) {
 	err1 := fmt.Errorf("base error")
 	err2 := Wrap(err1, "wrapped once")
 	err3 := NewModelError("Operation", "failed", err2)
-	
+
 	// チェーン全体を確認
 	if !strings.Contains(err3.Error(), "base error") {
 		t.Error("Expected error chain to contain base error")
 	}
-	
+
 	// スタックトレースの確認（詳細表示）
 	formatted := fmt.Sprintf("%+v", err3)
 	if !strings.Contains(formatted, "errors_test.go") {

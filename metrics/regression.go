@@ -19,7 +19,7 @@
 //	mse := metrics.MSE(yTrue, yPred)
 //	rmse := metrics.RMSE(yTrue, yPred)
 //	r2 := metrics.R2Score(yTrue, yPred)
-//	
+//
 //	// Matrix inputs are also supported
 //	mseMatrix := metrics.MSEMatrix(yTrueMatrix, yPredMatrix)
 //
@@ -54,11 +54,12 @@ import (
 //   - ErrDimensionMismatch: if yTrue and yPred have different lengths
 //
 // Example:
-//   mse, err := metrics.MSE(yTrue, yPred)
-//   if err != nil {
-//       log.Fatal(err)
-//   }
-//   fmt.Printf("MSE: %.4f\n", mse)
+//
+//	mse, err := metrics.MSE(yTrue, yPred)
+//	if err != nil {
+//	    log.Fatal(err)
+//	}
+//	fmt.Printf("MSE: %.4f\n", mse)
 func MSE(yTrue, yPred *mat.VecDense) (float64, error) {
 	// Input validation
 	n := yTrue.Len()
@@ -100,7 +101,8 @@ func MSE(yTrue, yPred *mat.VecDense) (float64, error) {
 //   - ErrValueError: if matrices are not column vectors (n×1)
 //
 // Example:
-//   mse, err := metrics.MSEMatrix(yTrueMatrix, yPredMatrix)
+//
+//	mse, err := metrics.MSEMatrix(yTrueMatrix, yPredMatrix)
 func MSEMatrix(yTrue, yPred mat.Matrix) (float64, error) {
 	// Input validation
 	rTrue, cTrue := yTrue.Dims()
@@ -145,11 +147,12 @@ func MSEMatrix(yTrue, yPred mat.Matrix) (float64, error) {
 //   - error: nil if successful, otherwise error from MSE computation
 //
 // Example:
-//   rmse, err := metrics.RMSE(yTrue, yPred)
-//   if err != nil {
-//       log.Fatal(err)
-//   }
-//   fmt.Printf("RMSE: %.4f\n", rmse)
+//
+//	rmse, err := metrics.RMSE(yTrue, yPred)
+//	if err != nil {
+//	    log.Fatal(err)
+//	}
+//	fmt.Printf("RMSE: %.4f\n", rmse)
 func RMSE(yTrue, yPred *mat.VecDense) (float64, error) {
 	mse, err := MSE(yTrue, yPred)
 	if err != nil {
@@ -177,11 +180,12 @@ func RMSE(yTrue, yPred *mat.VecDense) (float64, error) {
 //   - ErrDimensionMismatch: if yTrue and yPred have different lengths
 //
 // Example:
-//   mae, err := metrics.MAE(yTrue, yPred)
-//   if err != nil {
-//       log.Fatal(err)
-//   }
-//   fmt.Printf("MAE: %.4f\n", mae)
+//
+//	mae, err := metrics.MAE(yTrue, yPred)
+//	if err != nil {
+//	    log.Fatal(err)
+//	}
+//	fmt.Printf("MAE: %.4f\n", mae)
 func MAE(yTrue, yPred *mat.VecDense) (float64, error) {
 	// Input validation
 	n := yTrue.Len()
@@ -224,11 +228,12 @@ func MAE(yTrue, yPred *mat.VecDense) (float64, error) {
 //   - ErrValueError: if all yTrue values are identical (no variance)
 //
 // Example:
-//   r2, err := metrics.R2Score(yTrue, yPred)
-//   if err != nil {
-//       log.Fatal(err)
-//   }
-//   fmt.Printf("R² Score: %.4f\n", r2)
+//
+//	r2, err := metrics.R2Score(yTrue, yPred)
+//	if err != nil {
+//	    log.Fatal(err)
+//	}
+//	fmt.Printf("R² Score: %.4f\n", r2)
 func R2Score(yTrue, yPred *mat.VecDense) (float64, error) {
 	// Input validation
 	n := yTrue.Len()
@@ -286,11 +291,12 @@ func R2Score(yTrue, yPred *mat.VecDense) (float64, error) {
 //   - ErrValueError: if all yTrue values are zero
 //
 // Example:
-//   mape, err := metrics.MAPE(yTrue, yPred)
-//   if err != nil {
-//       log.Fatal(err)
-//   }
-//   fmt.Printf("MAPE: %.2f%%\n", mape)
+//
+//	mape, err := metrics.MAPE(yTrue, yPred)
+//	if err != nil {
+//	    log.Fatal(err)
+//	}
+//	fmt.Printf("MAPE: %.2f%%\n", mape)
 func MAPE(yTrue, yPred *mat.VecDense) (float64, error) {
 	// Input validation
 	n := yTrue.Len()
@@ -343,11 +349,12 @@ func MAPE(yTrue, yPred *mat.VecDense) (float64, error) {
 //   - ErrValueError: if yTrue has no variance (all values identical)
 //
 // Example:
-//   evs, err := metrics.ExplainedVarianceScore(yTrue, yPred)
-//   if err != nil {
-//       log.Fatal(err)
-//   }
-//   fmt.Printf("Explained Variance Score: %.4f\n", evs)
+//
+//	evs, err := metrics.ExplainedVarianceScore(yTrue, yPred)
+//	if err != nil {
+//	    log.Fatal(err)
+//	}
+//	fmt.Printf("Explained Variance Score: %.4f\n", evs)
 func ExplainedVarianceScore(yTrue, yPred *mat.VecDense) (float64, error) {
 	// Input validation
 	n := yTrue.Len()

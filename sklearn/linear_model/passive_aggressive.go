@@ -29,16 +29,16 @@ type PassiveAggressiveRegressor struct {
 	epsilon      float64 // epsilon-insensitive損失のepsilon
 
 	// 学習パラメータ
-	coef_      []float64 // 重み係数
-	intercept_ float64   // 切片
-	avgCoef_   []float64 // 平均化された重み
-	avgIntercept_ float64 // 平均化された切片
+	coef_         []float64 // 重み係数
+	intercept_    float64   // 切片
+	avgCoef_      []float64 // 平均化された重み
+	avgIntercept_ float64   // 平均化された切片
 
 	// 学習状態
-	nIter_    int // 実行されたイテレーション数
-	t_        int64 // 総ステップ数
+	nIter_     int   // 実行されたイテレーション数
+	t_         int64 // 総ステップ数
 	converged_ bool  // 収束フラグ
-	
+
 	// 内部状態
 	mu         sync.RWMutex
 	nFeatures_ int
@@ -62,18 +62,18 @@ type PassiveAggressiveClassifier struct {
 	classWeight  string  // クラス重み: "balanced", "none"
 
 	// 学習パラメータ
-	coef_      [][]float64 // 重み係数（クラス数 x 特徴数）
-	intercept_ []float64   // 切片（クラス数）
-	avgCoef_   [][]float64 // 平均化された重み
-	avgIntercept_ []float64 // 平均化された切片
-	classes_   []int       // クラスラベル
-	nClasses_  int         // クラス数
+	coef_         [][]float64 // 重み係数（クラス数 x 特徴数）
+	intercept_    []float64   // 切片（クラス数）
+	avgCoef_      [][]float64 // 平均化された重み
+	avgIntercept_ []float64   // 平均化された切片
+	classes_      []int       // クラスラベル
+	nClasses_     int         // クラス数
 
 	// 学習状態
-	nIter_    int // 実行されたイテレーション数
-	t_        int64 // 総ステップ数
+	nIter_     int   // 実行されたイテレーション数
+	t_         int64 // 総ステップ数
 	converged_ bool  // 収束フラグ
-	
+
 	// 内部状態
 	mu         sync.RWMutex
 	nFeatures_ int
@@ -200,7 +200,7 @@ func (pa *PassiveAggressiveRegressor) Fit(X, y mat.Matrix) error {
 		for i := 0; i < rows; i++ {
 			xi := mat.Row(nil, i, X)
 			yi := y.At(i, 0)
-			
+
 			pa.updateWeights(xi, yi)
 		}
 		pa.nIter_++
@@ -223,7 +223,7 @@ func (pa *PassiveAggressiveRegressor) PartialFit(X, y mat.Matrix, classes []int)
 	defer pa.mu.Unlock()
 
 	rows, cols := X.Dims()
-	
+
 	if pa.coef_ == nil {
 		pa.nFeatures_ = cols
 		pa.coef_ = make([]float64, cols)
@@ -238,10 +238,10 @@ func (pa *PassiveAggressiveRegressor) PartialFit(X, y mat.Matrix, classes []int)
 	for i := 0; i < rows; i++ {
 		xi := mat.Row(nil, i, X)
 		yi := y.At(i, 0)
-		
+
 		pa.updateWeights(xi, yi)
 	}
-	
+
 	pa.SetFitted()
 	return nil
 }
@@ -289,13 +289,13 @@ func (pa *PassiveAggressiveRegressor) updateWeights(x []float64, y float64) {
 	if tau != 0 {
 		for i, xi := range x {
 			pa.coef_[i] += tau * xi
-			
+
 			// 平均化PA
 			if pa.averagePA {
 				pa.avgCoef_[i] = (pa.avgCoef_[i]*float64(pa.t_) + pa.coef_[i]) / float64(pa.t_+1)
 			}
 		}
-		
+
 		// 切片更新
 		if pa.fitIntercept {
 			pa.intercept_ += tau
@@ -323,7 +323,7 @@ func (pa *PassiveAggressiveRegressor) Predict(X mat.Matrix) (mat.Matrix, error) 
 	}
 
 	predictions := mat.NewDense(rows, 1, nil)
-	
+
 	coef := pa.coef_
 	intercept := pa.intercept_
 	if pa.averagePA && pa.avgCoef_ != nil {
@@ -371,7 +371,7 @@ func (pa *PassiveAggressiveClassifier) Fit(X, y mat.Matrix) error {
 		for i := 0; i < rows; i++ {
 			xi := mat.Row(nil, i, X)
 			yi := int(y.At(i, 0))
-			
+
 			pa.updateWeights(xi, yi)
 		}
 		pa.nIter_++
@@ -394,11 +394,11 @@ func (pa *PassiveAggressiveClassifier) PartialFit(X, y mat.Matrix, classes []int
 	defer pa.mu.Unlock()
 
 	rows, cols := X.Dims()
-	
+
 	// 初回呼び出し時の初期化
 	if pa.coef_ == nil {
 		pa.nFeatures_ = cols
-		
+
 		if classes != nil {
 			pa.classes_ = make([]int, len(classes))
 			copy(pa.classes_, classes)
@@ -406,7 +406,7 @@ func (pa *PassiveAggressiveClassifier) PartialFit(X, y mat.Matrix, classes []int
 		} else {
 			pa.extractClasses(y)
 		}
-		
+
 		pa.initializeWeights()
 	}
 
@@ -418,10 +418,10 @@ func (pa *PassiveAggressiveClassifier) PartialFit(X, y mat.Matrix, classes []int
 	for i := 0; i < rows; i++ {
 		xi := mat.Row(nil, i, X)
 		yi := int(y.At(i, 0))
-		
+
 		pa.updateWeights(xi, yi)
 	}
-	
+
 	pa.SetFitted()
 	return nil
 }
@@ -480,13 +480,13 @@ func (pa *PassiveAggressiveClassifier) updateWeights(x []float64, y int) {
 		if tau != 0 {
 			for i, xi := range x {
 				pa.coef_[c][i] += tau * xi
-				
+
 				// 平均化PA
 				if pa.averagePA {
 					pa.avgCoef_[c][i] = (pa.avgCoef_[c][i]*float64(pa.t_) + pa.coef_[c][i]) / float64(pa.t_+1)
 				}
 			}
-			
+
 			// 切片更新
 			if pa.fitIntercept {
 				pa.intercept_[c] += tau
@@ -515,7 +515,7 @@ func (pa *PassiveAggressiveClassifier) Predict(X mat.Matrix) (mat.Matrix, error)
 	}
 
 	predictions := mat.NewDense(rows, 1, nil)
-	
+
 	coef := pa.coef_
 	intercept := pa.intercept_
 	if pa.averagePA && pa.avgCoef_ != nil {
@@ -526,20 +526,20 @@ func (pa *PassiveAggressiveClassifier) Predict(X mat.Matrix) (mat.Matrix, error)
 	for i := 0; i < rows; i++ {
 		maxScore := math.Inf(-1)
 		predictedClass := pa.classes_[0]
-		
+
 		// 各クラスのスコアを計算
 		for c := 0; c < pa.nClasses_; c++ {
 			score := intercept[c]
 			for j := 0; j < cols; j++ {
 				score += X.At(i, j) * coef[c][j]
 			}
-			
+
 			if score > maxScore {
 				maxScore = score
 				predictedClass = pa.classes_[c]
 			}
 		}
-		
+
 		predictions.Set(i, 0, float64(predictedClass))
 	}
 
@@ -628,17 +628,17 @@ func (pa *PassiveAggressiveClassifier) SetWarmStart(warmStart bool) {
 func (pa *PassiveAggressiveClassifier) extractClasses(y mat.Matrix) {
 	rows, _ := y.Dims()
 	classSet := make(map[int]bool)
-	
+
 	for i := 0; i < rows; i++ {
 		class := int(y.At(i, 0))
 		classSet[class] = true
 	}
-	
+
 	classes := make([]int, 0, len(classSet))
 	for class := range classSet {
 		classes = append(classes, class)
 	}
-	
+
 	// ソート
 	for i := 0; i < len(classes); i++ {
 		for j := i + 1; j < len(classes); j++ {
@@ -647,7 +647,7 @@ func (pa *PassiveAggressiveClassifier) extractClasses(y mat.Matrix) {
 			}
 		}
 	}
-	
+
 	pa.classes_ = classes
 	pa.nClasses_ = len(classes)
 }
@@ -658,7 +658,7 @@ func (pa *PassiveAggressiveClassifier) initializeWeights() {
 	pa.intercept_ = make([]float64, pa.nClasses_)
 	pa.avgCoef_ = make([][]float64, pa.nClasses_)
 	pa.avgIntercept_ = make([]float64, pa.nClasses_)
-	
+
 	for c := 0; c < pa.nClasses_; c++ {
 		pa.coef_[c] = make([]float64, pa.nFeatures_)
 		pa.avgCoef_[c] = make([]float64, pa.nFeatures_)

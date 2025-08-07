@@ -46,7 +46,7 @@ const (
 type BaseEstimator struct {
 	// State はモデルの学習状態を保持します。gobでエンコードするために公開されています。
 	State EstimatorState
-	
+
 	// logger はモデル操作のログ出力に使用されます。gobエンコードでは無視されます。
 	logger interface{} // Using interface{} to avoid circular imports, will be set to log.Logger
 }
@@ -61,13 +61,14 @@ type BaseEstimator struct {
 //   - bool: true if the model is fitted, false otherwise
 //
 // Example:
-//   if !model.IsFitted() {
-//       err := model.Fit(X, y)
-//       if err != nil {
-//           log.Fatal(err)
-//       }
-//   }
-//   predictions, err := model.Predict(X_test)
+//
+//	if !model.IsFitted() {
+//	    err := model.Fit(X, y)
+//	    if err != nil {
+//	        log.Fatal(err)
+//	    }
+//	}
+//	predictions, err := model.Predict(X_test)
 func (e *BaseEstimator) IsFitted() bool {
 	return e.State == Fitted
 }
@@ -79,11 +80,12 @@ func (e *BaseEstimator) IsFitted() bool {
 // Should only be called by model implementations, not by end users.
 //
 // Example (within a model's Fit method):
-//   func (m *MyModel) Fit(X, y mat.Matrix) error {
-//       // ... training logic ...
-//       m.SetFitted() // Mark as trained
-//       return nil
-//   }
+//
+//	func (m *MyModel) Fit(X, y mat.Matrix) error {
+//	    // ... training logic ...
+//	    m.SetFitted() // Mark as trained
+//	    return nil
+//	}
 func (e *BaseEstimator) SetFitted() {
 	e.State = Fitted
 }
@@ -95,11 +97,12 @@ func (e *BaseEstimator) SetFitted() {
 // errors. After reset, the model must be fitted again before use.
 //
 // Example:
-//   model.Reset()
-//   err := model.Fit(newTrainingData, newLabels)
-//   if err != nil {
-//       log.Fatal(err)
-//   }
+//
+//	model.Reset()
+//	err := model.Fit(newTrainingData, newLabels)
+//	if err != nil {
+//	    log.Fatal(err)
+//	}
 func (e *BaseEstimator) Reset() {
 	e.State = NotFitted
 }
@@ -112,8 +115,9 @@ func (e *BaseEstimator) Reset() {
 //   - logger: Any logger implementation (typically log.Logger interface)
 //
 // Example:
-//   import "github.com/YuminosukeSato/scigo/pkg/log"
-//   model.SetLogger(log.GetLoggerWithName("LinearRegression"))
+//
+//	import "github.com/YuminosukeSato/scigo/pkg/log"
+//	model.SetLogger(log.GetLoggerWithName("LinearRegression"))
 func (e *BaseEstimator) SetLogger(logger interface{}) {
 	e.logger = logger
 }
@@ -125,11 +129,12 @@ func (e *BaseEstimator) SetLogger(logger interface{}) {
 //   - interface{}: The logger instance, should be type-asserted to log.Logger
 //
 // Example:
-//   if logger := model.GetLogger(); logger != nil {
-//       if l, ok := logger.(log.Logger); ok {
-//           l.Info("Operation completed")
-//       }
-//   }
+//
+//	if logger := model.GetLogger(); logger != nil {
+//	    if l, ok := logger.(log.Logger); ok {
+//	        l.Info("Operation completed")
+//	    }
+//	}
 func (e *BaseEstimator) GetLogger() interface{} {
 	return e.logger
 }
@@ -174,7 +179,7 @@ func (e *BaseEstimator) LogDebug(msg string, fields ...interface{}) {
 // Parameters:
 //   - msg: The log message
 //   - fields: Optional structured logging fields as key-value pairs
-//             If the first field is an error, it will be handled specially
+//     If the first field is an error, it will be handled specially
 func (e *BaseEstimator) LogError(msg string, fields ...interface{}) {
 	if e.logger != nil {
 		if logger, ok := e.logger.(interface {

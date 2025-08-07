@@ -15,11 +15,11 @@ func TestSGDRegressorBasicFit(t *testing.T) {
 	// 簡単な線形データ: y = 2*x + 1
 	X := mat.NewDense(100, 1, nil)
 	y := mat.NewDense(100, 1, nil)
-	
+
 	for i := 0; i < 100; i++ {
 		x := float64(i) / 10.0
 		X.Set(i, 0, x)
-		y.Set(i, 0, 2*x + 1)
+		y.Set(i, 0, 2*x+1)
 	}
 
 	sgd := NewSGDRegressor(
@@ -41,7 +41,7 @@ func TestSGDRegressorBasicFit(t *testing.T) {
 	// 係数と切片の確認
 	coef := sgd.Coef()
 	intercept := sgd.Intercept()
-	
+
 	// 理論値に近いことを確認（許容誤差0.1）
 	if math.Abs(coef[0]-2.0) > 0.1 {
 		t.Errorf("Coefficient should be close to 2.0, got %f", coef[0])
@@ -63,16 +63,16 @@ func TestSGDRegressorPartialFit(t *testing.T) {
 	for batch := 0; batch < 10; batch++ {
 		X := mat.NewDense(10, 2, nil)
 		y := mat.NewDense(10, 1, nil)
-		
+
 		for i := 0; i < 10; i++ {
 			x1 := float64(batch*10+i) / 100.0
 			x2 := float64(batch*10+i) / 50.0
 			X.Set(i, 0, x1)
 			X.Set(i, 1, x2)
 			// y = 3*x1 + 2*x2 + 1
-			y.Set(i, 0, 3*x1 + 2*x2 + 1)
+			y.Set(i, 0, 3*x1+2*x2+1)
 		}
-		
+
 		err := sgd.PartialFit(X, y, nil)
 		if err != nil {
 			t.Fatalf("PartialFit failed at batch %d: %v", batch, err)
@@ -94,11 +94,11 @@ func TestSGDRegressorPredict(t *testing.T) {
 	// 訓練データ
 	X_train := mat.NewDense(50, 1, nil)
 	y_train := mat.NewDense(50, 1, nil)
-	
+
 	for i := 0; i < 50; i++ {
 		x := float64(i) / 10.0
 		X_train.Set(i, 0, x)
-		y_train.Set(i, 0, 3*x + 2)
+		y_train.Set(i, 0, 3*x+2)
 	}
 
 	sgd := NewSGDRegressor(
@@ -144,11 +144,11 @@ func TestSGDRegressorWarmStart(t *testing.T) {
 	t.Skip("Skipping WarmStart test - needs redesign as continued training may increase loss")
 	X := mat.NewDense(50, 1, nil)
 	y := mat.NewDense(50, 1, nil)
-	
+
 	for i := 0; i < 50; i++ {
 		x := float64(i) / 10.0
 		X.Set(i, 0, x)
-		y.Set(i, 0, 2*x + 1)
+		y.Set(i, 0, 2*x+1)
 	}
 
 	// ウォームスタートなしで学習
@@ -170,7 +170,7 @@ func TestSGDRegressorWarmStart(t *testing.T) {
 		WithRandomState(42),
 	)
 	sgd2.Fit(X, y)
-	
+
 	// 再度Fitを呼ぶ（継続学習）
 	sgd2.Fit(X, y)
 	loss3 := sgd2.GetLoss()
@@ -186,7 +186,7 @@ func TestSGDRegressorRegularization(t *testing.T) {
 	// ノイズを含むデータ
 	X := mat.NewDense(100, 5, nil)
 	y := mat.NewDense(100, 1, nil)
-	
+
 	for i := 0; i < 100; i++ {
 		for j := 0; j < 5; j++ {
 			X.Set(i, j, float64(i*j)/100.0)
@@ -213,14 +213,14 @@ func TestSGDRegressorRegularization(t *testing.T) {
 				WithMaxIter(100),
 				WithRandomState(42),
 			)
-			
+
 			err := sgd.Fit(X, y)
 			if err != nil {
 				t.Fatalf("Fit failed with %s: %v", tc.name, err)
 			}
-			
+
 			coef := sgd.Coef()
-			
+
 			// 正則化ありの場合、係数のノルムが小さくなるはず
 			if tc.penalty != "none" {
 				var norm float64
@@ -228,7 +228,7 @@ func TestSGDRegressorRegularization(t *testing.T) {
 					norm += c * c
 				}
 				norm = math.Sqrt(norm)
-				
+
 				if norm > 10.0 {
 					t.Errorf("%s: coefficient norm too large: %f", tc.name, norm)
 				}
@@ -249,28 +249,28 @@ func TestSGDRegressorStreaming(t *testing.T) {
 	defer cancel()
 
 	dataChan := make(chan *model.Batch, 10)
-	
+
 	// データ生成goroutine
 	go func() {
 		defer close(dataChan)
 		for i := 0; i < 10; i++ {
 			X := mat.NewDense(5, 2, nil)
 			y := mat.NewDense(5, 1, nil)
-			
+
 			for j := 0; j < 5; j++ {
 				x1 := float64(i*5+j) / 50.0
 				x2 := float64(i*5+j) / 25.0
 				X.Set(j, 0, x1)
 				X.Set(j, 1, x2)
-				y.Set(j, 0, 2*x1 + 3*x2 + 1)
+				y.Set(j, 0, 2*x1+3*x2+1)
 			}
-			
+
 			select {
 			case dataChan <- &model.Batch{X: X, Y: y}:
 			case <-ctx.Done():
 				return
 			}
-			
+
 			time.Sleep(10 * time.Millisecond)
 		}
 	}()
@@ -291,11 +291,11 @@ func TestSGDRegressorPredictStream(t *testing.T) {
 	// 事前学習
 	X_train := mat.NewDense(50, 1, nil)
 	y_train := mat.NewDense(50, 1, nil)
-	
+
 	for i := 0; i < 50; i++ {
 		x := float64(i) / 10.0
 		X_train.Set(i, 0, x)
-		y_train.Set(i, 0, 2*x + 1)
+		y_train.Set(i, 0, 2*x+1)
 	}
 
 	sgd := NewSGDRegressor(
@@ -308,7 +308,7 @@ func TestSGDRegressorPredictStream(t *testing.T) {
 	defer cancel()
 
 	inputChan := make(chan mat.Matrix, 5)
-	
+
 	// 入力データ生成
 	go func() {
 		defer close(inputChan)
@@ -316,20 +316,20 @@ func TestSGDRegressorPredictStream(t *testing.T) {
 			X := mat.NewDense(2, 1, nil)
 			X.Set(0, 0, float64(i))
 			X.Set(1, 0, float64(i+1))
-			
+
 			select {
 			case inputChan <- X:
 			case <-ctx.Done():
 				return
 			}
-			
+
 			time.Sleep(10 * time.Millisecond)
 		}
 	}()
 
 	// ストリーミング予測
 	outputChan := sgd.PredictStream(ctx, inputChan)
-	
+
 	count := 0
 	for pred := range outputChan {
 		rows, cols := pred.Dims()
@@ -338,7 +338,7 @@ func TestSGDRegressorPredictStream(t *testing.T) {
 		}
 		count++
 	}
-	
+
 	if count == 0 {
 		t.Error("No predictions received from PredictStream")
 	}
@@ -356,43 +356,43 @@ func TestSGDRegressorFitPredictStream(t *testing.T) {
 	defer cancel()
 
 	dataChan := make(chan *model.Batch, 5)
-	
+
 	// データ生成
 	go func() {
 		defer close(dataChan)
 		for i := 0; i < 5; i++ {
 			X := mat.NewDense(3, 1, nil)
 			y := mat.NewDense(3, 1, nil)
-			
+
 			for j := 0; j < 3; j++ {
 				x := float64(i*3+j) / 10.0
 				X.Set(j, 0, x)
-				y.Set(j, 0, 2*x + 1)
+				y.Set(j, 0, 2*x+1)
 			}
-			
+
 			select {
 			case dataChan <- &model.Batch{X: X, Y: y}:
 			case <-ctx.Done():
 				return
 			}
-			
+
 			time.Sleep(10 * time.Millisecond)
 		}
 	}()
 
 	// test-then-train
 	outputChan := sgd.FitPredictStream(ctx, dataChan)
-	
+
 	predCount := 0
 	for range outputChan {
 		predCount++
 	}
-	
+
 	// 最初のバッチは予測されないので、バッチ数-1の予測が期待される
 	if predCount == 0 {
 		t.Error("No predictions received from FitPredictStream")
 	}
-	
+
 	if !sgd.IsFitted() {
 		t.Error("Model should be fitted after FitPredictStream()")
 	}
@@ -403,11 +403,11 @@ func TestSGDRegressorScore(t *testing.T) {
 	// 完全に線形なデータ
 	X := mat.NewDense(100, 1, nil)
 	y := mat.NewDense(100, 1, nil)
-	
+
 	for i := 0; i < 100; i++ {
 		x := float64(i) / 10.0
 		X.Set(i, 0, x)
-		y.Set(i, 0, 2*x + 1)
+		y.Set(i, 0, 2*x+1)
 	}
 
 	sgd := NewSGDRegressor(
@@ -436,11 +436,11 @@ func TestSGDRegressorScore(t *testing.T) {
 func TestSGDRegressorConvergence(t *testing.T) {
 	X := mat.NewDense(100, 1, nil)
 	y := mat.NewDense(100, 1, nil)
-	
+
 	for i := 0; i < 100; i++ {
 		x := float64(i) / 10.0
 		X.Set(i, 0, x)
-		y.Set(i, 0, 2*x + 1)
+		y.Set(i, 0, 2*x+1)
 	}
 
 	sgd := NewSGDRegressor(

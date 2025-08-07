@@ -11,7 +11,7 @@ import (
 func createBenchmarkData(rows, cols int) (*mat.Dense, *mat.Dense) {
 	// シードを固定して再現性を確保
 	rng := rand.New(rand.NewSource(42))
-	
+
 	// X: rows x cols の行列（ランダムな値を生成）
 	X := mat.NewDense(rows, cols, nil)
 	for i := 0; i < rows; i++ {
@@ -52,7 +52,7 @@ func BenchmarkLinearRegressionFit(b *testing.B) {
 	}{
 		{"Small_100x10", 100, 10},
 		{"Small_500x10", 500, 10},
-		{"Medium_1000x10", 1000, 10},  // 並列処理の閾値
+		{"Medium_1000x10", 1000, 10}, // 並列処理の閾値
 		{"Medium_2000x10", 2000, 10},
 		{"Large_5000x20", 5000, 20},
 		{"Large_10000x20", 10000, 20},
@@ -63,7 +63,7 @@ func BenchmarkLinearRegressionFit(b *testing.B) {
 	for _, size := range sizes {
 		b.Run(size.name, func(b *testing.B) {
 			X, y := createBenchmarkData(size.rows, size.cols)
-			
+
 			b.ResetTimer()
 			for i := 0; i < b.N; i++ {
 				lr := NewLinearRegression()
@@ -88,13 +88,13 @@ func BenchmarkLinearRegressionFitSequential(b *testing.B) {
 	}{
 		{"Sequential_100x10", 100, 10},
 		{"Sequential_500x10", 500, 10},
-		{"Sequential_900x10", 900, 10},  // 閾値(1000)未満
+		{"Sequential_900x10", 900, 10}, // 閾値(1000)未満
 	}
 
 	for _, size := range sizes {
 		b.Run(size.name, func(b *testing.B) {
 			X, y := createBenchmarkData(size.rows, size.cols)
-			
+
 			b.ResetTimer()
 			for i := 0; i < b.N; i++ {
 				lr := NewLinearRegression()
@@ -122,7 +122,7 @@ func BenchmarkMatrixCopy(b *testing.B) {
 	for _, size := range sizes {
 		b.Run(size.name, func(b *testing.B) {
 			X, _ := createBenchmarkData(size.rows, size.cols)
-			
+
 			b.ResetTimer()
 			for i := 0; i < b.N; i++ {
 				// 行列コピー部分のみを測定

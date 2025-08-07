@@ -13,7 +13,7 @@ import (
 func main() {
 	// Initialize logger
 	log.SetupLogger("info")
-	
+
 	fmt.Println("=== GoML Linear Regression Example ===")
 	fmt.Println()
 

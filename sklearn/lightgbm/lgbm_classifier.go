@@ -19,35 +19,35 @@ type LGBMClassifier struct {
 	Predictor *Predictor
 
 	// Hyperparameters (matching Python LightGBM)
-	NumLeaves         int     // Number of leaves in one tree
-	MaxDepth          int     // Maximum tree depth
-	LearningRate      float64 // Boosting learning rate
-	NumIterations     int     // Number of boosting iterations
-	MinChildSamples   int     // Minimum number of data in one leaf
-	MinChildWeight    float64 // Minimum sum of hessians in one leaf
-	Subsample         float64 // Subsample ratio of training data
-	SubsampleFreq     int     // Frequency of subsample
-	ColsampleBytree   float64 // Subsample ratio of columns when constructing tree
-	RegAlpha          float64 // L1 regularization
-	RegLambda         float64 // L2 regularization
-	RandomState       int     // Random seed
-	NumClass          int     // Number of classes (set automatically)
-	Objective         string  // Objective function
-	Metric            string  // Evaluation metric
-	NumThreads        int     // Number of threads for prediction
-	Deterministic     bool    // Deterministic mode for reproducibility
-	Verbosity         int     // Verbosity level
-	EarlyStopping     int     // Early stopping rounds
-	CategoricalFeatures []int // Indices of categorical features
+	NumLeaves           int     // Number of leaves in one tree
+	MaxDepth            int     // Maximum tree depth
+	LearningRate        float64 // Boosting learning rate
+	NumIterations       int     // Number of boosting iterations
+	MinChildSamples     int     // Minimum number of data in one leaf
+	MinChildWeight      float64 // Minimum sum of hessians in one leaf
+	Subsample           float64 // Subsample ratio of training data
+	SubsampleFreq       int     // Frequency of subsample
+	ColsampleBytree     float64 // Subsample ratio of columns when constructing tree
+	RegAlpha            float64 // L1 regularization
+	RegLambda           float64 // L2 regularization
+	RandomState         int     // Random seed
+	NumClass            int     // Number of classes (set automatically)
+	Objective           string  // Objective function
+	Metric              string  // Evaluation metric
+	NumThreads          int     // Number of threads for prediction
+	Deterministic       bool    // Deterministic mode for reproducibility
+	Verbosity           int     // Verbosity level
+	EarlyStopping       int     // Early stopping rounds
+	CategoricalFeatures []int   // Indices of categorical features
 
 	// Progress tracking
 	ShowProgress bool // Show progress bar during training
 
 	// Internal state
-	classes_      []int     // Unique class labels
-	nClasses_     int       // Number of classes
-	featureNames_ []string  // Feature names
-	nFeatures_    int       // Number of features
+	classes_      []int    // Unique class labels
+	nClasses_     int      // Number of classes
+	featureNames_ []string // Feature names
+	nFeatures_    int      // Number of features
 }
 
 // NewLGBMClassifier creates a new LightGBM classifier with default parameters
@@ -195,7 +195,7 @@ func (lgb *LGBMClassifier) Fit(X, y mat.Matrix) (err error) {
 
 	// Get trained model
 	lgb.Model = trainer.GetModel()
-	
+
 	// Create predictor
 	lgb.Predictor = NewPredictor(lgb.Model)
 	if lgb.NumThreads > 0 {
@@ -363,11 +363,11 @@ func (lgb *LGBMClassifier) LoadModel(filepath string) error {
 
 	lgb.Model = model
 	lgb.Predictor = NewPredictor(model)
-	
+
 	// Set parameters from loaded model
 	lgb.nFeatures_ = model.NumFeatures
 	lgb.NumClass = model.NumClass
-	
+
 	// Extract objective
 	switch model.Objective {
 	case BinaryLogistic, BinaryCrossEntropy:
@@ -395,7 +395,7 @@ func (lgb *LGBMClassifier) LoadModelFromString(modelStr string) error {
 	lgb.Model = model
 	lgb.Predictor = NewPredictor(model)
 	lgb.nFeatures_ = model.NumFeatures
-	
+
 	// Set classes based on model
 	if model.NumClass > 2 {
 		lgb.nClasses_ = model.NumClass
@@ -422,7 +422,7 @@ func (lgb *LGBMClassifier) LoadModelFromJSON(jsonData []byte) error {
 	lgb.Model = model
 	lgb.Predictor = NewPredictor(model)
 	lgb.nFeatures_ = model.NumFeatures
-	
+
 	// Set classes based on model
 	if model.NumClass > 2 {
 		lgb.nClasses_ = model.NumClass

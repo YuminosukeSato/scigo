@@ -13,16 +13,16 @@ import (
 // カテゴリカルな文字列データを0/1のバイナリベクトルに変換する
 type OneHotEncoder struct {
 	model.BaseEstimator
-	
+
 	// Categories は各特徴量のカテゴリ一覧（ソート済み）
 	Categories [][]string
-	
+
 	// CategoryToIdx は各特徴量のカテゴリ→インデックスマップ
 	CategoryToIdx []map[string]int
-	
+
 	// NFeatures は入力特徴量数
 	NFeatures int
-	
+
 	// NOutputs は出力特徴量数（全カテゴリの合計数）
 	NOutputs int
 }
@@ -53,43 +53,43 @@ func (e *OneHotEncoder) Fit(data [][]string) (err error) {
 	if len(data) == 0 {
 		return scigoErrors.NewModelError("OneHotEncoder.Fit", "empty data", scigoErrors.ErrEmptyData)
 	}
-	
+
 	if len(data[0]) == 0 {
 		return scigoErrors.NewModelError("OneHotEncoder.Fit", "empty features", scigoErrors.ErrEmptyData)
 	}
-	
+
 	nSamples := len(data)
 	nFeatures := len(data[0])
-	
+
 	// 特徴量数の一貫性チェック
 	for i, row := range data {
 		if len(row) != nFeatures {
 			return scigoErrors.NewDimensionError("OneHotEncoder.Fit", nFeatures, len(row), i)
 		}
 	}
-	
+
 	e.NFeatures = nFeatures
 	e.Categories = make([][]string, nFeatures)
 	e.CategoryToIdx = make([]map[string]int, nFeatures)
-	
+
 	// 各特徴量のユニークなカテゴリを収集
 	for j := 0; j < nFeatures; j++ {
 		categorySet := make(map[string]bool)
-		
+
 		// サンプル全体からユニークなカテゴリを収集
 		for i := 0; i < nSamples; i++ {
 			categorySet[data[i][j]] = true
 		}
-		
+
 		// カテゴリをスライスに変換してソート
 		categories := make([]string, 0, len(categorySet))
 		for category := range categorySet {
 			categories = append(categories, category)
 		}
 		sort.Strings(categories)
-		
+
 		e.Categories[j] = categories
-		
+
 		// カテゴリ→インデックスマップを作成
 		categoryToIdx := make(map[string]int)
 		for idx, category := range categories {
@@ -97,13 +97,13 @@ func (e *OneHotEncoder) Fit(data [][]string) (err error) {
 		}
 		e.CategoryToIdx[j] = categoryToIdx
 	}
-	
+
 	// 出力特徴量数を計算
 	e.NOutputs = 0
 	for _, categories := range e.Categories {
 		e.NOutputs += len(categories)
 	}
-	
+
 	e.SetFitted()
 	return nil
 }
@@ -121,41 +121,41 @@ func (e *OneHotEncoder) Transform(data [][]string) (_ mat.Matrix, err error) {
 	if !e.IsFitted() {
 		return nil, scigoErrors.NewNotFittedError("OneHotEncoder", "Transform")
 	}
-	
+
 	if len(data) == 0 {
 		return mat.NewDense(0, e.NOutputs, nil), nil
 	}
-	
+
 	nSamples := len(data)
 	nFeatures := len(data[0])
-	
+
 	if nFeatures != e.NFeatures {
 		return nil, scigoErrors.NewDimensionError("OneHotEncoder.Transform", e.NFeatures, nFeatures, 1)
 	}
-	
+
 	// 結果行列を初期化（全て0）
 	result := mat.NewDense(nSamples, e.NOutputs, nil)
-	
+
 	// 各サンプルを処理
 	for i := 0; i < nSamples; i++ {
 		outputIdx := 0
-		
+
 		// 各特徴量を処理
 		for j := 0; j < nFeatures; j++ {
 			category := data[i][j]
-			
+
 			// カテゴリが既知かチェック
 			if idx, exists := e.CategoryToIdx[j][category]; exists {
 				// 対応する出力位置に1を設定
 				result.Set(i, outputIdx+idx, 1.0)
 			}
 			// 未知カテゴリの場合は0のまま（何もしない）
-			
+
 			// 次の特徴量の出力開始位置へ移動
 			outputIdx += len(e.Categories[j])
 		}
 	}
-	
+
 	return result, nil
 }
 
@@ -190,9 +190,9 @@ func (e *OneHotEncoder) GetFeatureNamesOut(inputFeatures []string) []string {
 	if !e.IsFitted() {
 		return nil
 	}
-	
+
 	var outputFeatures []string
-	
+
 	for i, categories := range e.Categories {
 		// 入力特徴量名を決定
 		var inputFeatureName string
@@ -201,13 +201,13 @@ func (e *OneHotEncoder) GetFeatureNamesOut(inputFeatures []string) []string {
 		} else {
 			inputFeatureName = fmt.Sprintf("x%d", i)
 		}
-		
+
 		// 各カテゴリに対して出力特徴量名を生成
 		for _, category := range categories {
 			featureName := fmt.Sprintf("%s_%s", inputFeatureName, category)
 			outputFeatures = append(outputFeatures, featureName)
 		}
 	}
-	
+
 	return outputFeatures
 }

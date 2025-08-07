@@ -27,7 +27,7 @@
 //
 //	// Save trained model
 //	err = lr.ExportToSKLearn("model.json")
-//	
+//
 //	// Load Python-trained model
 //	err = lr.LoadFromSKLearn("sklearn_model.json")
 //
@@ -52,10 +52,10 @@ import (
 
 // LinearRegression is a linear regression model
 type LinearRegression struct {
-	model.BaseEstimator // Embedded BaseEstimator
-	Weights   *mat.VecDense // Model weights (coefficients)
-	Intercept float64       // Model intercept
-	NFeatures int           // Number of features
+	model.BaseEstimator               // Embedded BaseEstimator
+	Weights             *mat.VecDense // Model weights (coefficients)
+	Intercept           float64       // Model intercept
+	NFeatures           int           // Number of features
 }
 
 // NewLinearRegression creates a new linear regression model for ordinary least squares regression.
@@ -68,19 +68,20 @@ type LinearRegression struct {
 //   - *LinearRegression: A new untrained linear regression model
 //
 // Example:
-//   lr := linear.NewLinearRegression()
-//   err := lr.Fit(X, y)
-//   predictions, err := lr.Predict(X_test)
+//
+//	lr := linear.NewLinearRegression()
+//	err := lr.Fit(X, y)
+//	predictions, err := lr.Predict(X_test)
 func NewLinearRegression() *LinearRegression {
 	lr := &LinearRegression{}
-	
+
 	// Set up logger with model context
 	logger := log.GetLoggerWithName("linear").With(
 		log.ModelNameKey, "LinearRegression",
 		log.ComponentKey, "linear",
 	)
 	lr.SetLogger(logger)
-	
+
 	return lr
 }
 
@@ -103,19 +104,20 @@ func NewLinearRegression() *LinearRegression {
 //   - ErrSingularMatrix: if X^T * X is singular and cannot be inverted
 //
 // Example:
-//   X := mat.NewDense(100, 5, nil) // 100 samples, 5 features
-//   y := mat.NewVecDense(100, nil) // 100 target values
-//   err := lr.Fit(X, y)
-//   if err != nil {
-//       log.Fatal(err)
-//   }
+//
+//	X := mat.NewDense(100, 5, nil) // 100 samples, 5 features
+//	y := mat.NewVecDense(100, nil) // 100 target values
+//	err := lr.Fit(X, y)
+//	if err != nil {
+//	    log.Fatal(err)
+//	}
 func (lr *LinearRegression) Fit(X, y mat.Matrix) (err error) {
 	defer scigoErrors.Recover(&err, "LinearRegression.Fit")
-	
+
 	startTime := time.Now()
 	r, c := X.Dims()
 	ry, cy := y.Dims()
-	
+
 	lr.LogInfo("Training started",
 		log.OperationKey, log.OperationFit,
 		log.PhaseKey, log.PhaseTraining,
@@ -189,10 +191,10 @@ func (lr *LinearRegression) Fit(X, y mat.Matrix) (err error) {
 	for i := 0; i < c; i++ {
 		lr.Weights.SetVec(i, weights.AtVec(i+1))
 	}
-	
+
 	// モデルを学習済み状態に設定
 	lr.SetFitted()
-	
+
 	duration := time.Since(startTime)
 	lr.LogInfo("Training completed",
 		log.OperationKey, log.OperationFit,
@@ -201,7 +203,7 @@ func (lr *LinearRegression) Fit(X, y mat.Matrix) (err error) {
 		log.SamplesKey, r,
 		log.FeaturesKey, c,
 	)
-	
+
 	return nil
 }
 
@@ -223,11 +225,12 @@ func (lr *LinearRegression) Fit(X, y mat.Matrix) (err error) {
 //   - ErrDimensionMismatch: if X has different number of features than training data
 //
 // Example:
-//   predictions, err := lr.Predict(X_test)
-//   if err != nil {
-//       log.Fatal(err)
-//   }
-//   fmt.Printf("First prediction: %.2f\n", predictions.At(0, 0))
+//
+//	predictions, err := lr.Predict(X_test)
+//	if err != nil {
+//	    log.Fatal(err)
+//	}
+//	fmt.Printf("First prediction: %.2f\n", predictions.At(0, 0))
 func (lr *LinearRegression) Predict(X mat.Matrix) (_ mat.Matrix, err error) {
 	defer scigoErrors.Recover(&err, "LinearRegression.Predict")
 	if !lr.IsFitted() {
@@ -373,13 +376,13 @@ func (lr *LinearRegression) LoadFromSKLearnReader(r io.Reader) (err error) {
 	// パラメータを設定
 	lr.NFeatures = params.NFeatures
 	lr.Intercept = params.Intercept
-	
+
 	// 係数をVecDenseに変換
 	lr.Weights = mat.NewVecDense(len(params.Coefficients), params.Coefficients)
-	
+
 	// モデルを学習済み状態に設定
 	lr.SetFitted()
-	
+
 	return nil
 }
 

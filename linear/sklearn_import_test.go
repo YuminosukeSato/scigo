@@ -17,8 +17,8 @@ func TestLinearRegression_LoadFromSKLearn(t *testing.T) {
 	// テスト用のscikit-learnモデルJSONを作成
 	skModel := model.SKLearnModel{
 		ModelSpec: model.SKLearnModelSpec{
-			Name:          "LinearRegression",
-			FormatVersion: "1.0",
+			Name:           "LinearRegression",
+			FormatVersion:  "1.0",
 			SKLearnVersion: "1.3.0",
 		},
 	}
@@ -106,9 +106,9 @@ func TestLinearRegression_PredictAfterSKLearnLoad(t *testing.T) {
 	// テストデータで予測
 	// y = 2*x1 + 3*x2 - 1*x3 + 5
 	X := mat.NewDense(3, 3, []float64{
-		1.0, 2.0, 3.0,  // 2*1 + 3*2 - 1*3 + 5 = 10
-		0.0, 1.0, 2.0,  // 2*0 + 3*1 - 1*2 + 5 = 6
-		2.0, 0.0, 1.0,  // 2*2 + 3*0 - 1*1 + 5 = 8
+		1.0, 2.0, 3.0, // 2*1 + 3*2 - 1*3 + 5 = 10
+		0.0, 1.0, 2.0, // 2*0 + 3*1 - 1*2 + 5 = 6
+		2.0, 0.0, 1.0, // 2*2 + 3*0 - 1*1 + 5 = 8
 	})
 
 	predictions, err := lr.Predict(X)
@@ -117,7 +117,7 @@ func TestLinearRegression_PredictAfterSKLearnLoad(t *testing.T) {
 	}
 
 	expectedPred := []float64{10.0, 6.0, 8.0}
-	
+
 	for i := 0; i < len(expectedPred); i++ {
 		pred := predictions.At(i, 0)
 		if math.Abs(pred-expectedPred[i]) > 1e-10 {
@@ -129,7 +129,7 @@ func TestLinearRegression_PredictAfterSKLearnLoad(t *testing.T) {
 func TestLinearRegression_ExportToSKLearn(t *testing.T) {
 	// まずGoでモデルを学習
 	lr := linear.NewLinearRegression()
-	
+
 	// 学習データ
 	X := mat.NewDense(4, 2, []float64{
 		1.0, 2.0,
@@ -138,7 +138,7 @@ func TestLinearRegression_ExportToSKLearn(t *testing.T) {
 		4.0, 3.0,
 	})
 	y := mat.NewVecDense(4, []float64{5.0, 4.0, 11.0, 10.0})
-	
+
 	// モデルの学習
 	err := lr.Fit(X, y)
 	if err != nil {
@@ -186,7 +186,7 @@ func TestLinearRegression_ExportToSKLearn(t *testing.T) {
 func TestLinearRegression_RoundTrip(t *testing.T) {
 	// モデルを学習 → エクスポート → 新しいモデルにインポート → 同じ予測結果
 	lr1 := linear.NewLinearRegression()
-	
+
 	// 学習データ（線形独立、より多くのサンプル）
 	X := mat.NewDense(10, 3, []float64{
 		1.0, 0.0, 0.0,
@@ -201,7 +201,7 @@ func TestLinearRegression_RoundTrip(t *testing.T) {
 		1.0, 1.0, 2.0,
 	})
 	y := mat.NewVecDense(10, []float64{3.0, 4.0, 2.0, 7.0, 5.0, 6.0, 9.0, 7.0, 8.0, 10.0})
-	
+
 	// モデル1を学習
 	if err := lr1.Fit(X, y); err != nil {
 		t.Fatalf("Failed to fit model 1: %v", err)
@@ -210,7 +210,7 @@ func TestLinearRegression_RoundTrip(t *testing.T) {
 	// エクスポート
 	tmpFile := "test_roundtrip.json"
 	defer os.Remove(tmpFile)
-	
+
 	if err := lr1.ExportToSKLearn(tmpFile); err != nil {
 		t.Fatalf("Failed to export model: %v", err)
 	}

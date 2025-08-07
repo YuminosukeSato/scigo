@@ -11,8 +11,8 @@ import (
 
 // SKLearnModelSpec はscikit-learnモデルのメタデータ
 type SKLearnModelSpec struct {
-	Name          string `json:"name"`           // モデル名 (e.g., "LinearRegression")
-	FormatVersion string `json:"format_version"` // フォーマットバージョン
+	Name           string `json:"name"`                      // モデル名 (e.g., "LinearRegression")
+	FormatVersion  string `json:"format_version"`            // フォーマットバージョン
 	SKLearnVersion string `json:"sklearn_version,omitempty"` // scikit-learnのバージョン
 }
 
@@ -25,8 +25,8 @@ type SKLearnLinearRegressionParams struct {
 
 // SKLearnModel はscikit-learnからエクスポートされたモデル
 type SKLearnModel struct {
-	ModelSpec SKLearnModelSpec        `json:"model_spec"`
-	Params    json.RawMessage         `json:"params"`
+	ModelSpec SKLearnModelSpec `json:"model_spec"`
+	Params    json.RawMessage  `json:"params"`
 }
 
 // LoadSKLearnModelFromFile はファイルからscikit-learnモデルを読み込む
@@ -76,7 +76,7 @@ func LoadSKLearnModelFromReader(r io.Reader) (*SKLearnModel, error) {
 
 	// サポートされているバージョンか確認
 	if model.ModelSpec.FormatVersion != "1.0" {
-		return nil, errors.NewValueError("LoadSKLearnModel", 
+		return nil, errors.NewValueError("LoadSKLearnModel",
 			fmt.Sprintf("unsupported format version: %s", model.ModelSpec.FormatVersion))
 	}
 
@@ -109,7 +109,7 @@ func LoadLinearRegressionParams(model *SKLearnModel) (*SKLearnLinearRegressionPa
 
 	// パラメータの検証
 	if len(params.Coefficients) == 0 {
-		return nil, errors.NewValueError("LoadLinearRegressionParams", 
+		return nil, errors.NewValueError("LoadLinearRegressionParams",
 			"coefficients cannot be empty")
 	}
 

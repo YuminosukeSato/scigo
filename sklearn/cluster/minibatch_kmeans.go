@@ -19,17 +19,17 @@ type MiniBatchKMeans struct {
 	model.BaseEstimator
 
 	// ハイパーパラメータ
-	nClusters       int     // クラスタ数
-	init            string  // 初期化方法: "k-means++", "random"
-	maxIter         int     // 最大イテレーション数
-	batchSize       int     // ミニバッチサイズ
-	verbose         int     // 詳細出力レベル
-	computeLabels   bool    // ラベルを計算するか
-	randomState     int64   // 乱数シード
-	tol             float64 // 収束判定の許容誤差
-	maxNoImprovement int     // 改善なしの最大イテレーション数
-	initSize        int     // 初期化用のサンプル数
-	nInit           int     // 異なる初期化での実行回数
+	nClusters         int     // クラスタ数
+	init              string  // 初期化方法: "k-means++", "random"
+	maxIter           int     // 最大イテレーション数
+	batchSize         int     // ミニバッチサイズ
+	verbose           int     // 詳細出力レベル
+	computeLabels     bool    // ラベルを計算するか
+	randomState       int64   // 乱数シード
+	tol               float64 // 収束判定の許容誤差
+	maxNoImprovement  int     // 改善なしの最大イテレーション数
+	initSize          int     // 初期化用のサンプル数
+	nInit             int     // 異なる初期化での実行回数
 	reassignmentRatio float64 // 再割り当て比率
 
 	// 学習パラメータ
@@ -150,7 +150,7 @@ func (kmeans *MiniBatchKMeans) Fit(X, y mat.Matrix) error {
 
 	for run := 0; run < kmeans.nInit; run++ {
 		centers, labels, inertia, nIter := kmeans.fitSingleRun(X)
-		
+
 		if inertia < bestInertia {
 			bestInertia = inertia
 			bestCenters = centers
@@ -184,16 +184,16 @@ func (kmeans *MiniBatchKMeans) fitSingleRun(X mat.Matrix) ([][]float64, []int, f
 		finalIter = iter
 		// ミニバッチの選択
 		batchIndices := kmeans.selectMiniBatch(rows)
-		
+
 		// 各ミニバッチサンプルを最近傍クラスタに割り当て
 		for _, idx := range batchIndices {
 			sample := mat.Row(nil, idx, X)
 			nearestCluster := kmeans.findNearestCluster(sample, centers)
-			
+
 			// クラスタ中心の更新
 			counts[nearestCluster]++
 			eta := 1.0 / float64(counts[nearestCluster])
-			
+
 			for j := 0; j < cols; j++ {
 				centers[nearestCluster][j] = (1-eta)*centers[nearestCluster][j] + eta*sample[j]
 			}
@@ -201,7 +201,7 @@ func (kmeans *MiniBatchKMeans) fitSingleRun(X mat.Matrix) ([][]float64, []int, f
 
 		// 慣性（inertia）の計算
 		inertia := kmeans.computeInertia(X, centers)
-		
+
 		// 収束判定
 		if prevInertia-inertia < kmeans.tol {
 			noImprovementCount++
@@ -211,9 +211,9 @@ func (kmeans *MiniBatchKMeans) fitSingleRun(X mat.Matrix) ([][]float64, []int, f
 		} else {
 			noImprovementCount = 0
 		}
-		
+
 		prevInertia = inertia
-		
+
 		if kmeans.verbose > 0 && iter%10 == 0 {
 			fmt.Printf("Iteration %d, inertia: %.6f\n", iter, inertia)
 		}
@@ -239,7 +239,7 @@ func (kmeans *MiniBatchKMeans) PartialFit(X, y mat.Matrix, classes []int) error 
 	defer kmeans.mu.Unlock()
 
 	rows, cols := X.Dims()
-	
+
 	// 初回呼び出し時の初期化
 	if kmeans.clusterCenters_ == nil {
 		kmeans.nFeatures_ = cols
@@ -255,17 +255,17 @@ func (kmeans *MiniBatchKMeans) PartialFit(X, y mat.Matrix, classes []int) error 
 	for i := 0; i < rows; i++ {
 		sample := mat.Row(nil, i, X)
 		nearestCluster := kmeans.findNearestCluster(sample, kmeans.clusterCenters_)
-		
+
 		// クラスタ中心の更新
 		kmeans.counts_[nearestCluster]++
 		eta := 1.0 / float64(kmeans.counts_[nearestCluster])
-		
+
 		for j := 0; j < cols; j++ {
-			kmeans.clusterCenters_[nearestCluster][j] = 
+			kmeans.clusterCenters_[nearestCluster][j] =
 				(1-eta)*kmeans.clusterCenters_[nearestCluster][j] + eta*sample[j]
 		}
 	}
-	
+
 	kmeans.SetFitted()
 	return nil
 }
@@ -353,10 +353,10 @@ func (kmeans *MiniBatchKMeans) FitStream(ctx context.Context, dataChan <-chan *m
 // PredictStream は入力ストリームに対してリアルタイム予測
 func (kmeans *MiniBatchKMeans) PredictStream(ctx context.Context, inputChan <-chan mat.Matrix) <-chan mat.Matrix {
 	outputChan := make(chan mat.Matrix)
-	
+
 	go func() {
 		defer close(outputChan)
-		
+
 		for {
 			select {
 			case <-ctx.Done():
@@ -365,12 +365,12 @@ func (kmeans *MiniBatchKMeans) PredictStream(ctx context.Context, inputChan <-ch
 				if !ok {
 					return
 				}
-				
+
 				pred, err := kmeans.Predict(X)
 				if err != nil {
 					continue
 				}
-				
+
 				select {
 				case outputChan <- pred:
 				case <-ctx.Done():
@@ -379,7 +379,7 @@ func (kmeans *MiniBatchKMeans) PredictStream(ctx context.Context, inputChan <-ch
 			}
 		}
 	}()
-	
+
 	return outputChan
 }
 
@@ -406,7 +406,7 @@ func (kmeans *MiniBatchKMeans) SetWarmStart(warmStart bool) {
 func (kmeans *MiniBatchKMeans) ClusterCenters() [][]float64 {
 	kmeans.mu.RLock()
 	defer kmeans.mu.RUnlock()
-	
+
 	centers := make([][]float64, len(kmeans.clusterCenters_))
 	for i := range kmeans.clusterCenters_ {
 		centers[i] = make([]float64, len(kmeans.clusterCenters_[i]))
@@ -419,11 +419,11 @@ func (kmeans *MiniBatchKMeans) ClusterCenters() [][]float64 {
 func (kmeans *MiniBatchKMeans) Labels() []int {
 	kmeans.mu.RLock()
 	defer kmeans.mu.RUnlock()
-	
+
 	if kmeans.labels_ == nil {
 		return nil
 	}
-	
+
 	labels := make([]int, len(kmeans.labels_))
 	copy(labels, kmeans.labels_)
 	return labels
@@ -481,14 +481,14 @@ func (kmeans *MiniBatchKMeans) initKMeansPlusPlus(X mat.Matrix) [][]float64 {
 		for i := 0; i < rows; i++ {
 			sample := mat.Row(nil, i, X)
 			minDist := math.Inf(1)
-			
+
 			for j := 0; j < c; j++ {
 				dist := euclideanDistance(sample, centers[j])
 				if dist < minDist {
 					minDist = dist
 				}
 			}
-			
+
 			distances[i] = minDist * minDist
 			totalDistance += distances[i]
 		}
@@ -497,7 +497,7 @@ func (kmeans *MiniBatchKMeans) initKMeansPlusPlus(X mat.Matrix) [][]float64 {
 		target := kmeans.rng.Float64() * totalDistance
 		cumSum := 0.0
 		selectedIdx := 0
-		
+
 		for i := 0; i < rows; i++ {
 			cumSum += distances[i]
 			if cumSum >= target {
@@ -526,7 +526,7 @@ func (kmeans *MiniBatchKMeans) selectMiniBatch(nSamples int) []int {
 	for i := range indices {
 		indices[i] = i
 	}
-	
+
 	// Fisher-Yatesシャッフル
 	for i := nSamples - 1; i > 0; i-- {
 		j := kmeans.rng.Intn(i + 1)
@@ -574,12 +574,12 @@ func euclideanDistance(a, b []float64) float64 {
 	if len(a) != len(b) {
 		return math.Inf(1)
 	}
-	
+
 	sum := 0.0
 	for i := range a {
 		diff := a[i] - b[i]
 		sum += diff * diff
 	}
-	
+
 	return math.Sqrt(sum)
 }

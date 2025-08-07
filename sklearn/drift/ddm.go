@@ -27,7 +27,7 @@ type DDM struct {
 	// 状態
 	warningDetected bool // 警告検出フラグ
 	driftDetected   bool // ドリフト検出フラグ
-	
+
 	// 内部状態
 	mu sync.RWMutex
 }
@@ -165,7 +165,7 @@ func (ddm *DDM) UpdateWithError(error float64) *DriftDetectionResult {
 func (ddm *DDM) Reset() {
 	ddm.mu.Lock()
 	defer ddm.mu.Unlock()
-	
+
 	ddm.numInstances = 0
 	ddm.numErrors = 0
 	ddm.errorRate = 0
@@ -192,7 +192,7 @@ func (ddm *DDM) resetAfterDrift() {
 func (ddm *DDM) GetStatistics() DDMStatistics {
 	ddm.mu.RLock()
 	defer ddm.mu.RUnlock()
-	
+
 	return DDMStatistics{
 		NumInstances:    ddm.numInstances,
 		NumErrors:       ddm.numErrors,
@@ -221,16 +221,16 @@ type DDMStatistics struct {
 // A. Bifet, R. Gavalda (2007) "Learning from time-changing data with adaptive windowing"
 type ADWIN struct {
 	// ハイパーパラメータ
-	delta       float64 // 信頼度パラメータ（小さいほど敏感）
-	maxBuckets  int     // 最大バケット数
-	
+	delta      float64 // 信頼度パラメータ（小さいほど敏感）
+	maxBuckets int     // 最大バケット数
+
 	// データ構造
-	buckets     []bucket // バケット
-	totalSum    float64  // 全体の合計
-	totalCount  int      // 全体のサンプル数
-	width       int      // ウィンドウ幅
-	variance    float64  // 分散
-	
+	buckets    []bucket // バケット
+	totalSum   float64  // 全体の合計
+	totalCount int      // 全体のサンプル数
+	width      int      // ウィンドウ幅
+	variance   float64  // 分散
+
 	// 内部状態
 	mu sync.RWMutex
 }
@@ -280,7 +280,7 @@ func (adwin *ADWIN) Update(value float64) bool {
 
 	// 新しい値を追加
 	adwin.addElement(value)
-	
+
 	// ドリフト検出
 	return adwin.detectDrift()
 }
@@ -289,7 +289,7 @@ func (adwin *ADWIN) Update(value float64) bool {
 func (adwin *ADWIN) addElement(value float64) {
 	// 新しいバケットを作成
 	newBucket := bucket{sum: value, count: 1}
-	
+
 	// 既存のバケットとマージする可能性をチェック
 	if len(adwin.buckets) > 0 {
 		lastBucket := &adwin.buckets[len(adwin.buckets)-1]
@@ -329,7 +329,7 @@ func (adwin *ADWIN) detectDrift() bool {
 	// 異なる分割点でドリフトをチェック
 	for i := 1; i < len(adwin.buckets); i++ {
 		n0, n1, mean0, mean1 := adwin.getSubwindowStats(i)
-		
+
 		if n0 <= 0 || n1 <= 0 {
 			continue
 		}
@@ -337,7 +337,7 @@ func (adwin *ADWIN) detectDrift() bool {
 		// ホフディングの不等式に基づく検定
 		diff := math.Abs(mean0 - mean1)
 		bound := adwin.getHoeffdingBound(n0, n1)
-		
+
 		if diff > bound {
 			// ドリフト検出：古いバケットを削除
 			adwin.buckets = adwin.buckets[i:]
@@ -384,7 +384,7 @@ func (adwin *ADWIN) getHoeffdingBound(n0, n1 int) float64 {
 		return 0
 	}
 
-	m := 1.0 / float64(n0) + 1.0 / float64(n1)
+	m := 1.0/float64(n0) + 1.0/float64(n1)
 	return math.Sqrt(0.5 * m * math.Log(2.0/adwin.delta))
 }
 
@@ -398,7 +398,7 @@ func (adwin *ADWIN) removeOldestBucket() {
 	adwin.totalSum -= oldest.sum
 	adwin.totalCount -= oldest.count
 	adwin.width -= oldest.count
-	
+
 	adwin.buckets = adwin.buckets[1:]
 }
 
@@ -407,7 +407,7 @@ func (adwin *ADWIN) updateGlobalStats() {
 	adwin.totalSum = 0
 	adwin.totalCount = 0
 	adwin.width = 0
-	
+
 	for _, bucket := range adwin.buckets {
 		adwin.totalSum += bucket.sum
 		adwin.totalCount += bucket.count
@@ -419,7 +419,7 @@ func (adwin *ADWIN) updateGlobalStats() {
 func (adwin *ADWIN) GetMean() float64 {
 	adwin.mu.RLock()
 	defer adwin.mu.RUnlock()
-	
+
 	if adwin.totalCount == 0 {
 		return 0
 	}
@@ -437,7 +437,7 @@ func (adwin *ADWIN) GetWidth() int {
 func (adwin *ADWIN) Reset() {
 	adwin.mu.Lock()
 	defer adwin.mu.Unlock()
-	
+
 	adwin.buckets = make([]bucket, 0)
 	adwin.totalSum = 0
 	adwin.totalCount = 0
@@ -449,7 +449,7 @@ func (adwin *ADWIN) Reset() {
 type DriftDetector interface {
 	// Update は新しい値でドリフト検出器を更新
 	Update(value float64) bool
-	
+
 	// Reset はドリフト検出器をリセット
 	Reset()
 }

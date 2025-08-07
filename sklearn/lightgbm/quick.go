@@ -55,14 +55,14 @@ func (qr *QuickResult) PrintSummary() {
 	if qr.isClassifier {
 		modelType = "Classifier"
 	}
-	
+
 	logger := log.GetLoggerWithName("lightgbm.quick")
 	logger.Info("🚀 Quick Training Summary",
 		"model_type", fmt.Sprintf("LightGBM %s", modelType),
 		"train_score", qr.TrainScore,
 		"train_time", qr.TrainTime,
 		"features", len(qr.FeatureNames))
-	
+
 	// Print top 5 important features
 	importance := qr.GetFeatureImportance()
 	if len(importance) > 0 {
@@ -71,13 +71,13 @@ func (qr *QuickResult) PrintSummary() {
 		if len(importance) < topN {
 			topN = len(importance)
 		}
-		
+
 		// Create indices for sorting
 		indices := make([]int, len(importance))
 		for i := range indices {
 			indices[i] = i
 		}
-		
+
 		// Sort by importance
 		for i := 0; i < len(indices)-1; i++ {
 			for j := i + 1; j < len(indices); j++ {
@@ -86,7 +86,7 @@ func (qr *QuickResult) PrintSummary() {
 				}
 			}
 		}
-		
+
 		// Print top features
 		for i := 0; i < topN; i++ {
 			idx := indices[i]
@@ -104,21 +104,21 @@ func (qr *QuickResult) PrintSummary() {
 // Returns a QuickResult that can be used for predictions
 func QuickTrain(X, y mat.Matrix) *QuickResult {
 	startTime := time.Now()
-	
+
 	// Detect task type based on y values
 	isClassification := detectTaskType(y)
-	
+
 	var model interface{}
 	var score float64
 	var err error
-	
+
 	if isClassification {
 		// Use classifier
 		clf := NewLGBMClassifier().
 			WithNumIterations(100).
 			WithLearningRate(0.1).
 			WithNumLeaves(31)
-		
+
 		err = clf.Fit(X, y)
 		if err == nil {
 			score, _ = clf.Score(X, y)
@@ -130,27 +130,27 @@ func QuickTrain(X, y mat.Matrix) *QuickResult {
 			WithNumIterations(100).
 			WithLearningRate(0.1).
 			WithNumLeaves(31)
-		
+
 		err = reg.Fit(X, y)
 		if err == nil {
 			score, _ = reg.Score(X, y)
 		}
 		model = reg
 	}
-	
+
 	if err != nil {
 		fmt.Printf("Warning: Training encountered error: %v\n", err)
 	}
-	
+
 	trainTime := time.Since(startTime)
-	
+
 	// Create feature names
 	_, cols := X.Dims()
 	featureNames := make([]string, cols)
 	for i := range featureNames {
 		featureNames[i] = fmt.Sprintf("Feature_%d", i)
 	}
-	
+
 	result := &QuickResult{
 		Model:        model,
 		TrainScore:   score,
@@ -158,10 +158,10 @@ func QuickTrain(X, y mat.Matrix) *QuickResult {
 		FeatureNames: featureNames,
 		isClassifier: isClassification,
 	}
-	
+
 	// Print summary
 	result.PrintSummary()
-	
+
 	return result
 }
 
@@ -174,9 +174,9 @@ func QuickFit(X, y mat.Matrix) *QuickResult {
 // This is a simplified version - full implementation would use cross-validation
 func AutoFit(X, y mat.Matrix) *QuickResult {
 	fmt.Println("🤖 AutoFit: Searching for optimal parameters...")
-	
+
 	isClassification := detectTaskType(y)
-	
+
 	// Try different parameter combinations
 	paramSets := []struct {
 		numLeaves    int
@@ -188,7 +188,7 @@ func AutoFit(X, y mat.Matrix) *QuickResult {
 		{100, 0.03, 300},
 		{31, 0.2, 50},
 	}
-	
+
 	var bestModel interface{}
 	var bestScore float64
 	var bestParams struct {
@@ -196,18 +196,18 @@ func AutoFit(X, y mat.Matrix) *QuickResult {
 		learningRate float64
 		numTrees     int
 	}
-	
+
 	for i, params := range paramSets {
 		fmt.Printf("  Testing configuration %d/%d...\r", i+1, len(paramSets))
-		
+
 		var score float64
-		
+
 		if isClassification {
 			clf := NewLGBMClassifier().
 				WithNumLeaves(params.numLeaves).
 				WithLearningRate(params.learningRate).
 				WithNumIterations(params.numTrees)
-			
+
 			if err := clf.Fit(X, y); err == nil {
 				score, _ = clf.Score(X, y)
 				if score > bestScore {
@@ -221,7 +221,7 @@ func AutoFit(X, y mat.Matrix) *QuickResult {
 				WithNumLeaves(params.numLeaves).
 				WithLearningRate(params.learningRate).
 				WithNumIterations(params.numTrees)
-			
+
 			if err := reg.Fit(X, y); err == nil {
 				score, _ = reg.Score(X, y)
 				if score > bestScore {
@@ -232,20 +232,20 @@ func AutoFit(X, y mat.Matrix) *QuickResult {
 			}
 		}
 	}
-	
+
 	fmt.Printf("\n✅ Best parameters found:\n")
 	fmt.Printf("   num_leaves: %d\n", bestParams.numLeaves)
 	fmt.Printf("   learning_rate: %.3f\n", bestParams.learningRate)
 	fmt.Printf("   n_estimators: %d\n", bestParams.numTrees)
 	fmt.Printf("   Score: %.4f\n\n", bestScore)
-	
+
 	// Create feature names
 	_, cols := X.Dims()
 	featureNames := make([]string, cols)
 	for i := range featureNames {
 		featureNames[i] = fmt.Sprintf("Feature_%d", i)
 	}
-	
+
 	return &QuickResult{
 		Model:        bestModel,
 		TrainScore:   bestScore,
@@ -264,7 +264,7 @@ func QuickLoadAndPredict(modelPath string, X mat.Matrix, isClassifier bool) (mat
 		}
 		return clf.Predict(X)
 	}
-	
+
 	reg := NewLGBMRegressor()
 	if err := reg.LoadModel(modelPath); err != nil {
 		return nil, fmt.Errorf("failed to load regressor: %w", err)
@@ -277,15 +277,15 @@ func QuickCrossValidate(X, y mat.Matrix, nFolds int) (float64, float64) {
 	if nFolds < 2 {
 		nFolds = 5
 	}
-	
+
 	rows, _ := X.Dims()
 	foldSize := rows / nFolds
 	scores := make([]float64, nFolds)
-	
+
 	isClassification := detectTaskType(y)
-	
+
 	fmt.Printf("🔄 Running %d-fold cross-validation...\n", nFolds)
-	
+
 	for fold := 0; fold < nFolds; fold++ {
 		// Create train/test split
 		testStart := fold * foldSize
@@ -295,16 +295,16 @@ func QuickCrossValidate(X, y mat.Matrix, nFolds int) (float64, float64) {
 		}
 		_ = testStart // Will be used for proper train/test split in future
 		_ = testEnd
-		
+
 		// This is a simplified split - proper implementation would handle this better
 		// For now, we'll just train on all data and report training score
-		
+
 		var score float64
 		if isClassification {
 			clf := NewLGBMClassifier().
 				WithNumIterations(100).
 				WithLearningRate(0.1)
-			
+
 			if err := clf.Fit(X, y); err == nil {
 				score, _ = clf.Score(X, y)
 			}
@@ -312,23 +312,23 @@ func QuickCrossValidate(X, y mat.Matrix, nFolds int) (float64, float64) {
 			reg := NewLGBMRegressor().
 				WithNumIterations(100).
 				WithLearningRate(0.1)
-			
+
 			if err := reg.Fit(X, y); err == nil {
 				score, _ = reg.Score(X, y)
 			}
 		}
-		
+
 		scores[fold] = score
 		fmt.Printf("  Fold %d/%d: %.4f\n", fold+1, nFolds, score)
 	}
-	
+
 	// Calculate mean and std
 	mean := 0.0
 	for _, s := range scores {
 		mean += s
 	}
 	mean /= float64(len(scores))
-	
+
 	variance := 0.0
 	for _, s := range scores {
 		diff := s - mean
@@ -336,11 +336,11 @@ func QuickCrossValidate(X, y mat.Matrix, nFolds int) (float64, float64) {
 	}
 	variance /= float64(len(scores))
 	std := variance // sqrt would be computed with math.Sqrt
-	
+
 	fmt.Printf("\n📊 Cross-validation results:\n")
 	fmt.Printf("   Mean score: %.4f\n", mean)
 	fmt.Printf("   Std dev:    %.4f\n\n", std)
-	
+
 	return mean, std
 }
 
@@ -348,24 +348,24 @@ func QuickCrossValidate(X, y mat.Matrix, nFolds int) (float64, float64) {
 func detectTaskType(y mat.Matrix) bool {
 	rows, _ := y.Dims()
 	uniqueValues := make(map[float64]bool)
-	
+
 	for i := 0; i < rows; i++ {
 		val := y.At(i, 0)
 		uniqueValues[val] = true
-		
+
 		// If we have many unique values, likely regression
 		if len(uniqueValues) > rows/4 {
 			return false
 		}
 	}
-	
+
 	// Check if all values are integers (likely classification)
 	for val := range uniqueValues {
 		if val != float64(int(val)) {
 			return false // Has non-integer values, likely regression
 		}
 	}
-	
+
 	// Few unique integer values, likely classification
 	return len(uniqueValues) < 20
 }
@@ -375,39 +375,39 @@ func QuickBenchmark(X mat.Matrix, iterations int) {
 	if iterations <= 0 {
 		iterations = 100
 	}
-	
+
 	rows, cols := X.Dims()
 	fmt.Printf("⚡ Running benchmark with %d samples, %d features...\n", rows, cols)
-	
+
 	// Create dummy classifier for benchmarking
 	clf := NewLGBMClassifier()
-	
+
 	// Create a simple model for testing (would normally load a real model)
 	clf.Model = NewModel()
 	clf.Model.NumFeatures = cols
 	clf.Predictor = NewPredictor(clf.Model)
 	clf.SetFitted()
-	
+
 	// Warm-up
 	for i := 0; i < 10; i++ {
 		_, _ = clf.Predict(X)
 	}
-	
+
 	// Benchmark
 	startTime := time.Now()
 	for i := 0; i < iterations; i++ {
 		_, _ = clf.Predict(X)
 	}
 	totalTime := time.Since(startTime)
-	
+
 	avgTime := totalTime / time.Duration(iterations)
 	throughput := float64(rows*iterations) / totalTime.Seconds()
-	
+
 	fmt.Printf("\n📈 Benchmark Results:\n")
 	fmt.Printf("   Total iterations:  %d\n", iterations)
 	fmt.Printf("   Total time:        %v\n", totalTime)
 	fmt.Printf("   Avg time/predict:  %v\n", avgTime)
 	fmt.Printf("   Throughput:        %.0f samples/sec\n", throughput)
-	fmt.Printf("   Latency:           %.3f ms/sample\n\n", 
+	fmt.Printf("   Latency:           %.3f ms/sample\n\n",
 		float64(avgTime.Microseconds())/float64(rows)/1000)
 }

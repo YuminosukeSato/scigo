@@ -41,13 +41,13 @@ func NewMemoryMappedDataset(filename string, rows, cols int, dtype DataType) (*M
 
 	elementSize := getElementSize(dtype)
 	fileSize := int64(rows * cols * elementSize)
-	
+
 	if err := file.Truncate(fileSize); err != nil {
 		file.Close()
 		return nil, fmt.Errorf("failed to resize file: %w", err)
 	}
 
-	mmap, err := syscall.Mmap(int(file.Fd()), 0, int(fileSize), 
+	mmap, err := syscall.Mmap(int(file.Fd()), 0, int(fileSize),
 		syscall.PROT_READ|syscall.PROT_WRITE, syscall.MAP_SHARED)
 	if err != nil {
 		file.Close()
@@ -74,7 +74,7 @@ func (m *MemoryMappedDataset) GetChunk(startRow, endRow int) (mat.Matrix, error)
 
 	rows := endRow - startRow
 	data := make([]float64, rows*m.shape[1])
-	
+
 	elementSize := getElementSize(m.dtype)
 	offset := startRow * m.shape[1] * elementSize
 
@@ -180,13 +180,13 @@ func (c *ChunkedProcessor) Process(data io.Reader, fn func(chunk [][]float64) er
 
 func (c *ChunkedProcessor) processSequential(data io.Reader, fn func(chunk [][]float64) error) error {
 	buffer := make([][]float64, 0, c.chunkSize)
-	
+
 	// Simple CSV-like reading for demonstration
 	scanner := newDataScanner(data)
 	for scanner.Scan() {
 		row := scanner.Row()
 		buffer = append(buffer, row)
-		
+
 		if len(buffer) >= c.chunkSize {
 			if err := fn(buffer); err != nil {
 				return err
@@ -194,12 +194,12 @@ func (c *ChunkedProcessor) processSequential(data io.Reader, fn func(chunk [][]f
 			buffer = buffer[:0]
 		}
 	}
-	
+
 	// Process remaining data
 	if len(buffer) > 0 {
 		return fn(buffer)
 	}
-	
+
 	return scanner.Err()
 }
 
@@ -234,14 +234,14 @@ func (c *ChunkedProcessor) processParallel(data io.Reader, fn func(chunk [][]flo
 	// Wait for completion
 	wg.Wait()
 	close(errors)
-	
+
 	// Check for errors
 	for err := range errors {
 		if err != nil {
 			return err
 		}
 	}
-	
+
 	return nil
 }
 
@@ -287,11 +287,11 @@ func (s *StreamingPipeline) AddStage(stage StreamStage) {
 // Run executes the streaming pipeline
 func (s *StreamingPipeline) Run(input <-chan mat.Matrix) <-chan mat.Matrix {
 	current := input
-	
+
 	for _, stage := range s.stages {
 		current = stage.Process(current)
 	}
-	
+
 	// Add metrics collection
 	output := make(chan mat.Matrix, s.bufferSize)
 	go func() {
@@ -301,14 +301,14 @@ func (s *StreamingPipeline) Run(input <-chan mat.Matrix) <-chan mat.Matrix {
 			output <- data
 		}
 	}()
-	
+
 	return output
 }
 
 func (s *StreamingPipeline) updateMetrics(data mat.Matrix) {
 	s.metrics.mu.Lock()
 	defer s.metrics.mu.Unlock()
-	
+
 	rows, cols := data.Dims()
 	s.metrics.ProcessedSamples += uint64(rows)
 	s.metrics.ProcessedBytes += uint64(rows * cols * 8) // float64 size

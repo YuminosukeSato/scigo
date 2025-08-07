@@ -20,35 +20,35 @@ type LGBMRegressor struct {
 	Predictor *Predictor
 
 	// Hyperparameters (matching Python LightGBM)
-	NumLeaves         int     // Number of leaves in one tree
-	MaxDepth          int     // Maximum tree depth
-	LearningRate      float64 // Boosting learning rate
-	NumIterations     int     // Number of boosting iterations
-	MinChildSamples   int     // Minimum number of data in one leaf
-	MinChildWeight    float64 // Minimum sum of hessians in one leaf
-	Subsample         float64 // Subsample ratio of training data
-	SubsampleFreq     int     // Frequency of subsample
-	ColsampleBytree   float64 // Subsample ratio of columns when constructing tree
-	RegAlpha          float64 // L1 regularization
-	RegLambda         float64 // L2 regularization
-	RandomState       int     // Random seed
-	Objective         string  // Objective function (regression, regression_l1, etc.)
-	Metric            string  // Evaluation metric
-	NumThreads        int     // Number of threads for prediction
-	Deterministic     bool    // Deterministic mode for reproducibility
-	Verbosity         int     // Verbosity level
-	EarlyStopping     int     // Early stopping rounds
-	Alpha             float64 // For quantile and fair regression
-	Lambda            float64 // For Tweedie regression
-	CategoricalFeatures []int // Indices of categorical features
+	NumLeaves           int     // Number of leaves in one tree
+	MaxDepth            int     // Maximum tree depth
+	LearningRate        float64 // Boosting learning rate
+	NumIterations       int     // Number of boosting iterations
+	MinChildSamples     int     // Minimum number of data in one leaf
+	MinChildWeight      float64 // Minimum sum of hessians in one leaf
+	Subsample           float64 // Subsample ratio of training data
+	SubsampleFreq       int     // Frequency of subsample
+	ColsampleBytree     float64 // Subsample ratio of columns when constructing tree
+	RegAlpha            float64 // L1 regularization
+	RegLambda           float64 // L2 regularization
+	RandomState         int     // Random seed
+	Objective           string  // Objective function (regression, regression_l1, etc.)
+	Metric              string  // Evaluation metric
+	NumThreads          int     // Number of threads for prediction
+	Deterministic       bool    // Deterministic mode for reproducibility
+	Verbosity           int     // Verbosity level
+	EarlyStopping       int     // Early stopping rounds
+	Alpha               float64 // For quantile and fair regression
+	Lambda              float64 // For Tweedie regression
+	CategoricalFeatures []int   // Indices of categorical features
 
 	// Progress tracking
 	ShowProgress bool // Show progress bar during training
 
 	// Internal state
-	featureNames_ []string  // Feature names
-	nFeatures_    int       // Number of features
-	nSamples_     int       // Number of training samples
+	featureNames_ []string // Feature names
+	nFeatures_    int      // Number of features
+	nSamples_     int      // Number of training samples
 }
 
 // NewLGBMRegressor creates a new LightGBM regressor with default parameters
@@ -72,8 +72,8 @@ func NewLGBMRegressor() *LGBMRegressor {
 		Deterministic:   false,
 		Verbosity:       -1,
 		EarlyStopping:   0,
-		Alpha:           0.5,  // For quantile regression
-		Lambda:          1.5,  // For Tweedie regression
+		Alpha:           0.5, // For quantile regression
+		Lambda:          1.5, // For Tweedie regression
 		ShowProgress:    false,
 	}
 }
@@ -154,7 +154,7 @@ func (lgb *LGBMRegressor) Fit(X, y mat.Matrix) (err error) {
 	// Log training start
 	logger := log.GetLoggerWithName("lightgbm.regressor")
 	if lgb.ShowProgress {
-		logger.Info("Training LGBMRegressor", 
+		logger.Info("Training LGBMRegressor",
 			"samples", rows,
 			"features", cols,
 			"objective", lgb.Objective,
@@ -192,7 +192,7 @@ func (lgb *LGBMRegressor) Fit(X, y mat.Matrix) (err error) {
 
 	// Get trained model
 	lgb.Model = trainer.GetModel()
-	
+
 	// Create predictor
 	lgb.Predictor = NewPredictor(lgb.Model)
 	if lgb.NumThreads > 0 {
@@ -256,10 +256,10 @@ func (lgb *LGBMRegressor) LoadModel(filepath string) error {
 
 	lgb.Model = model
 	lgb.Predictor = NewPredictor(model)
-	
+
 	// Set parameters from loaded model
 	lgb.nFeatures_ = model.NumFeatures
-	
+
 	// Extract objective
 	switch model.Objective {
 	case RegressionL2:
@@ -296,7 +296,7 @@ func (lgb *LGBMRegressor) LoadModelFromString(modelStr string) error {
 	lgb.Model = model
 	lgb.Predictor = NewPredictor(model)
 	lgb.nFeatures_ = model.NumFeatures
-	
+
 	lgb.SetFitted()
 	return nil
 }
@@ -311,7 +311,7 @@ func (lgb *LGBMRegressor) LoadModelFromJSON(jsonData []byte) error {
 	lgb.Model = model
 	lgb.Predictor = NewPredictor(model)
 	lgb.nFeatures_ = model.NumFeatures
-	
+
 	lgb.SetFitted()
 	return nil
 }
@@ -439,21 +439,21 @@ func (lgb *LGBMRegressor) PredictQuantile(X mat.Matrix, quantiles []float64) ([]
 	}
 
 	results := make([]mat.Matrix, len(quantiles))
-	
+
 	// For each quantile, we would need to retrain or adjust the model
 	// This is a simplified implementation
 	for i, q := range quantiles {
 		if q <= 0 || q >= 1 {
 			return nil, fmt.Errorf("quantile must be in (0, 1), got %f", q)
 		}
-		
+
 		// Predict with the current model
 		// In practice, each quantile would require a separate model
 		pred, err := lgb.Predict(X)
 		if err != nil {
 			return nil, err
 		}
-		
+
 		// Adjust predictions based on quantile
 		// This is a simplified adjustment - proper implementation would
 		// require training with the specific quantile loss
@@ -467,10 +467,10 @@ func (lgb *LGBMRegressor) PredictQuantile(X mat.Matrix, quantiles []float64) ([]
 				adjusted.Set(r, c, val+adjustment)
 			}
 		}
-		
+
 		results[i] = adjusted
 	}
-	
+
 	return results, nil
 }
 
@@ -487,12 +487,12 @@ func (lgb *LGBMRegressor) GetResiduals(X, y mat.Matrix) (mat.Matrix, error) {
 
 	rows, _ := y.Dims()
 	residuals := mat.NewDense(rows, 1, nil)
-	
+
 	for i := 0; i < rows; i++ {
 		residual := y.At(i, 0) - predictions.At(i, 0)
 		residuals.Set(i, 0, residual)
 	}
-	
+
 	return residuals, nil
 }
 
@@ -546,6 +546,6 @@ func (lgb *LGBMRegressor) GetRMSE(X, y mat.Matrix) (float64, error) {
 	if err != nil {
 		return 0, err
 	}
-	
+
 	return math.Sqrt(mse), nil
 }

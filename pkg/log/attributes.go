@@ -6,7 +6,7 @@
 //
 // The attributes are organized into categories:
 //   - Model and Operation Context
-//   - Data Shape and Characteristics  
+//   - Data Shape and Characteristics
 //   - Performance Metrics
 //   - Error Context
 //
@@ -211,10 +211,10 @@ const (
 	PhasePreprocessing = "preprocessing"
 
 	// Standard error codes
-	ErrorNotFitted       = "NOT_FITTED"
+	ErrorNotFitted         = "NOT_FITTED"
 	ErrorDimensionMismatch = "DIMENSION_MISMATCH"
-	ErrorEmptyData       = "EMPTY_DATA"
-	ErrorInvalidInput    = "INVALID_INPUT"
-	ErrorConvergence     = "CONVERGENCE_FAILURE"
-	ErrorSingularMatrix  = "SINGULAR_MATRIX"
+	ErrorEmptyData         = "EMPTY_DATA"
+	ErrorInvalidInput      = "INVALID_INPUT"
+	ErrorConvergence       = "CONVERGENCE_FAILURE"
+	ErrorSingularMatrix    = "SINGULAR_MATRIX"
 )

@@ -145,10 +145,10 @@ type Level int
 
 // Standard logging levels, values are compatible with slog.Level.
 const (
-	LevelDebug Level = -4  // Detailed diagnostic information
-	LevelInfo  Level = 0   // General operational information  
-	LevelWarn  Level = 4   // Warning conditions
-	LevelError Level = 8   // Error conditions
+	LevelDebug Level = -4 // Detailed diagnostic information
+	LevelInfo  Level = 0  // General operational information
+	LevelWarn  Level = 4  // Warning conditions
+	LevelError Level = 8  // Error conditions
 )
 
 // String returns the string representation of the log level.

@@ -17,8 +17,8 @@ type MultinomialNB struct {
 	model.BaseEstimator
 
 	// Hyperparameters
-	alpha      float64 // Additive (Laplace/Lidstone) smoothing parameter
-	fitPrior   bool    // Whether to learn class prior probabilities
+	alpha      float64   // Additive (Laplace/Lidstone) smoothing parameter
+	fitPrior   bool      // Whether to learn class prior probabilities
 	classPrior []float64 // Prior probabilities for each class (if not learned)
 
 	// Learned parameters
@@ -188,14 +188,14 @@ func (nb *MultinomialNB) PartialFit(X, y mat.Matrix, classes []int) error {
 func (nb *MultinomialNB) updateModel() {
 	// Calculate class log priors
 	nb.classLogPrior_ = make([]float64, nb.nClasses_)
-	
+
 	if nb.fitPrior {
 		// Learn from data
 		totalCount := 0.0
 		for i := 0; i < nb.nClasses_; i++ {
 			totalCount += nb.classCount_[i]
 		}
-		
+
 		for i := 0; i < nb.nClasses_; i++ {
 			nb.classLogPrior_[i] = math.Log(nb.classCount_[i] / totalCount)
 		}
@@ -214,16 +214,16 @@ func (nb *MultinomialNB) updateModel() {
 
 	// Calculate feature log probabilities
 	nb.featureLogProb_ = make([][]float64, nb.nClasses_)
-	
+
 	for i := 0; i < nb.nClasses_; i++ {
 		nb.featureLogProb_[i] = make([]float64, nb.nFeatures_)
-		
+
 		// Calculate total count for this class (with smoothing)
 		totalCount := 0.0
 		for j := 0; j < nb.nFeatures_; j++ {
 			totalCount += nb.featureCount_[i][j] + nb.alpha
 		}
-		
+
 		// Calculate log probabilities
 		for j := 0; j < nb.nFeatures_; j++ {
 			nb.featureLogProb_[i][j] = math.Log((nb.featureCount_[i][j] + nb.alpha) / totalCount)
@@ -254,7 +254,7 @@ func (nb *MultinomialNB) Predict(X mat.Matrix) (mat.Matrix, error) {
 		// Calculate log probability for each class
 		for c := 0; c < nb.nClasses_; c++ {
 			logProb := nb.classLogPrior_[c]
-			
+
 			for j := 0; j < cols; j++ {
 				count := X.At(i, j)
 				if count < 0 {
@@ -332,7 +332,7 @@ func (nb *MultinomialNB) PredictLogProba(X mat.Matrix) (mat.Matrix, error) {
 		// Calculate log probability for each class
 		for c := 0; c < nb.nClasses_; c++ {
 			logProb := nb.classLogPrior_[c]
-			
+
 			for j := 0; j < cols; j++ {
 				count := X.At(i, j)
 				if count < 0 {

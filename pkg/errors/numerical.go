@@ -26,7 +26,7 @@ func CheckScalar(operation string, value float64, iteration int) error {
 // CheckMatrix checks all values in a matrix for numerical instability.
 func CheckMatrix(operation string, matrix interface{ At(int, int) float64 }, rows, cols, iteration int) error {
 	var unstableValues []float64
-	
+
 	for i := 0; i < rows; i++ {
 		for j := 0; j < cols; j++ {
 			v := matrix.At(i, j)
@@ -42,11 +42,11 @@ func CheckMatrix(operation string, matrix interface{ At(int, int) float64 }, row
 			break
 		}
 	}
-	
+
 	if len(unstableValues) > 0 {
 		return NewNumericalInstabilityError(operation, unstableValues, iteration)
 	}
-	
+
 	return nil
 }
 
@@ -78,7 +78,7 @@ func ClipGradient(gradient []float64, maxNorm float64) []float64 {
 		norm += g * g
 	}
 	norm = math.Sqrt(norm)
-	
+
 	// If norm exceeds maxNorm, scale down
 	if norm > maxNorm {
 		scale := maxNorm / norm
@@ -88,7 +88,7 @@ func ClipGradient(gradient []float64, maxNorm float64) []float64 {
 		}
 		return clipped
 	}
-	
+
 	return gradient
 }
 
@@ -120,7 +120,7 @@ func LogSumExp(values []float64) float64 {
 	if len(values) == 0 {
 		return math.Inf(-1)
 	}
-	
+
 	// Find maximum value
 	maxVal := values[0]
 	for _, v := range values[1:] {
@@ -128,17 +128,17 @@ func LogSumExp(values []float64) float64 {
 			maxVal = v
 		}
 	}
-	
+
 	// If max is -Inf, all values are -Inf
 	if math.IsInf(maxVal, -1) {
 		return math.Inf(-1)
 	}
-	
+
 	// Compute sum(exp(v - max))
 	sum := 0.0
 	for _, v := range values {
 		sum += math.Exp(v - maxVal)
 	}
-	
+
 	return maxVal + math.Log(sum)
 }

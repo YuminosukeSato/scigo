@@ -6,8 +6,8 @@
 //   - MinMaxScaler: Transforms features by scaling each feature to a given range
 //   - OneHotEncoder: Encodes categorical features as one-hot numeric arrays
 //
-// All preprocessing components follow the scikit-learn API pattern with Fit, Transform, 
-// and FitTransform methods. They integrate seamlessly with the BaseEstimator pattern 
+// All preprocessing components follow the scikit-learn API pattern with Fit, Transform,
+// and FitTransform methods. They integrate seamlessly with the BaseEstimator pattern
 // for consistent state management and serialization support.
 //
 // Example usage:
@@ -36,19 +36,19 @@ import (
 // データを平均0、標準偏差1に変換する
 type StandardScaler struct {
 	model.BaseEstimator
-	
+
 	// Mean は各特徴量の平均値
 	Mean []float64
-	
+
 	// Scale は各特徴量の標準偏差
 	Scale []float64
-	
+
 	// NFeatures は特徴量の数
 	NFeatures int
-	
+
 	// WithMean は平均を引くかどうか (デフォルト: true)
 	WithMean bool
-	
+
 	// WithStd は標準偏差で割るかどうか (デフォルト: true)
 	WithStd bool
 }
@@ -67,13 +67,14 @@ type StandardScaler struct {
 //   - *StandardScaler: A new StandardScaler instance ready for fitting
 //
 // Example:
-//   // Standard z-score normalization (mean=0, std=1)
-//   scaler := preprocessing.NewStandardScaler(true, true)
-//   err := scaler.Fit(X_train)
-//   X_scaled, err := scaler.Transform(X_test)
 //
-//   // Scale only (keep original mean)
-//   scaler := preprocessing.NewStandardScaler(false, true)
+//	// Standard z-score normalization (mean=0, std=1)
+//	scaler := preprocessing.NewStandardScaler(true, true)
+//	err := scaler.Fit(X_train)
+//	X_scaled, err := scaler.Transform(X_test)
+//
+//	// Scale only (keep original mean)
+//	scaler := preprocessing.NewStandardScaler(false, true)
 func NewStandardScaler(withMean, withStd bool) *StandardScaler {
 	return &StandardScaler{
 		WithMean: withMean,
@@ -103,22 +104,23 @@ func NewStandardScalerDefault() *StandardScaler {
 //   - ErrDimensionMismatch: if X has inconsistent dimensions
 //
 // Example:
-//   scaler := preprocessing.NewStandardScaler(true, true)
-//   err := scaler.Fit(trainingData)
-//   if err != nil {
-//       log.Fatal(err)
-//   }
+//
+//	scaler := preprocessing.NewStandardScaler(true, true)
+//	err := scaler.Fit(trainingData)
+//	if err != nil {
+//	    log.Fatal(err)
+//	}
 func (s *StandardScaler) Fit(X mat.Matrix) (err error) {
 	defer scigoErrors.Recover(&err, "StandardScaler.Fit")
 	r, c := X.Dims()
 	if r == 0 || c == 0 {
 		return scigoErrors.NewModelError("StandardScaler.Fit", "empty data", scigoErrors.ErrEmptyData)
 	}
-	
+
 	s.NFeatures = c
 	s.Mean = make([]float64, c)
 	s.Scale = make([]float64, c)
-	
+
 	// 平均を計算
 	if s.WithMean {
 		for j := 0; j < c; j++ {
@@ -134,7 +136,7 @@ func (s *StandardScaler) Fit(X mat.Matrix) (err error) {
 			s.Mean[j] = 0.0
 		}
 	}
-	
+
 	// 標準偏差を計算
 	if s.WithStd {
 		for j := 0; j < c; j++ {
@@ -145,7 +147,7 @@ func (s *StandardScaler) Fit(X mat.Matrix) (err error) {
 			}
 			variance := sumSquares / float64(r)
 			s.Scale[j] = math.Sqrt(variance)
-			
+
 			// 標準偏差が0に近い場合は1に設定（ゼロ除算を避ける）
 			if math.Abs(s.Scale[j]) < 1e-8 {
 				s.Scale[j] = 1.0
@@ -157,7 +159,7 @@ func (s *StandardScaler) Fit(X mat.Matrix) (err error) {
 			s.Scale[j] = 1.0
 		}
 	}
-	
+
 	s.SetFitted()
 	return nil
 }
@@ -180,24 +182,25 @@ func (s *StandardScaler) Fit(X mat.Matrix) (err error) {
 //   - ErrDimensionMismatch: if X doesn't match the number of features from training
 //
 // Example:
-//   scaledData, err := scaler.Transform(testData)
-//   if err != nil {
-//       log.Fatal(err)
-//   }
+//
+//	scaledData, err := scaler.Transform(testData)
+//	if err != nil {
+//	    log.Fatal(err)
+//	}
 func (s *StandardScaler) Transform(X mat.Matrix) (_ mat.Matrix, err error) {
 	defer scigoErrors.Recover(&err, "StandardScaler.Transform")
 	if !s.IsFitted() {
 		return nil, scigoErrors.NewNotFittedError("StandardScaler", "Transform")
 	}
-	
+
 	r, c := X.Dims()
 	if c != s.NFeatures {
 		return nil, scigoErrors.NewDimensionError("StandardScaler.Transform", s.NFeatures, c, 1)
 	}
-	
+
 	// 結果を格納する行列を作成
 	result := mat.NewDense(r, c, nil)
-	
+
 	// 各要素を標準化
 	for i := 0; i < r; i++ {
 		for j := 0; j < c; j++ {
@@ -206,7 +209,7 @@ func (s *StandardScaler) Transform(X mat.Matrix) (_ mat.Matrix, err error) {
 			result.Set(i, j, standardized)
 		}
 	}
-	
+
 	return result, nil
 }
 
@@ -224,13 +227,14 @@ func (s *StandardScaler) Transform(X mat.Matrix) (_ mat.Matrix, err error) {
 //   - error: nil if successful, otherwise an error from either fitting or transformation
 //
 // Example:
-//   scaler := preprocessing.NewStandardScaler(true, true)
-//   scaledTraining, err := scaler.FitTransform(trainingData)
-//   if err != nil {
-//       log.Fatal(err)
-//   }
-//   // Now scaler is fitted and can transform new data
-//   scaledTest, err := scaler.Transform(testData)
+//
+//	scaler := preprocessing.NewStandardScaler(true, true)
+//	scaledTraining, err := scaler.FitTransform(trainingData)
+//	if err != nil {
+//	    log.Fatal(err)
+//	}
+//	// Now scaler is fitted and can transform new data
+//	scaledTest, err := scaler.Transform(testData)
 func (s *StandardScaler) FitTransform(X mat.Matrix) (_ mat.Matrix, err error) {
 	defer scigoErrors.Recover(&err, "StandardScaler.FitTransform")
 	if err := s.Fit(X); err != nil {
@@ -257,24 +261,25 @@ func (s *StandardScaler) FitTransform(X mat.Matrix) (_ mat.Matrix, err error) {
 //   - ErrDimensionMismatch: if X doesn't match the number of features from training
 //
 // Example:
-//   originalData, err := scaler.InverseTransform(scaledData)
-//   if err != nil {
-//       log.Fatal(err)
-//   }
+//
+//	originalData, err := scaler.InverseTransform(scaledData)
+//	if err != nil {
+//	    log.Fatal(err)
+//	}
 func (s *StandardScaler) InverseTransform(X mat.Matrix) (_ mat.Matrix, err error) {
 	defer scigoErrors.Recover(&err, "StandardScaler.InverseTransform")
 	if !s.IsFitted() {
 		return nil, scigoErrors.NewNotFittedError("StandardScaler", "InverseTransform")
 	}
-	
+
 	r, c := X.Dims()
 	if c != s.NFeatures {
 		return nil, scigoErrors.NewDimensionError("StandardScaler.InverseTransform", s.NFeatures, c, 1)
 	}
-	
+
 	// 結果を格納する行列を作成
 	result := mat.NewDense(r, c, nil)
-	
+
 	// 各要素を逆変換
 	for i := 0; i < r; i++ {
 		for j := 0; j < c; j++ {
@@ -283,7 +288,7 @@ func (s *StandardScaler) InverseTransform(X mat.Matrix) (_ mat.Matrix, err error
 			result.Set(i, j, original)
 		}
 	}
-	
+
 	return result, nil
 }
 
@@ -300,7 +305,7 @@ func (s *StandardScaler) String() string {
 	if !s.IsFitted() {
 		return fmt.Sprintf("StandardScaler(with_mean=%t, with_std=%t)", s.WithMean, s.WithStd)
 	}
-	return fmt.Sprintf("StandardScaler(with_mean=%t, with_std=%t, n_features=%d)", 
+	return fmt.Sprintf("StandardScaler(with_mean=%t, with_std=%t, n_features=%d)",
 		s.WithMean, s.WithStd, s.NFeatures)
 }
 
@@ -308,25 +313,25 @@ func (s *StandardScaler) String() string {
 // データを指定した範囲（デフォルト[0,1]）にスケーリングする
 type MinMaxScaler struct {
 	model.BaseEstimator
-	
+
 	// Min は各特徴量の最小値
 	Min []float64
-	
-	// Max は各特徴量の最大値  
+
+	// Max は各特徴量の最大値
 	Max []float64
-	
+
 	// Scale は各特徴量のスケール (max - min)
 	Scale []float64
-	
+
 	// DataMin は学習データの最小値
 	DataMin []float64
-	
+
 	// DataMax は学習データの最大値
 	DataMax []float64
-	
+
 	// NFeatures は特徴量の数
 	NFeatures int
-	
+
 	// FeatureRange はスケーリング後の範囲 [min, max]
 	FeatureRange [2]float64
 }
@@ -343,13 +348,14 @@ type MinMaxScaler struct {
 //   - *MinMaxScaler: A new MinMaxScaler instance ready for fitting
 //
 // Example:
-//   // Scale to [0, 1] range
-//   scaler := preprocessing.NewMinMaxScaler([2]float64{0.0, 1.0})
-//   err := scaler.Fit(trainingData)
-//   scaledData, err := scaler.Transform(testData)
-//   
-//   // Scale to [-1, 1] range
-//   scaler := preprocessing.NewMinMaxScaler([2]float64{-1.0, 1.0})
+//
+//	// Scale to [0, 1] range
+//	scaler := preprocessing.NewMinMaxScaler([2]float64{0.0, 1.0})
+//	err := scaler.Fit(trainingData)
+//	scaledData, err := scaler.Transform(testData)
+//
+//	// Scale to [-1, 1] range
+//	scaler := preprocessing.NewMinMaxScaler([2]float64{-1.0, 1.0})
 func NewMinMaxScaler(featureRange [2]float64) *MinMaxScaler {
 	return &MinMaxScaler{
 		FeatureRange: featureRange,
@@ -377,30 +383,31 @@ func NewMinMaxScalerDefault() *MinMaxScaler {
 //   - ErrEmptyData: if X is empty
 //
 // Example:
-//   scaler := preprocessing.NewMinMaxScaler([2]float64{0.0, 1.0})
-//   err := scaler.Fit(trainingData)
-//   if err != nil {
-//       log.Fatal(err)
-//   }
+//
+//	scaler := preprocessing.NewMinMaxScaler([2]float64{0.0, 1.0})
+//	err := scaler.Fit(trainingData)
+//	if err != nil {
+//	    log.Fatal(err)
+//	}
 func (m *MinMaxScaler) Fit(X mat.Matrix) (err error) {
 	defer scigoErrors.Recover(&err, "MinMaxScaler.Fit")
 	r, c := X.Dims()
 	if r == 0 || c == 0 {
 		return scigoErrors.NewModelError("MinMaxScaler.Fit", "empty data", scigoErrors.ErrEmptyData)
 	}
-	
+
 	m.NFeatures = c
 	m.DataMin = make([]float64, c)
 	m.DataMax = make([]float64, c)
 	m.Min = make([]float64, c)
 	m.Max = make([]float64, c)
 	m.Scale = make([]float64, c)
-	
+
 	// 各特徴量の最小値・最大値を計算
 	for j := 0; j < c; j++ {
 		min := X.At(0, j)
 		max := X.At(0, j)
-		
+
 		for i := 1; i < r; i++ {
 			val := X.At(i, j)
 			if val < min {
@@ -410,10 +417,10 @@ func (m *MinMaxScaler) Fit(X mat.Matrix) (err error) {
 				max = val
 			}
 		}
-		
+
 		m.DataMin[j] = min
 		m.DataMax[j] = max
-		
+
 		// スケールを計算 (max - min)
 		dataRange := max - min
 		if math.Abs(dataRange) < 1e-8 {
@@ -422,13 +429,13 @@ func (m *MinMaxScaler) Fit(X mat.Matrix) (err error) {
 		} else {
 			m.Scale[j] = dataRange
 		}
-		
+
 		// 変換後の範囲を計算
 		featureRange := m.FeatureRange[1] - m.FeatureRange[0]
-		m.Min[j] = m.FeatureRange[0] - min * featureRange / m.Scale[j]
-		m.Max[j] = m.FeatureRange[1] - max * featureRange / m.Scale[j]
+		m.Min[j] = m.FeatureRange[0] - min*featureRange/m.Scale[j]
+		m.Max[j] = m.FeatureRange[1] - max*featureRange/m.Scale[j]
 	}
-	
+
 	m.SetFitted()
 	return nil
 }
@@ -450,25 +457,26 @@ func (m *MinMaxScaler) Fit(X mat.Matrix) (err error) {
 //   - ErrDimensionMismatch: if X doesn't match the number of features from training
 //
 // Example:
-//   scaledData, err := scaler.Transform(testData)
-//   if err != nil {
-//       log.Fatal(err)
-//   }
-//   // scaledData values are now in the range specified during NewMinMaxScaler
+//
+//	scaledData, err := scaler.Transform(testData)
+//	if err != nil {
+//	    log.Fatal(err)
+//	}
+//	// scaledData values are now in the range specified during NewMinMaxScaler
 func (m *MinMaxScaler) Transform(X mat.Matrix) (_ mat.Matrix, err error) {
 	defer scigoErrors.Recover(&err, "MinMaxScaler.Transform")
 	if !m.IsFitted() {
 		return nil, scigoErrors.NewNotFittedError("MinMaxScaler", "Transform")
 	}
-	
+
 	r, c := X.Dims()
 	if c != m.NFeatures {
 		return nil, scigoErrors.NewDimensionError("MinMaxScaler.Transform", m.NFeatures, c, 1)
 	}
-	
+
 	// 結果を格納する行列を作成
 	result := mat.NewDense(r, c, nil)
-	
+
 	// 各要素をスケーリング
 	featureRange := m.FeatureRange[1] - m.FeatureRange[0]
 	for i := 0; i < r; i++ {
@@ -476,11 +484,11 @@ func (m *MinMaxScaler) Transform(X mat.Matrix) (_ mat.Matrix, err error) {
 			val := X.At(i, j)
 			// X_scaled = X_std * (max - min) + min
 			// where X_std = (X - X.min) / (X.max - X.min)
-			scaled := (val - m.DataMin[j]) / m.Scale[j] * featureRange + m.FeatureRange[0]
+			scaled := (val-m.DataMin[j])/m.Scale[j]*featureRange + m.FeatureRange[0]
 			result.Set(i, j, scaled)
 		}
 	}
-	
+
 	return result, nil
 }
 
@@ -498,13 +506,14 @@ func (m *MinMaxScaler) Transform(X mat.Matrix) (_ mat.Matrix, err error) {
 //   - error: nil if successful, otherwise an error from either fitting or transformation
 //
 // Example:
-//   scaler := preprocessing.NewMinMaxScaler([2]float64{0.0, 1.0})
-//   scaledTraining, err := scaler.FitTransform(trainingData)
-//   if err != nil {
-//       log.Fatal(err)
-//   }
-//   // Now scaler is fitted and can transform new data
-//   scaledTest, err := scaler.Transform(testData)
+//
+//	scaler := preprocessing.NewMinMaxScaler([2]float64{0.0, 1.0})
+//	scaledTraining, err := scaler.FitTransform(trainingData)
+//	if err != nil {
+//	    log.Fatal(err)
+//	}
+//	// Now scaler is fitted and can transform new data
+//	scaledTest, err := scaler.Transform(testData)
 func (m *MinMaxScaler) FitTransform(X mat.Matrix) (_ mat.Matrix, err error) {
 	defer scigoErrors.Recover(&err, "MinMaxScaler.FitTransform")
 	if err := m.Fit(X); err != nil {
@@ -531,35 +540,36 @@ func (m *MinMaxScaler) FitTransform(X mat.Matrix) (_ mat.Matrix, err error) {
 //   - ErrDimensionMismatch: if X doesn't match the number of features from training
 //
 // Example:
-//   originalData, err := scaler.InverseTransform(scaledData)
-//   if err != nil {
-//       log.Fatal(err)
-//   }
+//
+//	originalData, err := scaler.InverseTransform(scaledData)
+//	if err != nil {
+//	    log.Fatal(err)
+//	}
 func (m *MinMaxScaler) InverseTransform(X mat.Matrix) (_ mat.Matrix, err error) {
 	defer scigoErrors.Recover(&err, "MinMaxScaler.InverseTransform")
 	if !m.IsFitted() {
 		return nil, scigoErrors.NewNotFittedError("MinMaxScaler", "InverseTransform")
 	}
-	
+
 	r, c := X.Dims()
 	if c != m.NFeatures {
 		return nil, scigoErrors.NewDimensionError("MinMaxScaler.InverseTransform", m.NFeatures, c, 1)
 	}
-	
+
 	// 結果を格納する行列を作成
 	result := mat.NewDense(r, c, nil)
-	
+
 	// 各要素を逆変換
 	featureRange := m.FeatureRange[1] - m.FeatureRange[0]
 	for i := 0; i < r; i++ {
 		for j := 0; j < c; j++ {
 			val := X.At(i, j)
 			// 逆変換: X_orig = ((X_scaled - min) / (max - min)) * (data_max - data_min) + data_min
-			original := ((val - m.FeatureRange[0]) / featureRange) * m.Scale[j] + m.DataMin[j]
+			original := ((val-m.FeatureRange[0])/featureRange)*m.Scale[j] + m.DataMin[j]
 			result.Set(i, j, original)
 		}
 	}
-	
+
 	return result, nil
 }
 
@@ -573,9 +583,9 @@ func (m *MinMaxScaler) GetParams() map[string]interface{} {
 // String はスケーラーの文字列表現を返す
 func (m *MinMaxScaler) String() string {
 	if !m.IsFitted() {
-		return fmt.Sprintf("MinMaxScaler(feature_range=[%.1f, %.1f])", 
+		return fmt.Sprintf("MinMaxScaler(feature_range=[%.1f, %.1f])",
 			m.FeatureRange[0], m.FeatureRange[1])
 	}
-	return fmt.Sprintf("MinMaxScaler(feature_range=[%.1f, %.1f], n_features=%d)", 
+	return fmt.Sprintf("MinMaxScaler(feature_range=[%.1f, %.1f], n_features=%d)",
 		m.FeatureRange[0], m.FeatureRange[1], m.NFeatures)
 }

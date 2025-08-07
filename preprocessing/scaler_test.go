@@ -183,7 +183,7 @@ func TestStandardScaler_WithMeanFalse(t *testing.T) {
 	// std = sqrt((1² + 2² + 3²)/3) = sqrt(14/3) ≈ 2.160
 	expectedStdNoMean := math.Sqrt((1.0*1.0 + 2.0*2.0 + 3.0*3.0) / 3.0) // ≈ 2.160
 	expectedScaled0 := 1.0 / expectedStdNoMean
-	
+
 	actual := XScaled.At(0, 0)
 	if math.Abs(actual-expectedScaled0) > epsilon {
 		t.Errorf("First element: expected %f, got %f", expectedScaled0, actual)
@@ -244,7 +244,7 @@ func TestStandardScaler_ErrorCases(t *testing.T) {
 	// 未学習状態でTransform
 	data := []float64{1.0, 2.0}
 	X := mat.NewDense(1, 2, data)
-	
+
 	_, err := scaler.Transform(X)
 	if err == nil {
 		t.Error("Expected error for unfitted scaler, got nil")
@@ -260,7 +260,7 @@ func TestStandardScaler_ErrorCases(t *testing.T) {
 	scaler.Fit(X) // 2特徴量で学習
 	wrongData := []float64{1.0, 2.0, 3.0}
 	XWrong := mat.NewDense(1, 3, wrongData) // 3特徴量
-	
+
 	_, err = scaler.Transform(XWrong)
 	if err == nil {
 		t.Error("Expected error for dimension mismatch, got nil")
@@ -269,11 +269,11 @@ func TestStandardScaler_ErrorCases(t *testing.T) {
 
 func TestStandardScaler_EmptyDataError(t *testing.T) {
 	scaler := preprocessing.NewStandardScalerDefault()
-	
+
 	// スケーラーの実装をテストするためのカスタムMatrixを作成
 	// 0x0の次元を返すモック
 	emptyMatrix := &mockMatrix{rows: 0, cols: 0}
-	
+
 	err := scaler.Fit(emptyMatrix)
 	if err == nil {
 		t.Error("Expected error for empty data, got nil")
@@ -350,7 +350,7 @@ func TestStandardScaler_GetParams(t *testing.T) {
 
 func TestStandardScaler_String(t *testing.T) {
 	scaler := preprocessing.NewStandardScaler(true, false)
-	
+
 	// 未学習状態
 	str := scaler.String()
 	expected := "StandardScaler(with_mean=true, with_std=false)"
@@ -362,7 +362,7 @@ func TestStandardScaler_String(t *testing.T) {
 	data := []float64{1.0, 2.0, 3.0, 4.0}
 	X := mat.NewDense(2, 2, data)
 	scaler.Fit(X)
-	
+
 	str = scaler.String()
 	expected = "StandardScaler(with_mean=true, with_std=false, n_features=2)"
 	if str != expected {
@@ -420,7 +420,7 @@ func TestMinMaxScaler_BasicFunctionality(t *testing.T) {
 		t.Fatalf("Transform failed: %v", err)
 	}
 
-	// 期待される結果: 
+	// 期待される結果:
 	// [1,4] -> [(1-1)/(3-1)*1+0, (4-4)/(6-4)*1+0] = [0, 0]
 	// [2,5] -> [(2-1)/(3-1)*1+0, (5-4)/(6-4)*1+0] = [0.5, 0.5]
 	// [3,6] -> [(3-1)/(3-1)*1+0, (6-4)/(6-4)*1+0] = [1, 1]
@@ -462,7 +462,7 @@ func TestMinMaxScaler_CustomRange(t *testing.T) {
 	// Feature 2: min=100, max=300, range=200
 	// 期待される結果 (範囲 [-1, 1]):
 	// [10,100] -> [(10-10)/20*2-1, (100-100)/200*2-1] = [-1, -1]
-	// [20,200] -> [(20-10)/20*2-1, (200-100)/200*2-1] = [0, 0]  
+	// [20,200] -> [(20-10)/20*2-1, (200-100)/200*2-1] = [0, 0]
 	// [30,300] -> [(30-10)/20*2-1, (300-100)/200*2-1] = [1, 1]
 	expectedScaled := []float64{
 		-1.0, -1.0,
@@ -558,7 +558,7 @@ func TestMinMaxScaler_ErrorCases(t *testing.T) {
 	// 未学習状態でTransform
 	data := []float64{1.0, 2.0}
 	X := mat.NewDense(1, 2, data)
-	
+
 	_, err := scaler.Transform(X)
 	if err == nil {
 		t.Error("Expected error for unfitted scaler, got nil")
@@ -574,7 +574,7 @@ func TestMinMaxScaler_ErrorCases(t *testing.T) {
 	scaler.Fit(X) // 2特徴量で学習
 	wrongData := []float64{1.0, 2.0, 3.0}
 	XWrong := mat.NewDense(1, 3, wrongData) // 3特徴量
-	
+
 	_, err = scaler.Transform(XWrong)
 	if err == nil {
 		t.Error("Expected error for dimension mismatch, got nil")
@@ -587,7 +587,7 @@ func TestMinMaxScaler_GetParams(t *testing.T) {
 
 	featureRange := params["feature_range"].([2]float64)
 	expectedRange := [2]float64{-2.0, 2.0}
-	
+
 	if featureRange[0] != expectedRange[0] || featureRange[1] != expectedRange[1] {
 		t.Errorf("Expected feature_range=%v, got %v", expectedRange, featureRange)
 	}
@@ -595,7 +595,7 @@ func TestMinMaxScaler_GetParams(t *testing.T) {
 
 func TestMinMaxScaler_String(t *testing.T) {
 	scaler := preprocessing.NewMinMaxScaler([2]float64{-1.0, 2.0})
-	
+
 	// 未学習状態
 	str := scaler.String()
 	expected := "MinMaxScaler(feature_range=[-1.0, 2.0])"
@@ -607,7 +607,7 @@ func TestMinMaxScaler_String(t *testing.T) {
 	data := []float64{1.0, 2.0, 3.0, 4.0}
 	X := mat.NewDense(2, 2, data)
 	scaler.Fit(X)
-	
+
 	str = scaler.String()
 	expected = "MinMaxScaler(feature_range=[-1.0, 2.0], n_features=2)"
 	if str != expected {

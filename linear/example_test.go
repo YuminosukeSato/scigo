@@ -40,12 +40,12 @@ func ExampleLinearRegression() {
 func ExampleLinearRegression_multipleFeatures() {
 	// Create training data with 2 features
 	X := mat.NewDense(4, 2, []float64{
-		1.0, 1.0,  // Sample 1: [1, 1]
-		2.0, 1.0,  // Sample 2: [2, 1]  
-		1.0, 2.0,  // Sample 3: [1, 2]
-		2.0, 2.0,  // Sample 4: [2, 2]
+		1.0, 1.0, // Sample 1: [1, 1]
+		2.0, 1.0, // Sample 2: [2, 1]
+		1.0, 2.0, // Sample 3: [1, 2]
+		2.0, 2.0, // Sample 4: [2, 2]
 	})
-	
+
 	// Target: y = x1 + 2*x2
 	y := mat.NewDense(4, 1, []float64{3.0, 4.0, 5.0, 6.0})
 
@@ -59,7 +59,7 @@ func ExampleLinearRegression_multipleFeatures() {
 	// Get model parameters
 	weights := lr.GetWeights()
 	intercept := lr.GetIntercept()
-	
+
 	fmt.Printf("Weights: [%.1f, %.1f]\n", weights[0], weights[1])
 	fmt.Printf("Intercept: %.1f\n", intercept)
 
@@ -115,8 +115,8 @@ func ExampleLinearRegression_persistence() {
 	if originalIntercept > 0.001 || originalIntercept < -0.001 {
 		interceptStr = fmt.Sprintf("%.3f", originalIntercept)
 	}
-	
-	fmt.Printf("Original model - Weight: %.3f, Intercept: %s\n", 
+
+	fmt.Printf("Original model - Weight: %.3f, Intercept: %s\n",
 		originalWeights[0], interceptStr)
 
 	// In a real scenario, you would save to file and load in another process

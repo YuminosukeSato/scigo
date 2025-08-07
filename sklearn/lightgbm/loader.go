@@ -17,7 +17,7 @@ func LoadFromFile(filepath string) (*Model, error) {
 		return nil, fmt.Errorf("failed to open file: %w", err)
 	}
 	defer file.Close()
-	
+
 	return LoadFromReader(file)
 }
 
@@ -31,14 +31,14 @@ func LoadFromString(modelStr string) (*Model, error) {
 func LoadFromReader(reader io.Reader) (*Model, error) {
 	scanner := bufio.NewScanner(reader)
 	model := NewModel()
-	
+
 	var currentTree *Tree
 	inTree := false
 	treeParams := make(map[string]string)
-	
+
 	for scanner.Scan() {
 		line := strings.TrimSpace(scanner.Text())
-		
+
 		// Skip empty lines
 		if line == "" {
 			// If we were in a tree and hit empty line, finalize the tree
@@ -53,7 +53,7 @@ func LoadFromReader(reader io.Reader) (*Model, error) {
 			}
 			continue
 		}
-		
+
 		// Check if this is a tree header
 		if strings.HasPrefix(line, "Tree=") {
 			parts := strings.Split(line, "=")
@@ -71,13 +71,13 @@ func LoadFromReader(reader io.Reader) (*Model, error) {
 			}
 			continue
 		}
-		
+
 		// Parse key=value pairs
 		if strings.Contains(line, "=") {
 			parts := strings.SplitN(line, "=", 2)
 			key := strings.TrimSpace(parts[0])
 			value := strings.TrimSpace(parts[1])
-			
+
 			if inTree {
 				// Store tree parameters
 				treeParams[key] = value
@@ -113,7 +113,7 @@ func LoadFromReader(reader io.Reader) (*Model, error) {
 			}
 		}
 	}
-	
+
 	// Handle last tree if exists
 	if inTree && currentTree != nil {
 		if err := finalizeTree(currentTree, treeParams); err != nil {
@@ -121,17 +121,17 @@ func LoadFromReader(reader io.Reader) (*Model, error) {
 		}
 		model.Trees = append(model.Trees, *currentTree)
 	}
-	
+
 	if err := scanner.Err(); err != nil {
 		return nil, fmt.Errorf("error reading model: %w", err)
 	}
-	
+
 	// Set derived values
 	model.NumIteration = len(model.Trees)
 	if model.NumClass == 0 {
 		model.NumClass = 1
 	}
-	
+
 	return model, nil
 }
 
@@ -142,27 +142,27 @@ func finalizeTree(tree *Tree, params map[string]string) error {
 		numLeaves, _ := strconv.Atoi(v)
 		tree.NumLeaves = numLeaves
 	}
-	
+
 	// Parse shrinkage
 	if v, ok := params["shrinkage"]; ok {
 		shrinkage, _ := strconv.ParseFloat(v, 64)
 		tree.ShrinkageRate = shrinkage
 	}
-	
+
 	// Parse arrays of values
 	splitFeatures := parseIntArray(params["split_feature"])
 	thresholds := parseFloatArray(params["threshold"])
 	leftChildren := parseIntArray(params["left_child"])
 	rightChildren := parseIntArray(params["right_child"])
 	leafValues := parseFloatArray(params["leaf_value"])
-	
+
 	// Build nodes
 	numInternalNodes := len(splitFeatures)
 	numLeaves := len(leafValues)
 	totalNodes := numInternalNodes + numLeaves
-	
+
 	tree.Nodes = make([]Node, 0, totalNodes)
-	
+
 	// Create internal nodes
 	for i := 0; i < numInternalNodes; i++ {
 		node := Node{
@@ -174,7 +174,7 @@ func finalizeTree(tree *Tree, params map[string]string) error {
 			Threshold:    thresholds[i],
 			NodeType:     NumericalNode,
 		}
-		
+
 		// Check if it's actually a leaf (-1 means leaf)
 		if leftChildren[i] < 0 && rightChildren[i] < 0 {
 			// This is actually a leaf node, get its value
@@ -184,10 +184,10 @@ func finalizeTree(tree *Tree, params map[string]string) error {
 				node.NodeType = LeafNode
 			}
 		}
-		
+
 		tree.Nodes = append(tree.Nodes, node)
 	}
-	
+
 	// Add leaf nodes that aren't already added
 	leafNodeID := numInternalNodes
 	for i := 0; i < numLeaves; i++ {
@@ -210,7 +210,7 @@ func finalizeTree(tree *Tree, params map[string]string) error {
 				break
 			}
 		}
-		
+
 		if !alreadyAdded {
 			// Standalone leaf node
 			node := Node{
@@ -225,7 +225,7 @@ func finalizeTree(tree *Tree, params map[string]string) error {
 			leafNodeID++
 		}
 	}
-	
+
 	return nil
 }
 
@@ -274,7 +274,7 @@ func LoadFromJSON(jsonData []byte) (*Model, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse JSON: %w", err)
 	}
-	
+
 	return jsonModel.ToModel()
 }
 
@@ -284,59 +284,59 @@ func LoadFromJSONFile(filepath string) (*Model, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to read JSON file: %w", err)
 	}
-	
+
 	return LoadFromJSON(data)
 }
 
 // LightGBMJSON represents the JSON structure of a LightGBM model
 type LightGBMJSON struct {
-	Name              string                 `json:"name"`
-	Version           string                 `json:"version"`
-	NumClass          int                    `json:"num_class"`
-	NumTreePerIteration int                  `json:"num_tree_per_iteration"`
-	LabelIndex        int                    `json:"label_index"`
-	MaxFeatureIdx     int                    `json:"max_feature_idx"`
-	Objective         string                 `json:"objective"`
-	FeatureNames      []string               `json:"feature_names"`
-	FeatureInfos      []string               `json:"feature_infos"`
-	TreeInfo          []TreeInfoJSON         `json:"tree_info"`
-	TreeStructure     []TreeStructureJSON    `json:"tree_structure"`
+	Name                string              `json:"name"`
+	Version             string              `json:"version"`
+	NumClass            int                 `json:"num_class"`
+	NumTreePerIteration int                 `json:"num_tree_per_iteration"`
+	LabelIndex          int                 `json:"label_index"`
+	MaxFeatureIdx       int                 `json:"max_feature_idx"`
+	Objective           string              `json:"objective"`
+	FeatureNames        []string            `json:"feature_names"`
+	FeatureInfos        []string            `json:"feature_infos"`
+	TreeInfo            []TreeInfoJSON      `json:"tree_info"`
+	TreeStructure       []TreeStructureJSON `json:"tree_structure"`
 }
 
 // TreeInfoJSON represents tree metadata in JSON format
 type TreeInfoJSON struct {
-	TreeIndex   int     `json:"tree_index"`
-	NumLeaves   int     `json:"num_leaves"`
-	NumCat      int     `json:"num_cat"`
-	Shrinkage   float64 `json:"shrinkage"`
+	TreeIndex int     `json:"tree_index"`
+	NumLeaves int     `json:"num_leaves"`
+	NumCat    int     `json:"num_cat"`
+	Shrinkage float64 `json:"shrinkage"`
 }
 
 // TreeStructureJSON represents a tree structure in JSON format
 type TreeStructureJSON struct {
-	TreeIndex      int                   `json:"tree_index"`
-	NumLeaves      int                   `json:"num_leaves"`
-	NumCat         int                   `json:"num_cat"`
-	Shrinkage      float64               `json:"shrinkage"`
-	TreeStructure  interface{}           `json:"tree_structure"`
+	TreeIndex     int         `json:"tree_index"`
+	NumLeaves     int         `json:"num_leaves"`
+	NumCat        int         `json:"num_cat"`
+	Shrinkage     float64     `json:"shrinkage"`
+	TreeStructure interface{} `json:"tree_structure"`
 }
 
 // NodeJSON represents a node in the JSON tree structure
 type NodeJSON struct {
-	SplitFeature   int          `json:"split_feature,omitempty"`
-	SplitGain      float64      `json:"split_gain,omitempty"`
-	Threshold      float64      `json:"threshold,omitempty"`
-	DecisionType   string       `json:"decision_type,omitempty"`
-	DefaultLeft    bool         `json:"default_left,omitempty"`
-	MissingType    string       `json:"missing_type,omitempty"`
-	InternalValue  float64      `json:"internal_value,omitempty"`
-	InternalWeight float64      `json:"internal_weight,omitempty"`
-	InternalCount  int          `json:"internal_count,omitempty"`
-	LeftChild      *NodeJSON    `json:"left_child,omitempty"`
-	RightChild     *NodeJSON    `json:"right_child,omitempty"`
-	LeafIndex      int          `json:"leaf_index,omitempty"`
-	LeafValue      float64      `json:"leaf_value,omitempty"`
-	LeafWeight     float64      `json:"leaf_weight,omitempty"`
-	LeafCount      int          `json:"leaf_count,omitempty"`
+	SplitFeature   int       `json:"split_feature,omitempty"`
+	SplitGain      float64   `json:"split_gain,omitempty"`
+	Threshold      float64   `json:"threshold,omitempty"`
+	DecisionType   string    `json:"decision_type,omitempty"`
+	DefaultLeft    bool      `json:"default_left,omitempty"`
+	MissingType    string    `json:"missing_type,omitempty"`
+	InternalValue  float64   `json:"internal_value,omitempty"`
+	InternalWeight float64   `json:"internal_weight,omitempty"`
+	InternalCount  int       `json:"internal_count,omitempty"`
+	LeftChild      *NodeJSON `json:"left_child,omitempty"`
+	RightChild     *NodeJSON `json:"right_child,omitempty"`
+	LeafIndex      int       `json:"leaf_index,omitempty"`
+	LeafValue      float64   `json:"leaf_value,omitempty"`
+	LeafWeight     float64   `json:"leaf_weight,omitempty"`
+	LeafCount      int       `json:"leaf_count,omitempty"`
 }
 
 // ToModel converts a LightGBMJSON to our Model structure
@@ -346,7 +346,7 @@ func (lgbJSON *LightGBMJSON) ToModel() (*Model, error) {
 	model.NumClass = lgbJSON.NumClass
 	model.NumFeatures = lgbJSON.MaxFeatureIdx + 1
 	model.FeatureNames = lgbJSON.FeatureNames
-	
+
 	// Parse objective
 	switch lgbJSON.Objective {
 	case "binary", "binary sigmoid", "binary_logloss":
@@ -360,7 +360,7 @@ func (lgbJSON *LightGBMJSON) ToModel() (*Model, error) {
 	default:
 		model.Objective = ObjectiveType(lgbJSON.Objective)
 	}
-	
+
 	// Parse trees
 	for _, treeJSON := range lgbJSON.TreeStructure {
 		tree := Tree{
@@ -369,16 +369,16 @@ func (lgbJSON *LightGBMJSON) ToModel() (*Model, error) {
 			ShrinkageRate: treeJSON.Shrinkage,
 			Nodes:         []Node{},
 		}
-		
+
 		// Parse tree structure
 		if treeStruct, ok := treeJSON.TreeStructure.(map[string]interface{}); ok {
 			rootNode := parseNodeFromJSON(treeStruct)
 			flattenTree(&tree, rootNode, -1)
 		}
-		
+
 		model.Trees = append(model.Trees, tree)
 	}
-	
+
 	model.NumIteration = len(model.Trees)
 	return model, nil
 }
@@ -386,7 +386,7 @@ func (lgbJSON *LightGBMJSON) ToModel() (*Model, error) {
 // parseNodeFromJSON converts a JSON node to our Node structure
 func parseNodeFromJSON(nodeMap map[string]interface{}) *Node {
 	node := &Node{}
-	
+
 	// Check if it's a leaf
 	if leafValue, ok := nodeMap["leaf_value"].(float64); ok {
 		node.NodeType = LeafNode
@@ -395,18 +395,18 @@ func parseNodeFromJSON(nodeMap map[string]interface{}) *Node {
 		node.RightChild = -1
 		return node
 	}
-	
+
 	// It's an internal node
 	node.NodeType = NumericalNode
-	
+
 	if splitFeature, ok := nodeMap["split_feature"].(float64); ok {
 		node.SplitFeature = int(splitFeature)
 	}
-	
+
 	if threshold, ok := nodeMap["threshold"].(float64); ok {
 		node.Threshold = threshold
 	}
-	
+
 	return node
 }
 

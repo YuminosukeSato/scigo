@@ -19,39 +19,39 @@ type SGDRegressor struct {
 	model.BaseEstimator
 
 	// ハイパーパラメータ
-	loss           string  // 損失関数: "squared_error", "huber", "epsilon_insensitive"
-	penalty        string  // 正則化: "l2", "l1", "elasticnet", "none"
-	alpha          float64 // 正則化の強度
-	l1Ratio        float64 // Elastic Netのl1比率
-	fitIntercept   bool    // 切片を学習するか
-	maxIter        int     // 最大イテレーション数
-	tol            float64 // 収束判定の許容誤差
-	shuffle        bool    // 各エポックでデータをシャッフルするか
-	verbose        int     // 詳細出力レベル
-	epsilon        float64 // epsilon-insensitive損失のepsilon
-	randomState    int64   // 乱数シード
-	learningRate   string  // 学習率スケジュール: "constant", "optimal", "invscaling", "adaptive"
-	eta0           float64 // 初期学習率
-	power_t        float64 // invscalingの指数
-	warmStart      bool    // 前回の学習から継続するか
-	averageSGD     bool    // 平均化SGDを使用するか
-	nIterNoChange  int     // 早期停止の判定イテレーション数
+	loss          string  // 損失関数: "squared_error", "huber", "epsilon_insensitive"
+	penalty       string  // 正則化: "l2", "l1", "elasticnet", "none"
+	alpha         float64 // 正則化の強度
+	l1Ratio       float64 // Elastic Netのl1比率
+	fitIntercept  bool    // 切片を学習するか
+	maxIter       int     // 最大イテレーション数
+	tol           float64 // 収束判定の許容誤差
+	shuffle       bool    // 各エポックでデータをシャッフルするか
+	verbose       int     // 詳細出力レベル
+	epsilon       float64 // epsilon-insensitive損失のepsilon
+	randomState   int64   // 乱数シード
+	learningRate  string  // 学習率スケジュール: "constant", "optimal", "invscaling", "adaptive"
+	eta0          float64 // 初期学習率
+	power_t       float64 // invscalingの指数
+	warmStart     bool    // 前回の学習から継続するか
+	averageSGD    bool    // 平均化SGDを使用するか
+	nIterNoChange int     // 早期停止の判定イテレーション数
 
 	// 学習パラメータ
-	coef_      []float64 // 重み係数
-	intercept_ float64   // 切片
-	avgCoef_   []float64 // 平均化された重み（averageSGD用）
-	avgIntercept_ float64 // 平均化された切片
+	coef_         []float64 // 重み係数
+	intercept_    float64   // 切片
+	avgCoef_      []float64 // 平均化された重み（averageSGD用）
+	avgIntercept_ float64   // 平均化された切片
 
 	// 学習状態
 	nIter_       int       // 実行されたイテレーション数
 	t_           int64     // 総ステップ数（学習率計算用）
 	lossHistory_ []float64 // 損失の履歴
 	converged_   bool      // 収束フラグ
-	
+
 	// 内部状態
-	mu       sync.RWMutex
-	rng      *rand.Rand
+	mu         sync.RWMutex
+	rng        *rand.Rand
 	nFeatures_ int
 }
 
@@ -192,7 +192,7 @@ func (sgd *SGDRegressor) Fit(X, y mat.Matrix) error {
 	// バッチSGD実装
 	for iter := 0; iter < sgd.maxIter; iter++ {
 		epochLoss := 0.0
-		
+
 		// データのシャッフル
 		indices := make([]int, rows)
 		for i := range indices {
@@ -208,7 +208,7 @@ func (sgd *SGDRegressor) Fit(X, y mat.Matrix) error {
 		for _, idx := range indices {
 			xi := mat.Row(nil, idx, X)
 			yi := y.At(idx, 0)
-			
+
 			loss := sgd.updateWeights(xi, yi)
 			epochLoss += loss
 		}
@@ -242,7 +242,7 @@ func (sgd *SGDRegressor) PartialFit(X, y mat.Matrix, classes []int) error {
 	defer sgd.mu.Unlock()
 
 	rows, cols := X.Dims()
-	
+
 	// 初回呼び出し時の初期化
 	if sgd.coef_ == nil {
 		sgd.nFeatures_ = cols
@@ -264,15 +264,15 @@ func (sgd *SGDRegressor) PartialFit(X, y mat.Matrix, classes []int) error {
 	for i := 0; i < rows; i++ {
 		xi := mat.Row(nil, i, X)
 		yi := y.At(i, 0)
-		
+
 		loss := sgd.updateWeights(xi, yi)
 		batchLoss += loss
 	}
 
 	batchLoss /= float64(rows)
 	sgd.lossHistory_ = append(sgd.lossHistory_, batchLoss)
-	sgd.nIter_++  // Increment iteration count for PartialFit
-	
+	sgd.nIter_++ // Increment iteration count for PartialFit
+
 	sgd.SetFitted()
 	return nil
 }
@@ -332,7 +332,7 @@ func (sgd *SGDRegressor) updateWeights(x []float64, y float64) float64 {
 	gradients := make([]float64, len(x))
 	for i, xi := range x {
 		grad := dloss * xi
-		
+
 		// 正則化項の勾配
 		switch sgd.penalty {
 		case "l2":
@@ -342,24 +342,24 @@ func (sgd *SGDRegressor) updateWeights(x []float64, y float64) float64 {
 		case "elasticnet":
 			grad += sgd.alpha * (sgd.l1Ratio*sign(sgd.coef_[i]) + (1-sgd.l1Ratio)*sgd.coef_[i])
 		}
-		
+
 		gradients[i] = grad
 	}
-	
+
 	// 勾配クリッピング（勾配爆発防止）
 	gradients = errors.ClipGradient(gradients, 10.0)
-	
+
 	// 重み更新
 	for i, grad := range gradients {
 		sgd.coef_[i] -= lr * grad
-		
+
 		// 更新後の重みの数値安定性チェック
 		if err := errors.CheckScalar("weight_update", sgd.coef_[i], sgd.nIter_); err != nil {
 			errors.Warn(err)
 			// ロールバック
 			sgd.coef_[i] += lr * grad
 		}
-		
+
 		// 平均化SGD
 		if sgd.averageSGD {
 			sgd.avgCoef_[i] = (sgd.avgCoef_[i]*float64(sgd.t_-1) + sgd.coef_[i]) / float64(sgd.t_)
@@ -409,7 +409,7 @@ func (sgd *SGDRegressor) checkConvergence() bool {
 	recent := sgd.lossHistory_[len(sgd.lossHistory_)-sgd.nIterNoChange:]
 	maxLoss := recent[0]
 	minLoss := recent[0]
-	
+
 	for _, loss := range recent {
 		if loss > maxLoss {
 			maxLoss = loss
@@ -437,7 +437,7 @@ func (sgd *SGDRegressor) Predict(X mat.Matrix) (mat.Matrix, error) {
 	}
 
 	predictions := mat.NewDense(rows, 1, nil)
-	
+
 	coef := sgd.coef_
 	intercept := sgd.intercept_
 	if sgd.averageSGD && sgd.avgCoef_ != nil {
@@ -476,10 +476,10 @@ func (sgd *SGDRegressor) FitStream(ctx context.Context, dataChan <-chan *model.B
 // PredictStream は入力ストリームに対してリアルタイム予測
 func (sgd *SGDRegressor) PredictStream(ctx context.Context, inputChan <-chan mat.Matrix) <-chan mat.Matrix {
 	outputChan := make(chan mat.Matrix)
-	
+
 	go func() {
 		defer close(outputChan)
-		
+
 		for {
 			select {
 			case <-ctx.Done():
@@ -488,13 +488,13 @@ func (sgd *SGDRegressor) PredictStream(ctx context.Context, inputChan <-chan mat
 				if !ok {
 					return
 				}
-				
+
 				pred, err := sgd.Predict(X)
 				if err != nil {
 					// In a real-world scenario, we might want to log this error
 					continue
 				}
-				
+
 				select {
 				case outputChan <- pred:
 				case <-ctx.Done():
@@ -503,17 +503,17 @@ func (sgd *SGDRegressor) PredictStream(ctx context.Context, inputChan <-chan mat
 			}
 		}
 	}()
-	
+
 	return outputChan
 }
 
 // FitPredictStream は学習と予測を同時に行う（test-then-train方式）
 func (sgd *SGDRegressor) FitPredictStream(ctx context.Context, dataChan <-chan *model.Batch) <-chan mat.Matrix {
 	outputChan := make(chan mat.Matrix)
-	
+
 	go func() {
 		defer close(outputChan)
-		
+
 		for {
 			select {
 			case <-ctx.Done():
@@ -522,7 +522,7 @@ func (sgd *SGDRegressor) FitPredictStream(ctx context.Context, dataChan <-chan *
 				if !ok {
 					return
 				}
-				
+
 				// まず予測
 				if sgd.IsFitted() {
 					pred, err := sgd.Predict(batch.X)
@@ -534,7 +534,7 @@ func (sgd *SGDRegressor) FitPredictStream(ctx context.Context, dataChan <-chan *
 						}
 					}
 				}
-				
+
 				// その後学習
 				if err := sgd.PartialFit(batch.X, batch.Y, nil); err != nil {
 					// In a real-world scenario, we might want to log this error
@@ -543,7 +543,7 @@ func (sgd *SGDRegressor) FitPredictStream(ctx context.Context, dataChan <-chan *
 			}
 		}
 	}()
-	
+
 	return outputChan
 }
 
@@ -572,7 +572,7 @@ func (sgd *SGDRegressor) SetWarmStart(warmStart bool) {
 func (sgd *SGDRegressor) GetLoss() float64 {
 	sgd.mu.RLock()
 	defer sgd.mu.RUnlock()
-	
+
 	if len(sgd.lossHistory_) == 0 {
 		return math.Inf(1)
 	}
@@ -583,7 +583,7 @@ func (sgd *SGDRegressor) GetLoss() float64 {
 func (sgd *SGDRegressor) GetLossHistory() []float64 {
 	sgd.mu.RLock()
 	defer sgd.mu.RUnlock()
-	
+
 	history := make([]float64, len(sgd.lossHistory_))
 	copy(history, sgd.lossHistory_)
 	return history
@@ -628,13 +628,13 @@ func (sgd *SGDRegressor) SetLearningRateSchedule(schedule string) {
 func (sgd *SGDRegressor) Coef() []float64 {
 	sgd.mu.RLock()
 	defer sgd.mu.RUnlock()
-	
+
 	if sgd.averageSGD && sgd.avgCoef_ != nil {
 		coef := make([]float64, len(sgd.avgCoef_))
 		copy(coef, sgd.avgCoef_)
 		return coef
 	}
-	
+
 	coef := make([]float64, len(sgd.coef_))
 	copy(coef, sgd.coef_)
 	return coef
@@ -644,7 +644,7 @@ func (sgd *SGDRegressor) Coef() []float64 {
 func (sgd *SGDRegressor) Intercept() float64 {
 	sgd.mu.RLock()
 	defer sgd.mu.RUnlock()
-	
+
 	if sgd.averageSGD && sgd.avgCoef_ != nil {
 		return sgd.avgIntercept_
 	}
@@ -659,7 +659,7 @@ func (sgd *SGDRegressor) Score(X, y mat.Matrix) (float64, error) {
 	}
 
 	rows, _ := y.Dims()
-	
+
 	// 平均値計算
 	var yMean float64
 	for i := 0; i < rows; i++ {
@@ -672,7 +672,7 @@ func (sgd *SGDRegressor) Score(X, y mat.Matrix) (float64, error) {
 	for i := 0; i < rows; i++ {
 		yi := y.At(i, 0)
 		predi := predictions.At(i, 0)
-		
+
 		ssTot += (yi - yMean) * (yi - yMean)
 		ssRes += (yi - predi) * (yi - predi)
 	}
@@ -715,4 +715,3 @@ func isIncreasing(values []float64) bool {
 	}
 	return true
 }
-

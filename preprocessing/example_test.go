@@ -34,7 +34,7 @@ func ExampleStandardScaler() {
 
 	// Print first row of scaled data
 	fmt.Printf("Scaled first row: [%.2f, %.2f]\n", scaled.At(0, 0), scaled.At(0, 1))
-	
+
 	// Output: Scaled first row: [-1.34, -1.34]
 }
 
@@ -81,7 +81,7 @@ func ExampleMinMaxScaler() {
 
 	// Create MinMaxScaler for [0, 1] range
 	scaler := preprocessing.NewMinMaxScaler([2]float64{0.0, 1.0})
-	
+
 	// Fit and transform
 	scaled, err := scaler.FitTransform(X)
 	if err != nil {

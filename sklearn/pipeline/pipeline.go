@@ -76,7 +76,7 @@ func (p *Pipeline) Fit(X, y mat.Matrix) error {
 	// Fit and transform all steps except the last
 	for i := 0; i < len(p.steps)-1; i++ {
 		step := p.steps[i]
-		
+
 		// Check if step implements Transformer interface
 		transformer, ok := step.Estimator.(model.Transformer)
 		if !ok {
@@ -105,7 +105,7 @@ func (p *Pipeline) Fit(X, y mat.Matrix) error {
 	// Fit the final estimator
 	if len(p.steps) > 0 {
 		finalStep := p.steps[len(p.steps)-1]
-		
+
 		// The final step can be either transformer or estimator
 		if fitter, ok := finalStep.Estimator.(interface {
 			Fit(mat.Matrix, mat.Matrix) error
@@ -140,13 +140,13 @@ func (p *Pipeline) Predict(X mat.Matrix) (mat.Matrix, error) {
 	// Predict with the final estimator
 	if len(p.steps) > 0 {
 		finalStep := p.steps[len(p.steps)-1]
-		
+
 		if predictor, ok := finalStep.Estimator.(interface {
 			Predict(mat.Matrix) (mat.Matrix, error)
 		}); ok {
 			return predictor.Predict(Xt)
 		}
-		
+
 		return nil, errors.NewValidationError(
 			"pipeline final step",
 			"final step must have Predict method for prediction",
@@ -248,13 +248,13 @@ func (p *Pipeline) PredictProba(X mat.Matrix) (mat.Matrix, error) {
 	// Predict probabilities with the final estimator
 	if len(p.steps) > 0 {
 		finalStep := p.steps[len(p.steps)-1]
-		
+
 		if predictor, ok := finalStep.Estimator.(interface {
 			PredictProba(mat.Matrix) (mat.Matrix, error)
 		}); ok {
 			return predictor.PredictProba(Xt)
 		}
-		
+
 		return nil, errors.NewValidationError(
 			"pipeline final step",
 			"final step must have PredictProba method",
@@ -279,13 +279,13 @@ func (p *Pipeline) Score(X, y mat.Matrix) (float64, error) {
 	// Score with the final estimator
 	if len(p.steps) > 0 {
 		finalStep := p.steps[len(p.steps)-1]
-		
+
 		if scorer, ok := finalStep.Estimator.(interface {
 			Score(mat.Matrix, mat.Matrix) (float64, error)
 		}); ok {
 			return scorer.Score(Xt, y)
 		}
-		
+
 		return 0, errors.NewValidationError(
 			"pipeline final step",
 			"final step must have Score method",
@@ -303,7 +303,7 @@ func (p *Pipeline) GetParams() map[string]interface{} {
 	params["steps"] = p.steps
 	params["memory"] = p.memory
 	params["verbose"] = p.verbose
-	
+
 	// Add parameters from each step
 	for _, step := range p.steps {
 		if paramsGetter, ok := step.Estimator.(interface {
@@ -316,7 +316,7 @@ func (p *Pipeline) GetParams() map[string]interface{} {
 			}
 		}
 	}
-	
+
 	return params
 }
 
@@ -328,9 +328,9 @@ func (p *Pipeline) SetParams(params map[string]interface{}) error {
 			p.verbose = verbose
 		}
 	}
-	
+
 	// TODO: Handle nested parameters for steps
-	
+
 	return nil
 }
 
@@ -385,7 +385,7 @@ func (p *Pipeline) InverseTransform(X mat.Matrix) (mat.Matrix, error) {
 	// Apply inverse transforms in reverse order
 	for i := len(p.steps) - 1; i >= 0; i-- {
 		step := p.steps[i]
-		
+
 		inverseTransformer, ok := step.Estimator.(interface {
 			InverseTransform(mat.Matrix) (mat.Matrix, error)
 		})

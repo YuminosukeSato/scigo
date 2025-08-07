@@ -34,10 +34,11 @@ type TestLogger struct {
 //   - *bytes.Buffer: The buffer containing captured log output
 //
 // Example:
-//   logger, buffer := log.NewTestLogger(log.LevelDebug)
-//   logger.Info("test message", "key", "value")
-//   output := buffer.String()
-//   // Verify output contains expected content
+//
+//	logger, buffer := log.NewTestLogger(log.LevelDebug)
+//	logger.Info("test message", "key", "value")
+//	output := buffer.String()
+//	// Verify output contains expected content
 func NewTestLogger(level Level) (*TestLogger, *bytes.Buffer) {
 	buffer := &bytes.Buffer{}
 	return &TestLogger{
@@ -78,17 +79,17 @@ func (t *TestLogger) Error(msg string, fields ...any) {
 // With implements Logger.With.
 func (t *TestLogger) With(fields ...any) Logger {
 	newFields := make(map[string]interface{})
-	
+
 	// Copy existing fields
 	for k, v := range t.fields {
 		newFields[k] = v
 	}
-	
+
 	// Add new fields
 	for i := 0; i < len(fields)-1; i += 2 {
 		key := fmt.Sprintf("%v", fields[i])
 		value := fields[i+1]
-		
+
 		// Handle special cases for error types
 		if err, ok := value.(error); ok {
 			newFields[key] = err.Error()
@@ -96,7 +97,7 @@ func (t *TestLogger) With(fields ...any) Logger {
 			newFields[key] = value
 		}
 	}
-	
+
 	return &TestLogger{
 		buffer: t.buffer,
 		level:  t.level,
@@ -115,17 +116,17 @@ func (t *TestLogger) writeLog(level, msg string, fields ...any) {
 		"level":   level,
 		"message": msg,
 	}
-	
+
 	// Add existing fields
 	for k, v := range t.fields {
 		entry[k] = v
 	}
-	
+
 	// Add new fields
 	for i := 0; i < len(fields)-1; i += 2 {
 		key := fmt.Sprintf("%v", fields[i])
 		value := fields[i+1]
-		
+
 		// Handle special cases for error types
 		if err, ok := value.(error); ok {
 			entry[key] = err.Error()
@@ -133,7 +134,7 @@ func (t *TestLogger) writeLog(level, msg string, fields ...any) {
 			entry[key] = value
 		}
 	}
-	
+
 	// Write JSON line
 	jsonData, _ := json.Marshal(entry)
 	t.buffer.WriteString(string(jsonData) + "\n")
@@ -152,29 +153,30 @@ func (t *TestLogger) GetBuffer() *bytes.Buffer {
 //   - error: Error if log parsing fails
 //
 // Example:
-//   entries, err := testLogger.GetLogEntries()
-//   if err != nil {
-//       t.Fatal(err)
-//   }
-//   if len(entries) != 2 {
-//       t.Errorf("Expected 2 log entries, got %d", len(entries))
-//   }
+//
+//	entries, err := testLogger.GetLogEntries()
+//	if err != nil {
+//	    t.Fatal(err)
+//	}
+//	if len(entries) != 2 {
+//	    t.Errorf("Expected 2 log entries, got %d", len(entries))
+//	}
 func (t *TestLogger) GetLogEntries() ([]map[string]interface{}, error) {
 	var entries []map[string]interface{}
 	lines := strings.Split(strings.TrimSpace(t.buffer.String()), "\n")
-	
+
 	for _, line := range lines {
 		if line == "" {
 			continue
 		}
-		
+
 		var entry map[string]interface{}
 		if err := json.Unmarshal([]byte(line), &entry); err != nil {
 			return nil, err
 		}
 		entries = append(entries, entry)
 	}
-	
+
 	return entries, nil
 }
 
@@ -188,9 +190,10 @@ func (t *TestLogger) GetLogEntries() ([]map[string]interface{}, error) {
 //   - bool: true if the message is found in any log entry
 //
 // Example:
-//   if !testLogger.ContainsMessage("Training completed") {
-//       t.Error("Expected training completion log message")
-//   }
+//
+//	if !testLogger.ContainsMessage("Training completed") {
+//	    t.Error("Expected training completion log message")
+//	}
 func (t *TestLogger) ContainsMessage(message string) bool {
 	return strings.Contains(t.buffer.String(), message)
 }
@@ -205,15 +208,16 @@ func (t *TestLogger) ContainsMessage(message string) bool {
 //   - bool: true if the field with the specified value is found
 //
 // Example:
-//   if !testLogger.ContainsField("ml.operation", "fit") {
-//       t.Error("Expected fit operation in logs")
-//   }
+//
+//	if !testLogger.ContainsField("ml.operation", "fit") {
+//	    t.Error("Expected fit operation in logs")
+//	}
 func (t *TestLogger) ContainsField(key string, value interface{}) bool {
 	entries, err := t.GetLogEntries()
 	if err != nil {
 		return false
 	}
-	
+
 	for _, entry := range entries {
 		if fieldValue, exists := entry[key]; exists {
 			if fieldValue == value {
@@ -221,7 +225,7 @@ func (t *TestLogger) ContainsField(key string, value interface{}) bool {
 			}
 		}
 	}
-	
+
 	return false
 }
 
