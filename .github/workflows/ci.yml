@@ -11,7 +11,10 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: read #  to fetch code (actions/checkout)
+  contents: read # to fetch code (actions/checkout)
+  security-events: write # to upload security results to GitHub Security tab
+  actions: read # for CodeQL analysis
+  pull-requests: read # for semgrep analysis
 
 env:
   # run static analysis only with the latest Go version
@@ -42,6 +45,87 @@ jobs:
         run: |
           go install golang.org/x/vuln/cmd/govulncheck@latest
           govulncheck ./...
+
+      - name: Run gosec security scanner
+        run: |
+          go install github.com/securego/gosec/v2/cmd/gosec@latest
+          gosec -fmt sarif -out gosec-report.sarif ./...
+          gosec -fmt json -out gosec-report.json ./...
+          gosec ./...
+
+      - name: Run semgrep security analysis
+        uses: returntocorp/semgrep-action@v1
+        with:
+          config: >-
+            p/security-audit
+            p/secrets
+            p/golang
+            p/owasp-top-ten
+            p/cwe-top-25
+
+      - name: Run CodeQL Analysis
+        uses: github/codeql-action/init@v3
+        with:
+          languages: go
+          queries: security-and-quality
+
+      - name: Autobuild
+        uses: github/codeql-action/autobuild@v3
+
+      - name: Perform CodeQL Analysis
+        uses: github/codeql-action/analyze@v3
+
+      - name: Run nancy vulnerability scanner
+        run: |
+          go install github.com/sonatypeossindex/nancy@latest
+          go list -json -deps ./... | nancy sleuth
+
+      - name: Scan for secrets with gitleaks
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Run trivy vulnerability scanner
+        uses: aquasecurity/trivy-action@master
+        with:
+          scan-type: 'fs'
+          scan-ref: '.'
+          format: 'sarif'
+          output: 'trivy-results.sarif'
+
+      - name: Upload gosec results to GitHub Security tab
+        uses: github/codeql-action/upload-sarif@v3
+        if: always()
+        with:
+          sarif_file: gosec-report.sarif
+
+      - name: Upload trivy results to GitHub Security tab
+        uses: github/codeql-action/upload-sarif@v3
+        if: always()
+        with:
+          sarif_file: trivy-results.sarif
+
+      - name: Upload security scan artifacts
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: security-scan-results
+          path: |
+            gosec-report.sarif
+            gosec-report.json
+            trivy-results.sarif
+          retention-days: 30
+
+      - name: Run dependency check
+        run: |
+          go install github.com/sonatypeossindex/nancy@latest
+          go mod download
+          go list -json -deps ./... | nancy sleuth -loud
+
+      - name: Scan for hardcoded credentials
+        run: |
+          go install github.com/trufflesecurity/trufflehog/v3@latest
+          trufflehog filesystem . --json
 
       - name: Run tests
         run: go test -v ./...
