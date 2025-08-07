@@ -120,7 +120,7 @@ jobs:
 
       - name: Scan for hardcoded credentials
         run: |
-          go install github.com/trufflesecurity/trufflehog/v3@latest
+          brew install trufflehog
           trufflehog filesystem . --json || echo "trufflehog completed with findings"
 
       - name: Run tests
