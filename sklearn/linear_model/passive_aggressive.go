@@ -44,7 +44,7 @@ type PassiveAggressiveRegressor struct {
 	nFeatures_ int
 }
 
-// PassiveAggressiveClassifier は受動的攻撃的分類モデル
+// PassiveAggressiveClassifier is a passive aggressive classification model
 type PassiveAggressiveClassifier struct {
 	state *model.StateManager // State management (composition instead of embedding)
 
@@ -79,10 +79,10 @@ type PassiveAggressiveClassifier struct {
 	nFeatures_ int
 }
 
-// PassiveAggressiveOption は設定オプション
+// PassiveAggressiveOption is a configuration option
 type PassiveAggressiveOption func(interface{})
 
-// NewPassiveAggressiveRegressor は新しいPassiveAggressiveRegressorを作成
+// NewPassiveAggressiveRegressor creates a new PassiveAggressiveRegressor
 func NewPassiveAggressiveRegressor(options ...PassiveAggressiveOption) *PassiveAggressiveRegressor {
 	pa := &PassiveAggressiveRegressor{
 		state:        model.NewStateManager(),
@@ -106,7 +106,7 @@ func NewPassiveAggressiveRegressor(options ...PassiveAggressiveOption) *PassiveA
 	return pa
 }
 
-// NewPassiveAggressiveClassifier は新しいPassiveAggressiveClassifierを作成
+// NewPassiveAggressiveClassifier creates a new PassiveAggressiveClassifier
 func NewPassiveAggressiveClassifier(options ...PassiveAggressiveOption) *PassiveAggressiveClassifier {
 	pa := &PassiveAggressiveClassifier{
 		state:        model.NewStateManager(),
@@ -130,7 +130,7 @@ func NewPassiveAggressiveClassifier(options ...PassiveAggressiveOption) *Passive
 	return pa
 }
 
-// WithPAC は正則化パラメータを設定
+// WithPAC sets regularization parameter
 func WithPAC(c float64) PassiveAggressiveOption {
 	return func(pa interface{}) {
 		switch p := pa.(type) {
@@ -142,7 +142,7 @@ func WithPAC(c float64) PassiveAggressiveOption {
 	}
 }
 
-// WithPAMaxIter は最大イテレーション数を設定
+// WithPAMaxIter sets maximum number of iterations
 func WithPAMaxIter(maxIter int) PassiveAggressiveOption {
 	return func(pa interface{}) {
 		switch p := pa.(type) {
@@ -154,7 +154,7 @@ func WithPAMaxIter(maxIter int) PassiveAggressiveOption {
 	}
 }
 
-// WithPAFitIntercept は切片学習の有無を設定
+// WithPAFitIntercept sets whether to learn intercept
 func WithPAFitIntercept(fit bool) PassiveAggressiveOption {
 	return func(pa interface{}) {
 		switch p := pa.(type) {
@@ -166,7 +166,7 @@ func WithPAFitIntercept(fit bool) PassiveAggressiveOption {
 	}
 }
 
-// WithPALoss は損失関数を設定
+// WithPALoss sets loss function
 func WithPALoss(loss string) PassiveAggressiveOption {
 	return func(pa interface{}) {
 		switch p := pa.(type) {
