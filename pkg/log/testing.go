@@ -13,6 +13,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"strings"
+	"sync"
 )
 
 // TestLogger is a logger implementation designed for testing.
@@ -21,6 +22,7 @@ type TestLogger struct {
 	buffer *bytes.Buffer
 	level  Level
 	fields map[string]interface{}
+	mu     sync.Mutex // Protects buffer writes for concurrent safety
 }
 
 // NewTestLogger creates a new TestLogger with the specified minimum level.
@@ -135,9 +137,11 @@ func (t *TestLogger) writeLog(level, msg string, fields ...any) {
 		}
 	}
 
-	// Write JSON line
+	// Write JSON line with mutex protection
 	jsonData, _ := json.Marshal(entry)
+	t.mu.Lock()
 	t.buffer.WriteString(string(jsonData) + "\n")
+	t.mu.Unlock()
 }
 
 // GetBuffer returns the internal buffer for direct access to captured logs.

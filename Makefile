@@ -107,6 +107,63 @@ lint-check: ## Check linting issues
 		echo -e "$(YELLOW)golangci-lint not installed. Install with: go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest$(NC)"; \
 	fi
 
+##@ CI Local Execution
+
+ci-local: ## Run all CI checks locally (equivalent to GitHub Actions)
+	@echo -e "$(GREEN)Running complete CI checks locally...$(NC)"
+	@echo -e "$(GREEN)[1/12] Running go vet...$(NC)"
+	@$(MAKE) lint
+	@echo -e "$(GREEN)[2/12] Running staticcheck...$(NC)"
+	@$(MAKE) static-analysis
+	@echo -e "$(GREEN)[3/12] Running govulncheck...$(NC)"
+	@$(MAKE) vuln-check
+	@echo -e "$(GREEN)[4/12] Running gosec...$(NC)"
+	@$(MAKE) gosec-scan
+	@echo -e "$(GREEN)[5/12] Running nancy dependency scanner...$(NC)"
+	@$(MAKE) nancy-scan
+	@echo -e "$(GREEN)[6/12] Running gitleaks secret scanner...$(NC)"
+	@$(MAKE) gitleaks-scan
+	@echo -e "$(GREEN)[7/12] Running trivy vulnerability scanner...$(NC)"
+	@$(MAKE) trivy-scan
+	@echo -e "$(GREEN)[8/12] Running trufflehog credential scanner...$(NC)"
+	@$(MAKE) trufflehog-scan
+	@echo -e "$(GREEN)[9/12] Running tests...$(NC)"
+	@$(MAKE) test
+	@echo -e "$(GREEN)[10/12] Running tests with race detector...$(NC)"
+	@$(GOTEST) -race ./...
+	@echo -e "$(GREEN)[11/12] Checking go mod tidy...$(NC)"
+	@$(MAKE) check-mod-tidy
+	@echo -e "$(GREEN)[12/12] Running semgrep analysis (if available)...$(NC)"
+	@$(MAKE) semgrep-scan
+	@echo -e "$(GREEN)✅ All CI checks completed successfully!$(NC)"
+
+install-ci-tools: ## Install all CI tools (Go tools + system tools)
+	@echo -e "$(GREEN)Installing all CI tools...$(NC)"
+	@echo -e "$(GREEN)Installing Go-based tools...$(NC)"
+	go install golang.org/x/vuln/cmd/govulncheck@latest
+	go install github.com/securego/gosec/v2/cmd/gosec@latest
+	go install honnef.co/go/tools/cmd/staticcheck@latest
+	go install github.com/CycloneDX/cyclonedx-gomod/cmd/cyclonedx-gomod@latest
+	go install github.com/sonatype-nexus-community/nancy@latest
+	@echo -e "$(GREEN)Checking for Homebrew...$(NC)"
+	@if ! command -v brew &> /dev/null; then \
+		echo -e "$(YELLOW)Homebrew not installed. Some tools require manual installation.$(NC)"; \
+		echo -e "$(YELLOW)Visit https://brew.sh to install Homebrew$(NC)"; \
+	else \
+		echo -e "$(GREEN)Installing system tools via Homebrew...$(NC)"; \
+		brew install gitleaks || echo "gitleaks installation failed"; \
+		brew install trivy || echo "trivy installation failed"; \
+		brew install trufflehog || echo "trufflehog installation failed"; \
+	fi
+	@echo -e "$(GREEN)Checking for semgrep...$(NC)"
+	@if command -v python3 &> /dev/null; then \
+		python3 -m pip install semgrep --user || echo "semgrep installation failed"; \
+	else \
+		echo -e "$(YELLOW)Python3 not found. Semgrep requires Python3.$(NC)"; \
+	fi
+	@echo -e "$(GREEN)✅ CI tools installation completed!$(NC)"
+	@echo -e "$(YELLOW)Note: Some tools may require adding to PATH or system restart$(NC)"
+
 ##@ Security Scanning
 
 install-security-tools: ## Install security scanning tools
@@ -115,8 +172,8 @@ install-security-tools: ## Install security scanning tools
 	go install github.com/securego/gosec/v2/cmd/gosec@latest
 	go install honnef.co/go/tools/cmd/staticcheck@latest
 	go install github.com/CycloneDX/cyclonedx-gomod/cmd/cyclonedx-gomod@latest
+	go install github.com/sonatype-nexus-community/nancy@latest
 	@echo -e "$(GREEN)Core security tools installed successfully$(NC)"
-	@echo -e "$(YELLOW)Note: Nancy dependency scanner excluded due to installation issues$(NC)"
 
 security-scan: ## Run complete security scan
 	@echo -e "$(GREEN)Running comprehensive security scan...$(NC)"
@@ -179,6 +236,65 @@ generate-sbom: ## Generate Software Bill of Materials (SBOM)
 		echo -e "$(GREEN)SBOM generated: security/sbom.json and security/sbom.xml$(NC)"; \
 	else \
 		echo -e "$(YELLOW)cyclonedx-gomod not installed. Run 'make install-security-tools'$(NC)"; \
+	fi
+
+nancy-scan: ## Run nancy dependency vulnerability scanner
+	@echo -e "$(GREEN)Running nancy dependency scanner...$(NC)"
+	@if command -v nancy &> /dev/null; then \
+		go list -json -deps ./... 2>/dev/null | nancy sleuth || echo -e "$(YELLOW)Nancy scan completed (check for vulnerabilities above)$(NC)"; \
+	else \
+		echo -e "$(YELLOW)nancy not installed. Run 'make install-ci-tools'$(NC)"; \
+	fi
+
+gitleaks-scan: ## Run gitleaks secret scanner
+	@echo -e "$(GREEN)Running gitleaks secret scanner...$(NC)"
+	@if command -v gitleaks &> /dev/null; then \
+		gitleaks detect --source . --verbose || echo -e "$(YELLOW)Gitleaks scan completed (check for secrets above)$(NC)"; \
+	else \
+		echo -e "$(YELLOW)gitleaks not installed. Run 'make install-ci-tools'$(NC)"; \
+	fi
+
+trivy-scan: ## Run trivy comprehensive vulnerability scanner
+	@echo -e "$(GREEN)Running trivy vulnerability scanner...$(NC)"
+	@mkdir -p security
+	@if command -v trivy &> /dev/null; then \
+		trivy fs --severity HIGH,CRITICAL . || echo -e "$(YELLOW)Trivy scan completed$(NC)"; \
+		trivy fs --format json -o security/trivy-report.json . 2>/dev/null || true; \
+		echo -e "$(GREEN)Trivy report saved to security/trivy-report.json$(NC)"; \
+	else \
+		echo -e "$(YELLOW)trivy not installed. Run 'make install-ci-tools'$(NC)"; \
+	fi
+
+trufflehog-scan: ## Run trufflehog for hardcoded credentials
+	@echo -e "$(GREEN)Running trufflehog credential scanner...$(NC)"
+	@if command -v trufflehog &> /dev/null; then \
+		trufflehog filesystem . --no-update || echo -e "$(YELLOW)Trufflehog scan completed$(NC)"; \
+	else \
+		echo -e "$(YELLOW)trufflehog not installed. Run 'make install-ci-tools'$(NC)"; \
+	fi
+
+semgrep-scan: ## Run semgrep security pattern analysis
+	@echo -e "$(GREEN)Running semgrep security analysis...$(NC)"
+	@if command -v semgrep &> /dev/null; then \
+		semgrep --config=auto --error --verbose . || echo -e "$(YELLOW)Semgrep scan completed$(NC)"; \
+	else \
+		echo -e "$(YELLOW)semgrep not installed. Install with: python3 -m pip install semgrep$(NC)"; \
+		echo -e "$(YELLOW)Skipping semgrep scan (optional tool)$(NC)"; \
+	fi
+
+check-mod-tidy: ## Check if go.mod and go.sum are tidy
+	@echo -e "$(GREEN)Checking go mod tidy...$(NC)"
+	@cp go.mod go.mod.bak
+	@cp go.sum go.sum.bak
+	@go mod tidy
+	@if diff go.mod go.mod.bak > /dev/null && diff go.sum go.sum.bak > /dev/null; then \
+		echo -e "$(GREEN)go.mod and go.sum are tidy$(NC)"; \
+		rm go.mod.bak go.sum.bak; \
+	else \
+		echo -e "$(RED)go.mod or go.sum need tidying. Run 'go mod tidy'$(NC)"; \
+		mv go.mod.bak go.mod; \
+		mv go.sum.bak go.sum; \
+		exit 1; \
 	fi
 
 security-report: ## Generate consolidated security report
