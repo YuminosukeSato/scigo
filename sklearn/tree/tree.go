@@ -117,7 +117,7 @@ func (dt *DecisionTreeClassifier) Fit(X, y mat.Matrix) error {
 	yRows, yCols := y.Dims()
 
 	if nSamples != yRows {
-		return fmt.Errorf("X and y must have same number of samples: got %d and %d", nSamples, yRows)
+		return fmt.Errorf("x and y must have same number of samples: got %d and %d", nSamples, yRows)
 	}
 
 	if yCols != 1 {
