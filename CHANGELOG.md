@@ -7,11 +7,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-### Planned for v0.4.0
-- LogisticRegression implementation with L1/L2 regularization
-- DecisionTreeClassifier and DecisionTreeRegressor
-- Feature importance calculation for tree models
-- Enhanced model evaluation metrics
+## [0.4.0] - 2025-08-07
+
+### Added
+- **LogisticRegression** implementation
+  - Binary and multiclass classification (one-vs-rest)
+  - Gradient descent optimization
+  - L2 regularization support
+  - Probability predictions (PredictProba)
+  - Full scikit-learn API compatibility
+  
+- **DecisionTreeClassifier** implementation
+  - CART algorithm with Gini and Entropy criteria
+  - Feature importance calculation
+  - Max depth and min samples constraints
+  - Multiclass classification support
+  - Probability predictions (PredictProba)
+  - Tree structure introspection (GetDepth, GetNLeaves)
+
+### Fixed
+- Test stability for XOR pattern in DecisionTree
+- Convergence issues in LogisticRegression tests
 
 ### Planned for v0.5.0
 - RandomForestClassifier and RandomForestRegressor
@@ -141,7 +157,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - No support for missing values or categorical variables
 - No ONNX/Pickle compatibility
 
-[Unreleased]: https://github.com/YuminosukeSato/scigo/compare/v0.3.0...HEAD
+[Unreleased]: https://github.com/YuminosukeSato/scigo/compare/v0.4.0...HEAD
+[0.4.0]: https://github.com/YuminosukeSato/scigo/compare/v0.3.0...v0.4.0
 [0.3.0]: https://github.com/YuminosukeSato/scigo/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/YuminosukeSato/scigo/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/YuminosukeSato/scigo/releases/tag/v0.1.0

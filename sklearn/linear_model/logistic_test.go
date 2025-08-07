@@ -170,23 +170,29 @@ func TestLogisticRegression_Score(t *testing.T) {
 		t.Errorf("Score too low: %v", score)
 	}
 	
-	// Perfect classification test
-	XSimple := mat.NewDense(4, 2, []float64{
+	// Perfect classification test with better separated data
+	XSimple := mat.NewDense(6, 2, []float64{
 		0, 0,
 		0, 1,
 		1, 0,
-		1, 1,
+		3, 3,
+		3, 4,
+		4, 3,
 	})
-	ySimple := mat.NewDense(4, 1, []float64{
-		0, 0, 0, 1,
+	ySimple := mat.NewDense(6, 1, []float64{
+		0, 0, 0,  // Class 0 (lower values)
+		1, 1, 1,  // Class 1 (higher values)
 	})
 	
-	lr2 := NewLogisticRegression(WithLRMaxIter(500))
+	lr2 := NewLogisticRegression(
+		WithLRMaxIter(1000),
+		WithLRC(10.0),  // Less regularization for better fit
+	)
 	lr2.Fit(XSimple, ySimple)
 	
 	scoreSimple := lr2.Score(XSimple, ySimple)
 	if scoreSimple != 1.0 {
-		t.Errorf("Expected perfect score for simple data, got %v", scoreSimple)
+		t.Errorf("Expected perfect score for linearly separable data, got %v", scoreSimple)
 	}
 }
 

@@ -352,6 +352,9 @@ func (lr *LogisticRegression) fitBinaryForClass(X, yBinary mat.Matrix, classIdx 
 	weights := lr.coef_[classIdx]
 	intercept := &lr.intercept_[classIdx]
 	
+	// Better learning rate for OVR
+	baseLearningRate := 1.0
+	
 	for iter := 0; iter < lr.maxIter; iter++ {
 		// Similar to fitBinary but for specific class
 		predictions := mat.NewDense(nSamples, 1, nil)
@@ -375,21 +378,29 @@ func (lr *LogisticRegression) fitBinaryForClass(X, yBinary mat.Matrix, classIdx 
 			}
 		}
 		
-		// Add regularization
-		alpha := 1.0 / (lr.C * float64(nSamples))
+		// Scale gradients
+		for j := range gradWeights {
+			gradWeights[j] /= float64(nSamples)
+		}
+		gradIntercept /= float64(nSamples)
+		
+		// Add L2 regularization
 		if lr.penalty == "l2" {
+			lambda := 1.0 / lr.C
 			for j := range weights {
-				gradWeights[j] += alpha * weights[j]
+				gradWeights[j] += lambda * weights[j]
 			}
 		}
 		
+		// Adaptive learning rate
+		learningRate := baseLearningRate / (1.0 + 0.1*float64(iter))
+		
 		// Update weights
-		learningRate := 0.01 / (1.0 + 0.01*float64(iter))
 		for j := range weights {
-			weights[j] -= learningRate * gradWeights[j] / float64(nSamples)
+			weights[j] -= learningRate * gradWeights[j]
 		}
 		if lr.fitIntercept {
-			*intercept -= learningRate * gradIntercept / float64(nSamples)
+			*intercept -= learningRate * gradIntercept
 		}
 		
 		lr.nIter_[classIdx] = iter + 1
