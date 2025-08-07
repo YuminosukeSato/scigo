@@ -34,7 +34,7 @@ type LinearRegression struct {
 	// Statistical information
 	nFeatures_  int       // Number of features
 	nSamples_   int       // Number of samples
-	singularValues_ []float64 // Singular values (for diagnostics)
+	// singularValues_ []float64 // Singular values (for diagnostics) - TODO: implement if needed
 	rank_       int       // Matrix rank
 }
 
@@ -407,8 +407,10 @@ func (lr *LinearRegression) Clone() model.SKLearnCompatible {
 	
 	// Copy weights if the model is trained
 	if lr.state.IsFitted() {
-		weights, _ := lr.ExportWeights()
-		clone.ImportWeights(weights)
+		weights, err := lr.ExportWeights()
+		if err == nil {
+			_ = clone.ImportWeights(weights)
+		}
 	}
 	
 	return clone

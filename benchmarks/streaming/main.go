@@ -548,7 +548,13 @@ func generateClusteringData(samples, features, clusters int, seed int64) (mat.Ma
 		}
 	}
 
-	return X, nil
+	// Generate labels based on cluster assignment
+	y := mat.NewDense(samples, 1, nil)
+	for i := 0; i < samples; i++ {
+		// Recalculate cluster for labeling (simplified approach)
+		y.Set(i, 0, float64(i%clusters))
+	}
+	return X, y
 }
 
 // 評価関数

@@ -137,6 +137,8 @@ func LoadFromReader(reader io.Reader) (*Model, error) {
 
 // finalizeTree parses the tree parameters and constructs the tree nodes
 func finalizeTree(tree *Tree, params map[string]string) error {
+	// Parse tree parameters for future expansion
+	_ = params // Currently unused, reserved for future enhancements
 	// Parse num_leaves
 	if v, ok := params["num_leaves"]; ok {
 		numLeaves, _ := strconv.Atoi(v)

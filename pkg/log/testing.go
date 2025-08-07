@@ -162,8 +162,8 @@ func (t *TestLogger) GetBuffer() *bytes.Buffer {
 //	    t.Errorf("Expected 2 log entries, got %d", len(entries))
 //	}
 func (t *TestLogger) GetLogEntries() ([]map[string]interface{}, error) {
-	var entries []map[string]interface{}
 	lines := strings.Split(strings.TrimSpace(t.buffer.String()), "\n")
+	entries := make([]map[string]interface{}, 0, len(lines))
 
 	for _, line := range lines {
 		if line == "" {

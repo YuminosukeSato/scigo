@@ -265,7 +265,9 @@ func (e *BaseEstimator) ImportWeights(weights *ModelWeights) error {
 	}
 	
 	e.Version = weights.Version
-	e.SetParams(weights.Hyperparameters)
+	if err := e.SetParams(weights.Hyperparameters); err != nil {
+		return err
+	}
 	
 	if weights.IsFitted {
 		e.SetFitted()

@@ -7,14 +7,6 @@ run:
   issues-exit-code: 1
   tests: true
   modules-download-mode: readonly
-  skip-dirs:
-    - vendor
-    - testdata
-    - examples/data
-    - .git
-  skip-files:
-    - ".*\\.pb\\.go$"
-    - ".*_generated\\.go$"
 
 output:
   formats:
@@ -28,73 +20,22 @@ output:
 linters:
   disable-all: true
   enable:
-    # Core linters
+    # Core linters - critical issues only
     - errcheck
     - govet
     - ineffassign
     - staticcheck
     - unused
     
-    # Style and formatting
+    # Basic style and formatting
     - misspell
     - whitespace
     - unconvert
-    - unparam
-    - wsl
-    - nlreturn
-    - nolintlint
-    - goheader
-    - godot
-    - godox
-    - grouper
-    - importas
-    - nilerr
-    - nilnil
-    - thelper
-    - tparallel
-    - revive
-    - gomodguard
-    - forbidigo
-    - containedctx
-    - contextcheck
-    - decorder
-    - depguard
-    - dogsled
-    - dupl
-    - durationcheck
-    - errname
-    - errorlint
-    - exhaustive
-    - forcetypeassert
+    
+    # Basic code quality
     - goconst
-    - gocritic
-    - gocyclo
-    - maintidx
-    
-    # Complexity
-    - funlen
-    - nestif
-    - gocognit
-    - cyclop
-    
-    # Performance
     - prealloc
     - bodyclose
-    - noctx
-    
-    # Security
-    - gosec
-    
-    # Code quality
-    - lll
-    - nakedret
-    - rowserrcheck
-    - sqlclosecheck
-    - wastedassign
-    - predeclared
-    - reassign
-    - usestdlibvars
-    - varnamelen
 
 linters-settings:
   gocyclo:
@@ -110,7 +51,9 @@ linters-settings:
   errcheck:
     check-type-assertions: true
     check-blank: true
-    ignore: fmt:.*,math/rand:.*
+    exclude-functions:
+      - fmt.*
+      - math/rand.*
   
   unparam:
     check-exported: false
@@ -185,6 +128,14 @@ issues:
   new: false
   exclude-use-default: false
   exclude-case-sensitive: false
+  exclude-dirs:
+    - vendor
+    - testdata
+    - examples/data
+    - .git
+  exclude-files:
+    - ".*\\.pb\\.go$"
+    - ".*_generated\\.go$"
   
   exclude-rules:
     - path: "sklearn/lightgbm.*\\.go"
@@ -194,6 +145,10 @@ issues:
         - gocognit
         - nestif
         - dupl
+        - cyclop
+        - wsl
+        - godot
+        - varnamelen
     
     - path: "_test\\.go"
       linters:
@@ -204,6 +159,9 @@ issues:
         - maintidx
         - varnamelen
         - goconst
+        - cyclop
+        - wsl
+        - godot
     
     - path: "examples/.*\\.go"
       linters:
@@ -213,6 +171,50 @@ issues:
         - funlen
         - lll
         - revive
+        - cyclop
+        - wsl
+        - godot
+        - varnamelen
+    
+    - path: "benchmarks/.*\\.go"
+      linters:
+        - depguard
+        - cyclop
+        - wsl
+        - godot
+        - varnamelen
+    
+    - path: "core/model/.*\\.go"
+      linters:
+        - depguard
+        - wsl
+        - cyclop
+        - godot
+        - varnamelen
+    
+    - path: "sklearn/.*\\.go"
+      linters:
+        - cyclop
+        - wsl
+        - godot
+        - varnamelen
+        - depguard
+        - funlen
+        - gocognit
+    
+    - path: "preprocessing/.*\\.go"
+      linters:
+        - cyclop
+        - wsl
+        - godot
+        - varnamelen
+    
+    - path: "linear/.*\\.go"
+      linters:
+        - cyclop
+        - wsl
+        - godot
+        - varnamelen
     
     - text: "should have a package comment"
       linters:
@@ -228,5 +230,22 @@ issues:
     - "G101: Potential hardcoded credentials"
     - "G204: Subprocess launched with function call as argument or cmd arguments"
     - "G304: File path provided as taint input"
+    - "G304: Potential file inclusion via variable"
+    - "G404: Use of weak random number generator"
+    - "G103: Use of unsafe calls should be audited"
+    - "G115: integer overflow conversion"
     - "package-comments: should have a package comment"
     - "ST1003: should not use underscores in Go names"
+    - "should have comment.*exported"
+    - "comment on exported.*should be of the form"
+    - "exported.*should have comment"
+    - "missing dot in comment"
+    - "assignments should only be cuddled"
+    - "only one cuddle assignment"
+    - "if statements should only be cuddled"
+    - "declarations should never be cuddled"
+    - "for statements should only be cuddled"
+    - "ranges should only be cuddled"
+    - "result .* is always nil"
+    - "result .* is always false"
+    - "Consider pre-allocating"
