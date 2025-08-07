@@ -30,7 +30,7 @@ func TestMultinomialNBBasicFit(t *testing.T) {
 		t.Fatalf("Fit failed: %v", err)
 	}
 
-	if !nb.IsFitted() {
+	if !nb.state.IsFitted() {
 		t.Error("Model should be fitted after Fit()")
 	}
 
@@ -72,7 +72,7 @@ func TestMultinomialNBPartialFit(t *testing.T) {
 		t.Fatalf("Second PartialFit failed: %v", err)
 	}
 
-	if !nb.IsFitted() {
+	if !nb.state.IsFitted() {
 		t.Error("Model should be fitted after PartialFit()")
 	}
 

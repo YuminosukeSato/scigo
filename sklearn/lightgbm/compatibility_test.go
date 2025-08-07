@@ -263,7 +263,7 @@ func TestClassifierVsRegressor(t *testing.T) {
 		}
 
 		// Should be fitted
-		if !clf.IsFitted() {
+		if !clf.state.IsFitted() {
 			t.Error("Classifier should be fitted")
 		}
 
@@ -301,7 +301,7 @@ func TestClassifierVsRegressor(t *testing.T) {
 		}
 
 		// Should be fitted
-		if !reg.IsFitted() {
+		if !reg.state.IsFitted() {
 			t.Error("Regressor should be fitted")
 		}
 

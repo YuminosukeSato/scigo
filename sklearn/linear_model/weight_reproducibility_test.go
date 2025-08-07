@@ -262,7 +262,7 @@ func BenchmarkWeightExportImport(b *testing.B) {
 	}
 	
 	mdl := NewLinearRegression()
-	mdl.Fit(X, y)
+	_ = mdl.Fit(X, y)
 	
 	b.ResetTimer()
 	
@@ -278,6 +278,6 @@ func BenchmarkWeightExportImport(b *testing.B) {
 		
 		// インポート
 		newModel := NewLinearRegression()
-		newModel.ImportWeights(weights)
+		_ = newModel.ImportWeights(weights)
 	}
 }
