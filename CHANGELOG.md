@@ -14,6 +14,61 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 - Improved release workflow with automatic changelog generation
 
+## [0.3.0] - 2025-08-07
+
+### Added
+- 🎯 **Full scikit-learn API Compatibility**
+  - Complete `GetParams`/`SetParams` implementation for all models
+  - Standardized parameter management across all estimators
+  - Full compatibility with scikit-learn's estimator interface
+
+- ⚖️ **Model Weight Reproducibility**
+  - Guaranteed identical predictions with the same weights
+  - Full floating-point precision preservation in serialization
+  - Comprehensive weight validation and checksums
+
+- 🔄 **gRPC/Protobuf Support**
+  - Complete protobuf definitions for model weights and matrices
+  - gRPC service definitions for distributed training/prediction
+  - Support for streaming predictions over gRPC
+  - Weight transfer with full precision guarantee
+
+- 📦 **Model Serialization Framework**
+  - `ExportWeights`/`ImportWeights` API for all models
+  - JSON serialization with full precision
+  - Model versioning and compatibility checks
+  - Weight validation and integrity verification
+
+- 🏗️ **Mixin Pattern Implementation**
+  - `ClassifierMixin` for classification models
+  - `RegressorMixin` for regression models  
+  - `TransformerMixin` for preprocessing transformers
+  - `WeightExporter` interface for weight management
+  - `PartialFitMixin` for incremental learning
+
+- ✨ **LinearRegression Implementation**
+  - Full ordinary least squares implementation with QR decomposition
+  - Complete scikit-learn API compatibility
+  - Support for intercept fitting and positive constraints
+  - Comprehensive weight export/import support
+
+### Changed
+- `BaseEstimator` enhanced with parameter management and weight export capabilities
+- Improved model interfaces with standardized weight management
+- Refactored `ModelWeights` into separate module for better organization
+
+### Fixed
+- Function name conflicts in linear_model package (`WithFitIntercept` → `WithLRFitIntercept`)
+- Unused imports and type mismatches in linear regression
+- Test data singularity issues in weight reproducibility tests
+- QR decomposition method calls corrected
+
+### Technical Improvements
+- Added comprehensive weight reproducibility tests
+- Implemented weight hash verification for integrity checks
+- Added benchmarks for weight export/import operations
+- Enhanced error handling for model serialization
+
 ## [0.2.0] - 2025-08-07
 
 ### Added
@@ -66,6 +121,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - No support for missing values or categorical variables
 - No ONNX/Pickle compatibility
 
-[Unreleased]: https://github.com/YuminosukeSato/scigo/compare/v0.2.0...HEAD
+[Unreleased]: https://github.com/YuminosukeSato/scigo/compare/v0.3.0...HEAD
+[0.3.0]: https://github.com/YuminosukeSato/scigo/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/YuminosukeSato/scigo/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/YuminosukeSato/scigo/releases/tag/v0.1.0

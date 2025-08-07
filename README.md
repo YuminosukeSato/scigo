@@ -131,10 +131,11 @@ func main() {
 | Package | Description | Go Doc |
 |---------|-------------|--------|
 | **sklearn/lightgbm** 🌲 | LightGBM with Python model compatibility & convenience features | [![GoDoc](https://pkg.go.dev/badge/github.com/YuminosukeSato/scigo/sklearn/lightgbm)](https://pkg.go.dev/github.com/YuminosukeSato/scigo/sklearn/lightgbm) |
+| **sklearn/linear_model** | Linear models with full scikit-learn compatibility | [![GoDoc](https://pkg.go.dev/badge/github.com/YuminosukeSato/scigo/sklearn/linear_model)](https://pkg.go.dev/github.com/YuminosukeSato/scigo/sklearn/linear_model) |
 | **preprocessing** | Data preprocessing utilities (StandardScaler, MinMaxScaler, OneHotEncoder) | [![GoDoc](https://pkg.go.dev/badge/github.com/YuminosukeSato/scigo/preprocessing)](https://pkg.go.dev/github.com/YuminosukeSato/scigo/preprocessing) |
 | **linear** | Linear machine learning algorithms (LinearRegression) | [![GoDoc](https://pkg.go.dev/badge/github.com/YuminosukeSato/scigo/linear)](https://pkg.go.dev/github.com/YuminosukeSato/scigo/linear) |
 | **metrics** | Model evaluation metrics (MSE, RMSE, MAE, R², MAPE) | [![GoDoc](https://pkg.go.dev/badge/github.com/YuminosukeSato/scigo/metrics)](https://pkg.go.dev/github.com/YuminosukeSato/scigo/metrics) |
-| **core/model** | Base model abstractions and interfaces | [![GoDoc](https://pkg.go.dev/badge/github.com/YuminosukeSato/scigo/core/model)](https://pkg.go.dev/github.com/YuminosukeSato/scigo/core/model) |
+| **core/model** | Base model with weight export/import and scikit-learn compatibility | [![GoDoc](https://pkg.go.dev/badge/github.com/YuminosukeSato/scigo/core/model)](https://pkg.go.dev/github.com/YuminosukeSato/scigo/core/model) |
 
 ### 📋 Complete API Examples
 
@@ -162,7 +163,7 @@ go test -v ./metrics -run Example
 ### Supervised Learning
 
 #### Linear Models
-- ✅ **Linear Regression** - Classic OLS regression with parallel processing
+- ✅ **Linear Regression** - Full scikit-learn compatible implementation with QR decomposition
 - ✅ **SGD Regressor** - Stochastic Gradient Descent for large-scale learning
 - ✅ **SGD Classifier** - Linear classifiers with SGD training
 - ✅ **Passive-Aggressive** - Online learning for classification and regression
@@ -199,7 +200,7 @@ go test -v ./metrics -run Example
 
 ## 🎯 scikit-learn Compatibility
 
-SciGo implements the familiar scikit-learn API:
+SciGo implements the familiar scikit-learn API with full compatibility:
 
 ```go
 // Just like scikit-learn!
@@ -208,9 +209,22 @@ model.Predict(X)              // Make predictions
 model.Score(X, y)             // Evaluate the model
 model.PartialFit(X, y)        // Incremental learning
 
+// New in v0.3.0 - Full scikit-learn compatibility
+model.GetParams(deep)         // Get model parameters
+model.SetParams(params)       // Set model parameters
+weights, _ := model.ExportWeights()  // Export model weights
+model.ImportWeights(weights)  // Import with guaranteed reproducibility
+
 // Streaming - unique to Go!
 model.FitStream(ctx, dataChan) // Streaming training
 ```
+
+### 🆕 New Features in v0.3.0
+
+- **Complete Weight Reproducibility** - Guaranteed identical outputs with same weights
+- **gRPC/Protobuf Support** - Distributed training and prediction
+- **Full Parameter Management** - GetParams/SetParams for all models
+- **Model Serialization** - Export/Import with full precision
 
 ## 📊 Performance Benchmarks
 

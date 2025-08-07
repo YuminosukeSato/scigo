@@ -9,7 +9,6 @@ import (
 	"github.com/YuminosukeSato/scigo/core/model"
 	"github.com/YuminosukeSato/scigo/pkg/errors"
 	"gonum.org/v1/gonum/mat"
-	"gonum.org/v1/gonum/stat"
 )
 
 // LinearRegression は最小二乗法による線形回帰モデル
@@ -68,8 +67,8 @@ func NewLinearRegression(options ...LinearRegressionOption) *LinearRegression {
 // LinearRegressionOption は設定オプション
 type LinearRegressionOption func(*LinearRegression)
 
-// WithFitIntercept は切片の学習有無を設定
-func WithFitIntercept(fit bool) LinearRegressionOption {
+// WithLRFitIntercept は切片の学習有無を設定（LinearRegression用）
+func WithLRFitIntercept(fit bool) LinearRegressionOption {
 	return func(lr *LinearRegression) {
 		lr.fitIntercept = fit
 	}
@@ -162,24 +161,25 @@ func (lr *LinearRegression) Fit(X, y mat.Matrix) error {
 	}
 	
 	// 係数を計算
-	var coefficients mat.VecDense
-	err := qr.SolveTo(&coefficients, false, y)
+	_, qrCols := XFit.Dims()
+	coefficients := mat.NewDense(qrCols, 1, nil)
+	err := qr.SolveTo(coefficients, false, y)
 	if err != nil {
 		return fmt.Errorf("failed to solve linear system: %w", err)
 	}
 	
 	// 係数を取得
 	if lr.fitIntercept {
-		lr.intercept_ = coefficients.AtVec(0)
+		lr.intercept_ = coefficients.At(0, 0)
 		lr.coef_ = make([]float64, cols)
 		for i := 0; i < cols; i++ {
-			lr.coef_[i] = coefficients.AtVec(i + 1)
+			lr.coef_[i] = coefficients.At(i + 1, 0)
 		}
 	} else {
 		lr.intercept_ = 0.0
 		lr.coef_ = make([]float64, cols)
 		for i := 0; i < cols; i++ {
-			lr.coef_[i] = coefficients.AtVec(i)
+			lr.coef_[i] = coefficients.At(i, 0)
 		}
 	}
 	
@@ -401,7 +401,7 @@ func (lr *LinearRegression) GetWeightHash() string {
 // Clone はモデルの新しいインスタンスを作成（同じハイパーパラメータ）
 func (lr *LinearRegression) Clone() model.SKLearnCompatible {
 	clone := NewLinearRegression(
-		WithFitIntercept(lr.fitIntercept),
+		WithLRFitIntercept(lr.fitIntercept),
 		WithNormalize(lr.normalize),
 		WithCopyX(lr.copyX),
 		WithNJobs(lr.nJobs),
