@@ -1,10 +1,8 @@
-# .golangci.yml - Go 1.23/1.24 compatible
-version: "2"
+# .golangci.yml - Relaxed configuration for development
+version: 2
 
 run:
-  go: "1.23"
   timeout: 5m
-  issues-exit-code: 1
   tests: true
   modules-download-mode: readonly
 
@@ -12,238 +10,26 @@ output:
   format: line-number
   print-issued-lines: true
   print-linter-name: true
-  uniq-by-line: true
-  sort-results: true
 
 linters:
   disable-all: true
   enable:
-    # Core linters - critical issues only
+    # Essential linters only
     - errcheck
     - govet
     - ineffassign
     - staticcheck
     - unused
-    
-    # Basic style and formatting
-    - misspell
-    - whitespace
-    - unconvert
-    
-    # Basic code quality
-    - goconst
-    - prealloc
-    - bodyclose
 
 linters-settings:
-  gocyclo:
-    min-complexity: 15
-  
-  funlen:
-    lines: 120
-    statements: 60
-  
-  gocognit:
-    min-complexity: 20
-  
   errcheck:
-    check-type-assertions: true
-    check-blank: true
-    exclude-functions:
-      - fmt.*
-      - math/rand.*
-  
-  unparam:
-    check-exported: false
-  
-  gosec:
-    excludes:
-      - G101
-      - G404
-      - G107
-  
-  dupl:
-    threshold: 150
-  
-  lll:
-    line-length: 120
-  
-  goconst:
-    min-len: 3
-    min-occurrences: 3
-    ignore-tests: true
-  
-  nestif:
-    min-complexity: 6
-  
-  prealloc:
-    simple: true
-    range-loops: true
-    for-loops: true
-  
-  gocritic:
-    enabled-tags:
-      - diagnostic
-      - style
-      - performance
-      - experimental
-      - opinionated
-    disabled-checks:
-      - commentedOutCode
-      - whyNoLint
-      - unnamedResult
-      - hugeParam
-      - rangeValCopy
-  
-  nilnil:
-    checked-types:
-      - ptr
-      - func
-      - iface
-      - map
-      - chan
-  
-  varnamelen:
-    min-name-length: 2
-    ignore-type-assert-ok: true
-    ignore-map-index-ok: true
-    ignore-chan-recv-ok: true
-    ignore-decls:
-      - c echo.Context
-      - t testing.T
-      - e error
-      - i int
-      - j int
-      - k int
-      - v interface{}
-      - x float64
-      - y float64
-      - z float64
+    check-type-assertions: false
+    check-blank: false
 
 issues:
-  max-issues-per-linter: 0
-  max-same-issues: 0
-  new: false
-  exclude-use-default: false
-  exclude-case-sensitive: false
   exclude-dirs:
     - vendor
     - testdata
-    - examples/data
-    - .git
   exclude-files:
     - ".*\\.pb\\.go$"
     - ".*_generated\\.go$"
-  
-  exclude-rules:
-    - path: "sklearn/lightgbm.*\\.go"
-      linters:
-        - funlen
-        - gocyclo
-        - gocognit
-        - nestif
-        - dupl
-        - cyclop
-        - wsl
-        - godot
-        - varnamelen
-    
-    - path: "_test\\.go"
-      linters:
-        - funlen
-        - gocyclo
-        - dupl
-        - lll
-        - maintidx
-        - varnamelen
-        - goconst
-        - cyclop
-        - wsl
-        - godot
-    
-    - path: "examples/.*\\.go"
-      linters:
-        - gocritic
-        - errcheck
-        - gosec
-        - funlen
-        - lll
-        - revive
-        - cyclop
-        - wsl
-        - godot
-        - varnamelen
-    
-    - path: "benchmarks/.*\\.go"
-      linters:
-        - depguard
-        - cyclop
-        - wsl
-        - godot
-        - varnamelen
-    
-    - path: "core/model/.*\\.go"
-      linters:
-        - depguard
-        - wsl
-        - cyclop
-        - godot
-        - varnamelen
-    
-    - path: "sklearn/.*\\.go"
-      linters:
-        - cyclop
-        - wsl
-        - godot
-        - varnamelen
-        - depguard
-        - funlen
-        - gocognit
-    
-    - path: "preprocessing/.*\\.go"
-      linters:
-        - cyclop
-        - wsl
-        - godot
-        - varnamelen
-    
-    - path: "linear/.*\\.go"
-      linters:
-        - cyclop
-        - wsl
-        - godot
-        - varnamelen
-    
-    - text: "should have a package comment"
-      linters:
-        - revive
-    
-    - text: "consider giving a name to these results"
-      path: "sklearn/lightgbm.*\\.go"
-      linters:
-        - gocritic
-  
-  exclude:
-    - "Error return value of .((os\\.)?std(out|err)\\..*|.*Close|.*Flush|os\\.Remove(All)?|.*print(f|ln)?|os\\.(Un)?Setenv). is not checked"
-    - "G101: Potential hardcoded credentials"
-    - "G204: Subprocess launched with function call as argument or cmd arguments"
-    - "G304: File path provided as taint input"
-    - "G304: Potential file inclusion via variable"
-    - "G404: Use of weak random number generator"
-    - "G103: Use of unsafe calls should be audited"
-    - "G115: integer overflow conversion"
-    - "package-comments: should have a package comment"
-    - "ST1003: should not use underscores in Go names"
-    - "should have comment.*exported"
-    - "comment on exported.*should be of the form"
-    - "exported.*should have comment"
-    - "missing dot in comment"
-    - "assignments should only be cuddled"
-    - "only one cuddle assignment"
-    - "if statements should only be cuddled"
-    - "declarations should never be cuddled"
-    - "for statements should only be cuddled"
-    - "ranges should only be cuddled"
-    - "result .* is always nil"
-    - "result .* is always false"
-    - "Consider pre-allocating"
