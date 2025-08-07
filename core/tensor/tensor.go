@@ -5,13 +5,13 @@ import (
 	"gonum.org/v1/gonum/mat"
 )
 
-// Tensor はgonum/mat.Denseをラップした多次元配列構造体
+// Tensor is a multidimensional array structure wrapping gonum/mat.Dense
 type Tensor struct {
 	data  *mat.Dense
 	shape []int
 }
 
-// NewTensor は新しいテンソルを作成する
+// NewTensor creates a new tensor
 func NewTensor(data []float64, shape ...int) (*Tensor, error) {
 	if len(shape) == 0 {
 		return nil, errors.NewValueError("NewTensor", "shape must be provided")
@@ -29,7 +29,7 @@ func NewTensor(data []float64, shape ...int) (*Tensor, error) {
 		return nil, errors.NewDimensionError("NewTensor", size, len(data), 0)
 	}
 
-	// 現在は2次元のみサポート
+	// Currently supports 2D only
 	if len(shape) != 2 {
 		return nil, errors.NewValueError("NewTensor", "currently only 2D tensors are supported")
 	}
@@ -40,7 +40,7 @@ func NewTensor(data []float64, shape ...int) (*Tensor, error) {
 	}, nil
 }
 
-// NewTensorFromDense はmat.Denseから新しいテンソルを作成する
+// NewTensorFromDense creates a new tensor from mat.Dense
 func NewTensorFromDense(dense *mat.Dense) *Tensor {
 	r, c := dense.Dims()
 	return &Tensor{
