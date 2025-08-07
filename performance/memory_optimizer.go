@@ -180,15 +180,21 @@ func NewZeroCopyMatrix(data []float64, rows, cols int) *ZeroCopyMatrix {
 	}
 }
 
-// At returns the value at (i, j) without bounds checking
+// At returns the value at (i, j) with bounds checking
 func (m *ZeroCopyMatrix) At(i, j int) float64 {
+	if i < 0 || i >= m.rows || j < 0 || j >= m.cols {
+		panic(fmt.Sprintf("matrix index out of range: (%d, %d) for matrix of size (%d, %d)", i, j, m.rows, m.cols))
+	}
 	ptr := (*float64)(unsafe.Pointer(uintptr(m.data) + 
 		uintptr(i*m.stride+j)*unsafe.Sizeof(float64(0))))
 	return *ptr
 }
 
-// Set sets the value at (i, j) without bounds checking
+// Set sets the value at (i, j) with bounds checking
 func (m *ZeroCopyMatrix) Set(i, j int, v float64) {
+	if i < 0 || i >= m.rows || j < 0 || j >= m.cols {
+		panic(fmt.Sprintf("matrix index out of range: (%d, %d) for matrix of size (%d, %d)", i, j, m.rows, m.cols))
+	}
 	ptr := (*float64)(unsafe.Pointer(uintptr(m.data) + 
 		uintptr(i*m.stride+j)*unsafe.Sizeof(float64(0))))
 	*ptr = v
@@ -196,6 +202,9 @@ func (m *ZeroCopyMatrix) Set(i, j int, v float64) {
 
 // Slice creates a view of a submatrix without copying
 func (m *ZeroCopyMatrix) Slice(i0, i1, j0, j1 int) *ZeroCopyMatrix {
+	if i0 < 0 || i1 > m.rows || j0 < 0 || j1 > m.cols || i0 >= i1 || j0 >= j1 {
+		panic(fmt.Sprintf("invalid slice bounds: [%d:%d, %d:%d] for matrix of size (%d, %d)", i0, i1, j0, j1, m.rows, m.cols))
+	}
 	offset := i0*m.stride + j0
 	ptr := (*float64)(unsafe.Pointer(uintptr(m.data) + 
 		uintptr(offset)*unsafe.Sizeof(float64(0))))

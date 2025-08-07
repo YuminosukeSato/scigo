@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"math"
 	"os"
+	"path/filepath"
 	"testing"
 
 	"github.com/YuminosukeSato/scigo/core/model"
@@ -77,7 +78,8 @@ func TestLinearRegression_LoadFromSKLearn(t *testing.T) {
 func TestLinearRegression_LoadFromSKLearnFile(t *testing.T) {
 	// ファイルから読み込みテスト
 	lr := linear.NewLinearRegression()
-	err := lr.LoadFromSKLearn("../testdata/sklearn_linear_regression.json")
+	filePath := filepath.Clean("../testdata/sklearn_linear_regression.json")
+	err := lr.LoadFromSKLearn(filePath)
 	if err != nil {
 		t.Fatalf("Failed to load from file: %v", err)
 	}
@@ -95,7 +97,8 @@ func TestLinearRegression_LoadFromSKLearnFile(t *testing.T) {
 func TestLinearRegression_PredictAfterSKLearnLoad(t *testing.T) {
 	// scikit-learnモデルをロード
 	lr := linear.NewLinearRegression()
-	err := lr.LoadFromSKLearn("../testdata/sklearn_linear_regression.json")
+	filePath := filepath.Clean("../testdata/sklearn_linear_regression.json")
+	err := lr.LoadFromSKLearn(filePath)
 	if err != nil {
 		t.Fatalf("Failed to load model: %v", err)
 	}

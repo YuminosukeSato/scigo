@@ -34,7 +34,7 @@ const (
 
 // NewMemoryMappedDataset creates a new memory-mapped dataset
 func NewMemoryMappedDataset(filename string, rows, cols int, dtype DataType) (*MemoryMappedDataset, error) {
-	file, err := os.OpenFile(filename, os.O_RDWR|os.O_CREATE, 0666)
+	file, err := os.OpenFile(filename, os.O_RDWR|os.O_CREATE, 0644)
 	if err != nil {
 		return nil, fmt.Errorf("failed to open file: %w", err)
 	}
