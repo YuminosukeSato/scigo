@@ -386,38 +386,56 @@ func (lgbJSON *LightGBMJSON) ToModel() (*Model, error) {
 	return model, nil
 }
 
-// parseNodeFromJSON converts a JSON node to our Node structure
-func parseNodeFromJSON(nodeMap map[string]interface{}) *Node {
-	node := &Node{}
+// parseNodeFromJSON converts a JSON node to our NodeJSON structure
+func parseNodeFromJSON(nodeMap map[string]interface{}) *NodeJSON {
+	// Use json.Marshal and Unmarshal to map the generic interface to a struct
+	jsonBytes, _ := json.Marshal(nodeMap)
+	var nodeJSON NodeJSON
+	json.Unmarshal(jsonBytes, &nodeJSON)
+	return &nodeJSON
+}
 
-	// Check if it's a leaf
-	if leafValue, ok := nodeMap["leaf_value"].(float64); ok {
+// flattenTree converts a tree structure to a flat array of nodes
+func flattenTree(tree *Tree, nodeJSON *NodeJSON, parentID int) int {
+	node := &Node{
+		ParentID: parentID,
+	}
+
+	// Check if it's a leaf node
+	if nodeJSON.LeftChild == nil && nodeJSON.RightChild == nil {
 		node.NodeType = LeafNode
-		node.LeafValue = leafValue
+		node.LeafValue = nodeJSON.LeafValue
 		node.LeftChild = -1
 		node.RightChild = -1
-		return node
+		nodeID := len(tree.Nodes)
+		node.NodeID = nodeID
+		tree.Nodes = append(tree.Nodes, *node)
+		return nodeID
 	}
 
 	// It's an internal node
 	node.NodeType = NumericalNode
+	node.SplitFeature = nodeJSON.SplitFeature
+	node.Threshold = nodeJSON.Threshold
 
-	if splitFeature, ok := nodeMap["split_feature"].(float64); ok {
-		node.SplitFeature = int(splitFeature)
-	}
-
-	if threshold, ok := nodeMap["threshold"].(float64); ok {
-		node.Threshold = threshold
-	}
-
-	return node
-}
-
-// flattenTree converts a tree structure to a flat array of nodes
-func flattenTree(tree *Tree, node *Node, parentID int) int {
 	nodeID := len(tree.Nodes)
 	node.NodeID = nodeID
-	node.ParentID = parentID
-	tree.Nodes = append(tree.Nodes, *node)
+	tree.Nodes = append(tree.Nodes, *node) // Add placeholder for current node
+
+	// Recursively process children
+	if nodeJSON.LeftChild != nil {
+		leftID := flattenTree(tree, nodeJSON.LeftChild, nodeID)
+		tree.Nodes[nodeID].LeftChild = leftID
+	} else {
+		tree.Nodes[nodeID].LeftChild = -1
+	}
+
+	if nodeJSON.RightChild != nil {
+		rightID := flattenTree(tree, nodeJSON.RightChild, nodeID)
+		tree.Nodes[nodeID].RightChild = rightID
+	} else {
+		tree.Nodes[nodeID].RightChild = -1
+	}
+
 	return nodeID
 }

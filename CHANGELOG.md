@@ -7,9 +7,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Planned for v0.4.0
+- LogisticRegression implementation with L1/L2 regularization
+- DecisionTreeClassifier and DecisionTreeRegressor
+- Feature importance calculation for tree models
+- Enhanced model evaluation metrics
+
+### Planned for v0.5.0
+- RandomForestClassifier and RandomForestRegressor
+- Support Vector Machines (SVM) implementation
+- Kernel methods support
+
+### Planned for v0.6.0
+- XGBoost integration with Python model compatibility
+- Native Go training for gradient boosting
+
+### Planned for v0.7.0
+- LightGBM native training implementation
+- Categorical feature support
+
 ### Added
 - GitHub Releases automation with multi-platform binaries
 - Enhanced CI/CD pipeline with security scanning
+- Development roadmap (ROADMAP.md)
 
 ### Changed
 - Improved release workflow with automatic changelog generation

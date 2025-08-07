@@ -52,7 +52,7 @@ import (
 
 // LinearRegression is a linear regression model
 type LinearRegression struct {
-	state     *model.StateManager // State manager (composition instead of embedding)
+	State     *model.StateManager // State manager (composition instead of embedding) - Public for gob encoding
 	Weights   *mat.VecDense       // Model weights (coefficients)
 	Intercept float64             // Model intercept
 	NFeatures int                 // Number of features
@@ -75,7 +75,7 @@ type LinearRegression struct {
 //	predictions, err := lr.Predict(X_test)
 func NewLinearRegression() *LinearRegression {
 	lr := &LinearRegression{
-		state: model.NewStateManager(),
+		State: model.NewStateManager(),
 	}
 
 	// Set up logger with model context
@@ -197,8 +197,8 @@ func (lr *LinearRegression) Fit(X, y mat.Matrix) (err error) {
 	}
 
 	// Set model as fitted
-	lr.state.SetFitted()
-	lr.state.SetDimensions(lr.NFeatures, r)
+	lr.State.SetFitted()
+	lr.State.SetDimensions(lr.NFeatures, r)
 
 	duration := time.Since(startTime)
 	if lr.logger != nil {
@@ -240,7 +240,7 @@ func (lr *LinearRegression) Fit(X, y mat.Matrix) (err error) {
 //	fmt.Printf("First prediction: %.2f\n", predictions.At(0, 0))
 func (lr *LinearRegression) Predict(X mat.Matrix) (_ mat.Matrix, err error) {
 	defer scigoErrors.Recover(&err, "LinearRegression.Predict")
-	if !lr.state.IsFitted() {
+	if !lr.State.IsFitted() {
 		return nil, scigoErrors.NewNotFittedError("LinearRegression", "Predict")
 	}
 
@@ -294,7 +294,7 @@ func (lr *LinearRegression) GetWeights() []float64 {
 
 // GetIntercept returns the learned intercept
 func (lr *LinearRegression) GetIntercept() float64 {
-	if !lr.state.IsFitted() {
+	if !lr.State.IsFitted() {
 		return 0
 	}
 	return lr.Intercept
@@ -303,7 +303,7 @@ func (lr *LinearRegression) GetIntercept() float64 {
 // Score calculates the coefficient of determination (R²) of the model
 func (lr *LinearRegression) Score(X, y mat.Matrix) (_ float64, err error) {
 	defer scigoErrors.Recover(&err, "LinearRegression.Score")
-	if !lr.state.IsFitted() {
+	if !lr.State.IsFitted() {
 		return 0, scigoErrors.NewNotFittedError("LinearRegression", "Score")
 	}
 
@@ -392,9 +392,9 @@ func (lr *LinearRegression) LoadFromSKLearnReader(r io.Reader) (err error) {
 	lr.Weights = mat.NewVecDense(len(params.Coefficients), params.Coefficients)
 
 	// Set model as fitted
-	lr.state.SetFitted()
+	lr.State.SetFitted()
 	// Note: sample count is not available when loading from file
-	lr.state.SetDimensions(lr.NFeatures, 0)
+	lr.State.SetDimensions(lr.NFeatures, 0)
 
 	return nil
 }
@@ -408,7 +408,7 @@ func (lr *LinearRegression) LoadFromSKLearnReader(r io.Reader) (err error) {
 //   - error: Error if export fails
 func (lr *LinearRegression) ExportToSKLearn(filename string) (err error) {
 	defer scigoErrors.Recover(&err, "LinearRegression.ExportToSKLearn")
-	if !lr.state.IsFitted() {
+	if !lr.State.IsFitted() {
 		return scigoErrors.NewNotFittedError("LinearRegression", "ExportToSKLearn")
 	}
 
@@ -430,7 +430,7 @@ func (lr *LinearRegression) ExportToSKLearn(filename string) (err error) {
 //   - error: Error if export fails
 func (lr *LinearRegression) ExportToSKLearnWriter(w io.Writer) (err error) {
 	defer scigoErrors.Recover(&err, "LinearRegression.ExportToSKLearnWriter")
-	if !lr.state.IsFitted() {
+	if !lr.State.IsFitted() {
 		return scigoErrors.NewNotFittedError("LinearRegression", "ExportToSKLearnWriter")
 	}
 
@@ -472,14 +472,14 @@ func (lr *LinearRegression) ExportToSKLearnWriter(w io.Writer) (err error) {
 
 // IsFitted returns whether the model has been fitted.
 func (lr *LinearRegression) IsFitted() bool {
-	return lr.state.IsFitted()
+	return lr.State.IsFitted()
 }
 
 // GetParams returns the model's hyperparameters.
 func (lr *LinearRegression) GetParams() map[string]interface{} {
 	return map[string]interface{}{
 		"n_features": lr.NFeatures,
-		"fitted":     lr.state.IsFitted(),
+		"fitted":     lr.State.IsFitted(),
 	}
 }
 

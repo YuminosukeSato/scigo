@@ -9,18 +9,18 @@ import (
 // StateManager manages the fitted state of a model in a thread-safe manner.
 // It replaces the BaseEstimator embedding pattern with composition.
 type StateManager struct {
-	fitted bool
+	Fitted bool         // Public for gob encoding
 	mu     sync.RWMutex
 	
-	// Optional metadata
-	nFeatures int
-	nSamples  int
+	// Optional metadata - Public for gob encoding
+	NFeatures int
+	NSamples  int
 }
 
 // NewStateManager creates a new StateManager instance.
 func NewStateManager() *StateManager {
 	return &StateManager{
-		fitted: false,
+		Fitted: false,
 	}
 }
 
@@ -28,38 +28,38 @@ func NewStateManager() *StateManager {
 func (s *StateManager) IsFitted() bool {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
-	return s.fitted
+	return s.Fitted
 }
 
 // SetFitted marks the model as fitted.
 func (s *StateManager) SetFitted() {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	s.fitted = true
+	s.Fitted = true
 }
 
 // Reset resets the fitted state.
 func (s *StateManager) Reset() {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	s.fitted = false
-	s.nFeatures = 0
-	s.nSamples = 0
+	s.Fitted = false
+	s.NFeatures = 0
+	s.NSamples = 0
 }
 
 // SetDimensions sets the number of features and samples seen during fitting.
 func (s *StateManager) SetDimensions(nFeatures, nSamples int) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	s.nFeatures = nFeatures
-	s.nSamples = nSamples
+	s.NFeatures = nFeatures
+	s.NSamples = nSamples
 }
 
 // GetDimensions returns the number of features and samples seen during fitting.
 func (s *StateManager) GetDimensions() (nFeatures, nSamples int) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
-	return s.nFeatures, s.nSamples
+	return s.NFeatures, s.NSamples
 }
 
 // RequireFitted returns an error if the model has not been fitted.
@@ -85,9 +85,9 @@ func (s *StateManager) GetState() ModelState {
 	defer s.mu.RUnlock()
 	
 	return ModelState{
-		Fitted:    s.fitted,
-		NFeatures: s.nFeatures,
-		NSamples:  s.nSamples,
+		Fitted:    s.Fitted,
+		NFeatures: s.NFeatures,
+		NSamples:  s.NSamples,
 	}
 }
 
@@ -96,9 +96,9 @@ func (s *StateManager) SetState(state ModelState) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	
-	s.fitted = state.Fitted
-	s.nFeatures = state.NFeatures
-	s.nSamples = state.NSamples
+	s.Fitted = state.Fitted
+	s.NFeatures = state.NFeatures
+	s.NSamples = state.NSamples
 }
 
 // WithState is a helper function that executes a function with the state locked for reading.
