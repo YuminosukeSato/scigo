@@ -58,7 +58,7 @@ type SGDRegressor struct {
 // NewSGDRegressor creates a new SGDRegressor
 func NewSGDRegressor(options ...Option) *SGDRegressor {
 	sgd := &SGDRegressor{
-		state:        model.NewStateManager(),
+		state:         model.NewStateManager(),
 		loss:          "squared_error",
 		penalty:       "l2",
 		alpha:         0.0001,
@@ -725,22 +725,22 @@ func (sgd *SGDRegressor) IsFitted() bool {
 // GetParams returns the hyperparameters
 func (sgd *SGDRegressor) GetParams() map[string]interface{} {
 	return map[string]interface{}{
-		"loss":           sgd.loss,
-		"penalty":        sgd.penalty,
-		"alpha":          sgd.alpha,
-		"l1_ratio":       sgd.l1Ratio,
-		"fit_intercept":  sgd.fitIntercept,
-		"max_iter":       sgd.maxIter,
-		"tol":            sgd.tol,
-		"shuffle":        sgd.shuffle,
-		"verbose":        sgd.verbose,
-		"epsilon":        sgd.epsilon,
-		"random_state":   sgd.randomState,
-		"learning_rate":  sgd.learningRate,
-		"eta0":           sgd.eta0,
-		"power_t":        sgd.power_t,
-		"warm_start":     sgd.warmStart,
-		"average":        sgd.averageSGD,
+		"loss":             sgd.loss,
+		"penalty":          sgd.penalty,
+		"alpha":            sgd.alpha,
+		"l1_ratio":         sgd.l1Ratio,
+		"fit_intercept":    sgd.fitIntercept,
+		"max_iter":         sgd.maxIter,
+		"tol":              sgd.tol,
+		"shuffle":          sgd.shuffle,
+		"verbose":          sgd.verbose,
+		"epsilon":          sgd.epsilon,
+		"random_state":     sgd.randomState,
+		"learning_rate":    sgd.learningRate,
+		"eta0":             sgd.eta0,
+		"power_t":          sgd.power_t,
+		"warm_start":       sgd.warmStart,
+		"average":          sgd.averageSGD,
 		"n_iter_no_change": sgd.nIterNoChange,
 	}
 }

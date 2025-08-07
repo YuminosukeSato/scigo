@@ -26,7 +26,7 @@ echo ""
 
 # Track failures
 FAILED_CHECKS=()
-TOTAL_CHECKS=12
+TOTAL_CHECKS=13
 CURRENT_CHECK=0
 
 # Function to run a check
@@ -85,54 +85,60 @@ echo ""
 echo -e "${BLUE}Starting CI checks...${NC}"
 echo ""
 
-# 1. Go vet
+# 1. Auto-format code
+echo -e "${GREEN}[1/$TOTAL_CHECKS] Auto-formatting code...${NC}"
+go fmt ./...
+echo -e "${GREEN}✓ Code formatted${NC}"
+echo ""
+
+# 2. Go vet
 run_check "go vet" "go vet ./..."
 
-# 2. Staticcheck
+# 3. Staticcheck
 run_check "staticcheck" "staticcheck ./..."
 
-# 3. Govulncheck
+# 4. Govulncheck
 run_check "govulncheck" "govulncheck ./..."
 
-# 4. Gosec
+# 5. Gosec
 run_check "gosec" "gosec -quiet -fmt text ./..."
 
-# 5. Nancy (if available)
+# 6. Nancy (if available)
 if command -v nancy &> /dev/null; then
     run_check "nancy dependency scan" "go list -json -deps ./... 2>/dev/null | nancy sleuth"
 else
     echo -e "${YELLOW}[$((++CURRENT_CHECK))/$TOTAL_CHECKS] Skipping nancy (not installed)${NC}"
 fi
 
-# 6. Gitleaks (if available)
+# 7. Gitleaks (if available)
 if command -v gitleaks &> /dev/null; then
     run_check "gitleaks secret scan" "gitleaks detect --source . --verbose"
 else
     echo -e "${YELLOW}[$((++CURRENT_CHECK))/$TOTAL_CHECKS] Skipping gitleaks (not installed)${NC}"
 fi
 
-# 7. Trivy (if available)
+# 8. Trivy (if available)
 if command -v trivy &> /dev/null; then
     run_check "trivy vulnerability scan" "trivy fs --severity HIGH,CRITICAL ."
 else
     echo -e "${YELLOW}[$((++CURRENT_CHECK))/$TOTAL_CHECKS] Skipping trivy (not installed)${NC}"
 fi
 
-# 8. Trufflehog (if available)
+# 9. Trufflehog (if available)
 if command -v trufflehog &> /dev/null; then
     run_check "trufflehog credential scan" "trufflehog filesystem . --no-update"
 else
     echo -e "${YELLOW}[$((++CURRENT_CHECK))/$TOTAL_CHECKS] Skipping trufflehog (not installed)${NC}"
 fi
 
-# 9. Go test
+# 10. Go test
 run_check "go test" "go test -v -race -cover ./..."
 
-# 10. Go test with race detector (already included above, so just a quick test)
+# 11. Go test with race detector (already included above, so just a quick test)
 run_check "race condition check" "go test -race ./..."
 
-# 11. Go mod tidy check
-echo -e "${GREEN}[11/$TOTAL_CHECKS] Checking go mod tidy${NC}"
+# 12. Go mod tidy check
+echo -e "${GREEN}[12/$TOTAL_CHECKS] Checking go mod tidy${NC}"
 cp go.mod go.mod.bak
 cp go.sum go.sum.bak
 go mod tidy
@@ -147,11 +153,11 @@ else
 fi
 echo ""
 
-# 12. Semgrep (if available)
+# 13. Semgrep (if available)
 if command -v semgrep &> /dev/null; then
     run_check "semgrep security analysis" "semgrep --config=auto --error --verbose ."
 else
-    echo -e "${YELLOW}[12/$TOTAL_CHECKS] Skipping semgrep (not installed)${NC}"
+    echo -e "${YELLOW}[13/$TOTAL_CHECKS] Skipping semgrep (not installed)${NC}"
 fi
 
 # Summary

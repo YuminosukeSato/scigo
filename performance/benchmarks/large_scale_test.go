@@ -464,7 +464,7 @@ func benchmarkBatchPrediction(b *testing.B, samples, features int) {
 	trainY := mat.NewDense(1000, 1, nil)
 	if err := model.Fit(trainX, trainY); err != nil {
 		b.Fatalf("Failed to fit model: %v", err)
-		}
+	}
 
 	pool := performance.NewMatrixPool(10)
 

@@ -15,27 +15,27 @@ type LogisticRegression struct {
 	state *model.StateManager // State management (composition)
 
 	// Hyperparameters
-	penalty        string  // Regularization: "l2", "l1", "elasticnet", "none"
-	C              float64 // Inverse regularization strength (1/alpha)
-	fitIntercept   bool    // Whether to fit intercept
+	penalty          string  // Regularization: "l2", "l1", "elasticnet", "none"
+	C                float64 // Inverse regularization strength (1/alpha)
+	fitIntercept     bool    // Whether to fit intercept
 	interceptScaling float64 // Intercept scaling
-	classWeight    string  // Class weight: "balanced", "none"
-	randomState    int64   // Random seed
-	solver         string  // Solver: "lbfgs", "liblinear", "newton-cg", "sag", "saga"
-	maxIter        int     // Maximum iterations
-	multiClass     string  // Multi-class: "auto", "ovr", "multinomial"
-	verbose        int     // Verbosity level
-	warmStart      bool    // Reuse previous solution
-	l1Ratio        float64 // L1 ratio for elastic net
-	tol            float64 // Tolerance for stopping
+	classWeight      string  // Class weight: "balanced", "none"
+	randomState      int64   // Random seed
+	solver           string  // Solver: "lbfgs", "liblinear", "newton-cg", "sag", "saga"
+	maxIter          int     // Maximum iterations
+	multiClass       string  // Multi-class: "auto", "ovr", "multinomial"
+	verbose          int     // Verbosity level
+	warmStart        bool    // Reuse previous solution
+	l1Ratio          float64 // L1 ratio for elastic net
+	tol              float64 // Tolerance for stopping
 
 	// Model parameters
-	coef_        [][]float64 // Coefficients (n_classes x n_features or 1 x n_features for binary)
-	intercept_   []float64   // Intercept terms
-	classes_     []int       // Unique class labels
-	nClasses_    int         // Number of classes
-	nFeatures_   int         // Number of features
-	nIter_       []int       // Actual iterations per class
+	coef_      [][]float64 // Coefficients (n_classes x n_features or 1 x n_features for binary)
+	intercept_ []float64   // Intercept terms
+	classes_   []int       // Unique class labels
+	nClasses_  int         // Number of classes
+	nFeatures_ int         // Number of features
+	nIter_     []int       // Actual iterations per class
 
 	// Internal state
 	rand *rand.Rand
@@ -137,11 +137,11 @@ func (lr *LogisticRegression) Fit(X, y mat.Matrix) error {
 	// Validate inputs
 	nSamples, nFeatures := X.Dims()
 	yRows, yCols := y.Dims()
-	
+
 	if nSamples != yRows {
 		return fmt.Errorf("x and y must have the same number of samples: got %d and %d", nSamples, yRows)
 	}
-	
+
 	if yCols != 1 {
 		return fmt.Errorf("y must be a column vector: got shape (%d, %d)", yRows, yCols)
 	}
@@ -186,17 +186,17 @@ func (lr *LogisticRegression) Fit(X, y mat.Matrix) error {
 func (lr *LogisticRegression) extractClasses(y mat.Matrix) {
 	rows, _ := y.Dims()
 	classMap := make(map[int]bool)
-	
+
 	for i := 0; i < rows; i++ {
 		label := int(y.At(i, 0))
 		classMap[label] = true
 	}
-	
+
 	lr.classes_ = make([]int, 0, len(classMap))
 	for class := range classMap {
 		lr.classes_ = append(lr.classes_, class)
 	}
-	
+
 	// Sort classes for consistency
 	for i := 0; i < len(lr.classes_)-1; i++ {
 		for j := i + 1; j < len(lr.classes_); j++ {
@@ -205,7 +205,7 @@ func (lr *LogisticRegression) extractClasses(y mat.Matrix) {
 			}
 		}
 	}
-	
+
 	lr.nClasses_ = len(lr.classes_)
 }
 
@@ -224,9 +224,9 @@ func (lr *LogisticRegression) initializeWeights(nFeatures int) {
 		}
 		lr.intercept_ = make([]float64, lr.nClasses_)
 	}
-	
+
 	lr.nIter_ = make([]int, len(lr.coef_))
-	
+
 	// Initialize with small random values
 	for i := range lr.coef_ {
 		for j := range lr.coef_[i] {
@@ -238,7 +238,7 @@ func (lr *LogisticRegression) initializeWeights(nFeatures int) {
 // fitBinary fits binary logistic regression using gradient descent
 func (lr *LogisticRegression) fitBinary(X, y mat.Matrix) error {
 	nSamples, nFeatures := X.Dims()
-	
+
 	// Convert labels to 0/1
 	yBinary := mat.NewDense(nSamples, 1, nil)
 	for i := 0; i < nSamples; i++ {
@@ -248,14 +248,14 @@ func (lr *LogisticRegression) fitBinary(X, y mat.Matrix) error {
 			yBinary.Set(i, 0, 0.0)
 		}
 	}
-	
+
 	// Gradient descent with improved learning rate
 	weights := lr.coef_[0]
 	intercept := &lr.intercept_[0]
-	
+
 	// Better learning rate schedule
 	baseLearningRate := 1.0
-	
+
 	for iter := 0; iter < lr.maxIter; iter++ {
 		// Compute predictions
 		predictions := mat.NewDense(nSamples, 1, nil)
@@ -266,11 +266,11 @@ func (lr *LogisticRegression) fitBinary(X, y mat.Matrix) error {
 			}
 			predictions.Set(i, 0, sigmoid(z))
 		}
-		
+
 		// Compute gradients
 		gradWeights := make([]float64, nFeatures)
 		gradIntercept := 0.0
-		
+
 		for i := 0; i < nSamples; i++ {
 			error := predictions.At(i, 0) - yBinary.At(i, 0)
 			gradIntercept += error
@@ -278,13 +278,13 @@ func (lr *LogisticRegression) fitBinary(X, y mat.Matrix) error {
 				gradWeights[j] += error * X.At(i, j)
 			}
 		}
-		
+
 		// Scale gradients by number of samples
 		for j := range gradWeights {
 			gradWeights[j] /= float64(nSamples)
 		}
 		gradIntercept /= float64(nSamples)
-		
+
 		// Add L2 regularization gradient
 		if lr.penalty == "l2" {
 			lambda := 1.0 / lr.C
@@ -292,10 +292,10 @@ func (lr *LogisticRegression) fitBinary(X, y mat.Matrix) error {
 				gradWeights[j] += lambda * weights[j]
 			}
 		}
-		
+
 		// Adaptive learning rate
 		learningRate := baseLearningRate / (1.0 + 0.1*float64(iter))
-		
+
 		// Update weights
 		for j := range weights {
 			weights[j] -= learningRate * gradWeights[j]
@@ -303,9 +303,9 @@ func (lr *LogisticRegression) fitBinary(X, y mat.Matrix) error {
 		if lr.fitIntercept {
 			*intercept -= learningRate * gradIntercept
 		}
-		
+
 		lr.nIter_[0] = iter + 1
-		
+
 		// Check convergence
 		maxGrad := math.Abs(gradIntercept)
 		for _, g := range gradWeights {
@@ -317,14 +317,14 @@ func (lr *LogisticRegression) fitBinary(X, y mat.Matrix) error {
 			break
 		}
 	}
-	
+
 	return nil
 }
 
 // fitOVR fits one-vs-rest multiclass classification
 func (lr *LogisticRegression) fitOVR(X, y mat.Matrix) error {
 	nSamples, _ := X.Dims()
-	
+
 	for classIdx, class := range lr.classes_ {
 		// Create binary labels for this class
 		yBinary := mat.NewDense(nSamples, 1, nil)
@@ -335,14 +335,14 @@ func (lr *LogisticRegression) fitOVR(X, y mat.Matrix) error {
 				yBinary.Set(i, 0, 0.0)
 			}
 		}
-		
+
 		// Fit binary classifier for this class
 		err := lr.fitBinaryForClass(X, yBinary, classIdx)
 		if err != nil {
 			return fmt.Errorf("failed to fit class %d: %v", class, err)
 		}
 	}
-	
+
 	return nil
 }
 
@@ -351,10 +351,10 @@ func (lr *LogisticRegression) fitBinaryForClass(X, yBinary mat.Matrix, classIdx 
 	nSamples, nFeatures := X.Dims()
 	weights := lr.coef_[classIdx]
 	intercept := &lr.intercept_[classIdx]
-	
+
 	// Better learning rate for OVR
 	baseLearningRate := 1.0
-	
+
 	for iter := 0; iter < lr.maxIter; iter++ {
 		// Similar to fitBinary but for specific class
 		predictions := mat.NewDense(nSamples, 1, nil)
@@ -365,11 +365,11 @@ func (lr *LogisticRegression) fitBinaryForClass(X, yBinary mat.Matrix, classIdx 
 			}
 			predictions.Set(i, 0, sigmoid(z))
 		}
-		
+
 		// Compute gradients
 		gradWeights := make([]float64, nFeatures)
 		gradIntercept := 0.0
-		
+
 		for i := 0; i < nSamples; i++ {
 			error := predictions.At(i, 0) - yBinary.At(i, 0)
 			gradIntercept += error
@@ -377,13 +377,13 @@ func (lr *LogisticRegression) fitBinaryForClass(X, yBinary mat.Matrix, classIdx 
 				gradWeights[j] += error * X.At(i, j)
 			}
 		}
-		
+
 		// Scale gradients
 		for j := range gradWeights {
 			gradWeights[j] /= float64(nSamples)
 		}
 		gradIntercept /= float64(nSamples)
-		
+
 		// Add L2 regularization
 		if lr.penalty == "l2" {
 			lambda := 1.0 / lr.C
@@ -391,10 +391,10 @@ func (lr *LogisticRegression) fitBinaryForClass(X, yBinary mat.Matrix, classIdx 
 				gradWeights[j] += lambda * weights[j]
 			}
 		}
-		
+
 		// Adaptive learning rate
 		learningRate := baseLearningRate / (1.0 + 0.1*float64(iter))
-		
+
 		// Update weights
 		for j := range weights {
 			weights[j] -= learningRate * gradWeights[j]
@@ -402,9 +402,9 @@ func (lr *LogisticRegression) fitBinaryForClass(X, yBinary mat.Matrix, classIdx 
 		if lr.fitIntercept {
 			*intercept -= learningRate * gradIntercept
 		}
-		
+
 		lr.nIter_[classIdx] = iter + 1
-		
+
 		// Check convergence
 		maxGrad := math.Abs(gradIntercept)
 		for _, g := range gradWeights {
@@ -416,7 +416,7 @@ func (lr *LogisticRegression) fitBinaryForClass(X, yBinary mat.Matrix, classIdx 
 			break
 		}
 	}
-	
+
 	return nil
 }
 
@@ -431,10 +431,10 @@ func (lr *LogisticRegression) Predict(X mat.Matrix) (mat.Matrix, error) {
 	if !lr.state.IsFitted() {
 		return nil, fmt.Errorf("model must be fitted before prediction")
 	}
-	
+
 	nSamples, _ := X.Dims()
 	predictions := mat.NewDense(nSamples, 1, nil)
-	
+
 	if lr.nClasses_ == 2 {
 		// Binary classification
 		for i := 0; i < nSamples; i++ {
@@ -454,7 +454,7 @@ func (lr *LogisticRegression) Predict(X mat.Matrix) (mat.Matrix, error) {
 		for i := 0; i < nSamples; i++ {
 			maxScore := -math.MaxFloat64
 			bestClass := 0
-			
+
 			for classIdx := 0; classIdx < lr.nClasses_; classIdx++ {
 				score := lr.intercept_[classIdx]
 				for j := 0; j < lr.nFeatures_; j++ {
@@ -468,7 +468,7 @@ func (lr *LogisticRegression) Predict(X mat.Matrix) (mat.Matrix, error) {
 			predictions.Set(i, 0, float64(lr.classes_[bestClass]))
 		}
 	}
-	
+
 	return predictions, nil
 }
 
@@ -477,10 +477,10 @@ func (lr *LogisticRegression) PredictProba(X mat.Matrix) (mat.Matrix, error) {
 	if !lr.state.IsFitted() {
 		return nil, fmt.Errorf("model must be fitted before prediction")
 	}
-	
+
 	nSamples, _ := X.Dims()
 	probas := mat.NewDense(nSamples, lr.nClasses_, nil)
-	
+
 	if lr.nClasses_ == 2 {
 		// Binary classification
 		for i := 0; i < nSamples; i++ {
@@ -497,7 +497,7 @@ func (lr *LogisticRegression) PredictProba(X mat.Matrix) (mat.Matrix, error) {
 		for i := 0; i < nSamples; i++ {
 			scores := make([]float64, lr.nClasses_)
 			maxScore := -math.MaxFloat64
-			
+
 			// Compute scores
 			for classIdx := 0; classIdx < lr.nClasses_; classIdx++ {
 				score := lr.intercept_[classIdx]
@@ -509,20 +509,20 @@ func (lr *LogisticRegression) PredictProba(X mat.Matrix) (mat.Matrix, error) {
 					maxScore = score
 				}
 			}
-			
+
 			// Apply softmax
 			sum := 0.0
 			for classIdx := 0; classIdx < lr.nClasses_; classIdx++ {
 				scores[classIdx] = math.Exp(scores[classIdx] - maxScore)
 				sum += scores[classIdx]
 			}
-			
+
 			for classIdx := 0; classIdx < lr.nClasses_; classIdx++ {
 				probas.Set(i, classIdx, scores[classIdx]/sum)
 			}
 		}
 	}
-	
+
 	return probas, nil
 }
 
@@ -532,16 +532,16 @@ func (lr *LogisticRegression) Score(X, y mat.Matrix) float64 {
 	if err != nil {
 		return 0.0
 	}
-	
+
 	nSamples, _ := X.Dims()
 	correct := 0
-	
+
 	for i := 0; i < nSamples; i++ {
 		if predictions.At(i, 0) == y.At(i, 0) {
 			correct++
 		}
 	}
-	
+
 	return float64(correct) / float64(nSamples)
 }
 

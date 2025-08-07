@@ -9,9 +9,9 @@ import (
 // StateManager manages the fitted state of a model in a thread-safe manner.
 // It replaces the BaseEstimator embedding pattern with composition.
 type StateManager struct {
-	Fitted bool         // Public for gob encoding
+	Fitted bool // Public for gob encoding
 	mu     sync.RWMutex
-	
+
 	// Optional metadata - Public for gob encoding
 	NFeatures int
 	NSamples  int
@@ -83,7 +83,7 @@ type ModelState struct {
 func (s *StateManager) GetState() ModelState {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
-	
+
 	return ModelState{
 		Fitted:    s.Fitted,
 		NFeatures: s.NFeatures,
@@ -95,7 +95,7 @@ func (s *StateManager) GetState() ModelState {
 func (s *StateManager) SetState(state ModelState) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	
+
 	s.Fitted = state.Fitted
 	s.NFeatures = state.NFeatures
 	s.NSamples = state.NSamples

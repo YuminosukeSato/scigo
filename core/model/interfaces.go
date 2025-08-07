@@ -37,10 +37,10 @@ type Classifier interface {
 	Estimator
 	Predictor
 	Scorer
-	
+
 	// PredictProba returns probability estimates for each class.
 	PredictProba(X mat.Matrix) (mat.Matrix, error)
-	
+
 	// Classes returns the unique classes seen during fitting.
 	Classes() []int
 }
@@ -73,7 +73,7 @@ type ParameterSetter interface {
 type Persistable interface {
 	// Save saves the model to a file.
 	Save(path string) error
-	
+
 	// Load loads the model from a file.
 	Load(path string) error
 }

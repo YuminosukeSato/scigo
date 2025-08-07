@@ -87,6 +87,17 @@ fmt: ## Format code
 	@echo -e "$(GREEN)Formatting code...$(NC)"
 	$(GO) fmt ./...
 
+fmt-check: ## Check if code is formatted
+	@echo -e "$(GREEN)Checking code formatting...$(NC)"
+	@if [ -n "$$(gofmt -l .)" ]; then \
+		echo -e "$(RED)The following files need formatting:$(NC)"; \
+		gofmt -l .; \
+		echo -e "$(YELLOW)Run 'make fmt' or 'go fmt ./...' to fix$(NC)"; \
+		exit 1; \
+	else \
+		echo -e "$(GREEN)All files are properly formatted$(NC)"; \
+	fi
+
 lint: ## Run go vet
 	@echo -e "$(GREEN)Running go vet...$(NC)"
 	$(GOVET) ./...
@@ -111,29 +122,31 @@ lint-check: ## Check linting issues
 
 ci-local: ## Run all CI checks locally (equivalent to GitHub Actions)
 	@echo -e "$(GREEN)Running complete CI checks locally...$(NC)"
-	@echo -e "$(GREEN)[1/12] Running go vet...$(NC)"
+	@echo -e "$(GREEN)[1/13] Auto-formatting code...$(NC)"
+	@$(MAKE) fmt
+	@echo -e "$(GREEN)[2/13] Running go vet...$(NC)"
 	@$(MAKE) lint
-	@echo -e "$(GREEN)[2/12] Running staticcheck...$(NC)"
+	@echo -e "$(GREEN)[3/13] Running staticcheck...$(NC)"
 	@$(MAKE) static-analysis
-	@echo -e "$(GREEN)[3/12] Running govulncheck...$(NC)"
+	@echo -e "$(GREEN)[4/13] Running govulncheck...$(NC)"
 	@$(MAKE) vuln-check
-	@echo -e "$(GREEN)[4/12] Running gosec...$(NC)"
+	@echo -e "$(GREEN)[5/13] Running gosec...$(NC)"
 	@$(MAKE) gosec-scan
-	@echo -e "$(GREEN)[5/12] Running nancy dependency scanner...$(NC)"
+	@echo -e "$(GREEN)[6/13] Running nancy dependency scanner...$(NC)"
 	@$(MAKE) nancy-scan
-	@echo -e "$(GREEN)[6/12] Running gitleaks secret scanner...$(NC)"
+	@echo -e "$(GREEN)[7/13] Running gitleaks secret scanner...$(NC)"
 	@$(MAKE) gitleaks-scan
-	@echo -e "$(GREEN)[7/12] Running trivy vulnerability scanner...$(NC)"
+	@echo -e "$(GREEN)[8/13] Running trivy vulnerability scanner...$(NC)"
 	@$(MAKE) trivy-scan
-	@echo -e "$(GREEN)[8/12] Running trufflehog credential scanner...$(NC)"
+	@echo -e "$(GREEN)[9/13] Running trufflehog credential scanner...$(NC)"
 	@$(MAKE) trufflehog-scan
-	@echo -e "$(GREEN)[9/12] Running tests...$(NC)"
+	@echo -e "$(GREEN)[10/13] Running tests...$(NC)"
 	@$(MAKE) test
-	@echo -e "$(GREEN)[10/12] Running tests with race detector...$(NC)"
+	@echo -e "$(GREEN)[11/13] Running tests with race detector...$(NC)"
 	@$(GOTEST) -race ./...
-	@echo -e "$(GREEN)[11/12] Checking go mod tidy...$(NC)"
+	@echo -e "$(GREEN)[12/13] Checking go mod tidy...$(NC)"
 	@$(MAKE) check-mod-tidy
-	@echo -e "$(GREEN)[12/12] Running semgrep analysis (if available)...$(NC)"
+	@echo -e "$(GREEN)[13/13] Running semgrep analysis (if available)...$(NC)"
 	@$(MAKE) semgrep-scan
 	@echo -e "$(GREEN)✅ All CI checks completed successfully!$(NC)"
 

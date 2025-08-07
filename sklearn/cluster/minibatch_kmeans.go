@@ -10,8 +10,8 @@ import (
 
 	"github.com/YuminosukeSato/scigo/core/model"
 	"github.com/YuminosukeSato/scigo/pkg/errors"
-	"gonum.org/v1/gonum/mat"
 	"github.com/YuminosukeSato/scigo/pkg/log"
+	"gonum.org/v1/gonum/mat"
 )
 
 var globalProvider log.LoggerProvider

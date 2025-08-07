@@ -56,13 +56,13 @@ type BaseEstimator struct {
 
 	// logger is used for logging model operations. Ignored by gob encoding.
 	logger interface{} // Using interface{} to avoid circular imports, will be set to log.Logger
-	
+
 	// hyperparameters holds the model's hyperparameters
 	hyperparameters map[string]interface{}
-	
+
 	// ModelType identifies the type of model
 	ModelType string
-	
+
 	// Version is the model version
 	Version string
 }
@@ -211,11 +211,11 @@ func (e *BaseEstimator) GetParams(deep bool) map[string]interface{} {
 	if e.hyperparameters == nil {
 		return make(map[string]interface{})
 	}
-	
+
 	if !deep {
 		return e.hyperparameters
 	}
-	
+
 	// Create deep copy
 	params := make(map[string]interface{})
 	for k, v := range e.hyperparameters {
@@ -229,11 +229,11 @@ func (e *BaseEstimator) SetParams(params map[string]interface{}) error {
 	if e.hyperparameters == nil {
 		e.hyperparameters = make(map[string]interface{})
 	}
-	
+
 	for k, v := range params {
 		e.hyperparameters[k] = v
 	}
-	
+
 	return nil
 }
 
@@ -242,7 +242,7 @@ func (e *BaseEstimator) ExportWeights() (*ModelWeights, error) {
 	if !e.IsFitted() {
 		return nil, fmt.Errorf("model is not fitted")
 	}
-	
+
 	weights := &ModelWeights{
 		ModelType:       e.ModelType,
 		Version:         e.Version,
@@ -250,7 +250,7 @@ func (e *BaseEstimator) ExportWeights() (*ModelWeights, error) {
 		Hyperparameters: e.GetParams(true),
 		Metadata:        make(map[string]interface{}),
 	}
-	
+
 	return weights, nil
 }
 
@@ -259,20 +259,20 @@ func (e *BaseEstimator) ImportWeights(weights *ModelWeights) error {
 	if weights == nil {
 		return fmt.Errorf("weights cannot be nil")
 	}
-	
+
 	if weights.ModelType != e.ModelType {
 		return fmt.Errorf("model type mismatch: expected %s, got %s", e.ModelType, weights.ModelType)
 	}
-	
+
 	e.Version = weights.Version
 	if err := e.SetParams(weights.Hyperparameters); err != nil {
 		return err
 	}
-	
+
 	if weights.IsFitted {
 		e.SetFitted()
 	}
-	
+
 	return nil
 }
 
@@ -282,12 +282,12 @@ func (e *BaseEstimator) GetWeightHash() string {
 	if err != nil {
 		return ""
 	}
-	
+
 	data, err := json.Marshal(weights)
 	if err != nil {
 		return ""
 	}
-	
+
 	hash := sha256.Sum256(data)
 	return hex.EncodeToString(hash[:])
 }
@@ -300,10 +300,10 @@ func (e *BaseEstimator) Clone() *BaseEstimator {
 		Version:         e.Version,
 		hyperparameters: make(map[string]interface{}),
 	}
-	
+
 	for k, v := range e.hyperparameters {
 		clone.hyperparameters[k] = v
 	}
-	
+
 	return clone
 }

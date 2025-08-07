@@ -22,8 +22,8 @@ func TestDecisionTreeClassifier_FitPredict_Binary(t *testing.T) {
 	})
 
 	y := mat.NewDense(8, 1, []float64{
-		0, 0, 0, 0,  // Class 0 (lower left)
-		1, 1, 1, 1,  // Class 1 (upper right)
+		0, 0, 0, 0, // Class 0 (lower left)
+		1, 1, 1, 1, // Class 1 (upper right)
 	})
 
 	// Create and train model
@@ -54,8 +54,8 @@ func TestDecisionTreeClassifier_FitPredict_Binary(t *testing.T) {
 
 	// Test on new data
 	XTest := mat.NewDense(2, 2, []float64{
-		0.5, 0.5,  // Should be class 0
-		3.5, 3.5,  // Should be class 1
+		0.5, 0.5, // Should be class 0
+		3.5, 3.5, // Should be class 1
 	})
 
 	testPreds, err := dt.Predict(XTest)
@@ -85,8 +85,8 @@ func TestDecisionTreeClassifier_PredictProba(t *testing.T) {
 	})
 
 	y := mat.NewDense(6, 1, []float64{
-		0, 0, 0,  // Class 0
-		1, 1, 1,  // Class 1
+		0, 0, 0, // Class 0
+		1, 1, 1, // Class 1
 	})
 
 	dt := NewDecisionTreeClassifier(
@@ -140,14 +140,14 @@ func TestDecisionTreeClassifier_Score(t *testing.T) {
 
 	// XOR-like pattern: class 0 when both features are similar (both low or both high)
 	y := mat.NewDense(8, 1, []float64{
-		0, 0,  // Both low -> class 0
-		1, 1,  // One high, one low -> class 1
-		1, 1,  // One high, one low -> class 1
-		0, 0,  // Both high -> class 0
+		0, 0, // Both low -> class 0
+		1, 1, // One high, one low -> class 1
+		1, 1, // One high, one low -> class 1
+		0, 0, // Both high -> class 0
 	})
 
 	dt := NewDecisionTreeClassifier(
-		WithMaxDepth(5),  // Allow deeper tree for XOR pattern
+		WithMaxDepth(5), // Allow deeper tree for XOR pattern
 		WithMinSamplesLeaf(1),
 	)
 
@@ -160,7 +160,7 @@ func TestDecisionTreeClassifier_Score(t *testing.T) {
 	if score != 1.0 {
 		t.Errorf("Decision tree should perfectly fit XOR-like data with enough samples, got score: %v", score)
 	}
-	
+
 	// Also test on simpler linearly separable data
 	XSimple := mat.NewDense(6, 2, []float64{
 		0, 0,
@@ -170,15 +170,15 @@ func TestDecisionTreeClassifier_Score(t *testing.T) {
 		2, 3,
 		3, 2,
 	})
-	
+
 	ySimple := mat.NewDense(6, 1, []float64{
 		0, 0, 0,
 		1, 1, 1,
 	})
-	
+
 	dtSimple := NewDecisionTreeClassifier(WithMaxDepth(3))
 	dtSimple.Fit(XSimple, ySimple)
-	
+
 	scoreSimple := dtSimple.Score(XSimple, ySimple)
 	if scoreSimple != 1.0 {
 		t.Errorf("Decision tree should perfectly fit linearly separable data, got score: %v", scoreSimple)
@@ -201,9 +201,9 @@ func TestDecisionTreeClassifier_Multiclass(t *testing.T) {
 	})
 
 	y := mat.NewDense(9, 1, []float64{
-		0, 0, 0,  // Class 0
-		1, 1, 1,  // Class 1
-		2, 2, 2,  // Class 2
+		0, 0, 0, // Class 0
+		1, 1, 1, // Class 1
+		2, 2, 2, // Class 2
 	})
 
 	dt := NewDecisionTreeClassifier(
@@ -276,7 +276,7 @@ func TestDecisionTreeClassifier_Multiclass(t *testing.T) {
 		// Check that max probability corresponds to predicted class
 		expectedClass := int(y.At(i, 0))
 		if maxClass != expectedClass {
-			t.Errorf("Sample %d: max probability class %d doesn't match expected %d", 
+			t.Errorf("Sample %d: max probability class %d doesn't match expected %d",
 				i, maxClass, expectedClass)
 		}
 	}
@@ -319,19 +319,19 @@ func TestDecisionTreeClassifier_Entropy(t *testing.T) {
 func TestDecisionTreeClassifier_FeatureImportance(t *testing.T) {
 	// Create data where feature 0 is more important
 	X := mat.NewDense(8, 3, []float64{
-		0, 0, 0,  // Feature 0 determines class
+		0, 0, 0, // Feature 0 determines class
 		0, 1, 1,
 		0, 0, 1,
 		0, 1, 0,
-		1, 0, 0,  // When feature 0 = 1, always class 1
+		1, 0, 0, // When feature 0 = 1, always class 1
 		1, 1, 1,
 		1, 0, 1,
 		1, 1, 0,
 	})
 
 	y := mat.NewDense(8, 1, []float64{
-		0, 0, 0, 0,  // Class 0 when feature 0 = 0
-		1, 1, 1, 1,  // Class 1 when feature 0 = 1
+		0, 0, 0, 0, // Class 0 when feature 0 = 0
+		1, 1, 1, 1, // Class 1 when feature 0 = 1
 	})
 
 	dt := NewDecisionTreeClassifier()

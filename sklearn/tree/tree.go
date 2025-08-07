@@ -11,17 +11,17 @@ import (
 
 // TreeNode represents a node in the decision tree
 type TreeNode struct {
-	IsLeaf       bool        // Whether this is a leaf node
-	Feature      int         // Feature index for split (internal nodes)
-	Threshold    float64     // Threshold value for split (internal nodes)
-	Left         *TreeNode   // Left child (values <= threshold)
-	Right        *TreeNode   // Right child (values > threshold)
-	Value        float64     // Predicted value (leaf nodes - regression)
-	ClassCounts  []int       // Class counts (leaf nodes - classification)
-	PredictClass int         // Predicted class (leaf nodes - classification)
-	Impurity     float64     // Node impurity
-	NSamples     int         // Number of samples at this node
-	Depth        int         // Depth of this node in the tree
+	IsLeaf       bool      // Whether this is a leaf node
+	Feature      int       // Feature index for split (internal nodes)
+	Threshold    float64   // Threshold value for split (internal nodes)
+	Left         *TreeNode // Left child (values <= threshold)
+	Right        *TreeNode // Right child (values > threshold)
+	Value        float64   // Predicted value (leaf nodes - regression)
+	ClassCounts  []int     // Class counts (leaf nodes - classification)
+	PredictClass int       // Predicted class (leaf nodes - classification)
+	Impurity     float64   // Node impurity
+	NSamples     int       // Number of samples at this node
+	Depth        int       // Depth of this node in the tree
 }
 
 // DecisionTreeClassifier implements a decision tree for classification
@@ -29,21 +29,21 @@ type DecisionTreeClassifier struct {
 	state *model.StateManager // State management
 
 	// Hyperparameters
-	criterion         string  // Splitting criterion: "gini", "entropy"
-	maxDepth          int     // Maximum depth of tree (0 = unlimited)
-	minSamplesSplit   int     // Minimum samples to split a node
-	minSamplesLeaf    int     // Minimum samples in a leaf
-	maxFeatures       string  // Number of features to consider: "auto", "sqrt", "log2", or integer
-	maxLeafNodes      int     // Maximum number of leaf nodes (0 = unlimited)
+	criterion           string  // Splitting criterion: "gini", "entropy"
+	maxDepth            int     // Maximum depth of tree (0 = unlimited)
+	minSamplesSplit     int     // Minimum samples to split a node
+	minSamplesLeaf      int     // Minimum samples in a leaf
+	maxFeatures         string  // Number of features to consider: "auto", "sqrt", "log2", or integer
+	maxLeafNodes        int     // Maximum number of leaf nodes (0 = unlimited)
 	minImpurityDecrease float64 // Minimum impurity decrease for split
-	randomState       int64   // Random seed
+	randomState         int64   // Random seed
 
 	// Tree structure
 	tree_      *TreeNode // Root of the tree
 	nClasses_  int       // Number of classes
 	nFeatures_ int       // Number of features
 	classes_   []int     // Unique class labels
-	
+
 	// Feature importance
 	featureImportances_ []float64 // Feature importance scores
 }
@@ -127,7 +127,7 @@ func (dt *DecisionTreeClassifier) Fit(X, y mat.Matrix) error {
 	// Extract classes
 	dt.extractClasses(y)
 	dt.nFeatures_ = nFeatures
-	
+
 	// Initialize feature importances
 	dt.featureImportances_ = make([]float64, nFeatures)
 
@@ -176,7 +176,7 @@ func (dt *DecisionTreeClassifier) extractClasses(y mat.Matrix) {
 // buildTree recursively builds the decision tree
 func (dt *DecisionTreeClassifier) buildTree(X mat.Matrix, y []int, depth int) *TreeNode {
 	nSamples, _ := X.Dims()
-	
+
 	// Count samples per class
 	classCounts := make([]int, dt.nClasses_)
 	for _, classIdx := range y {
@@ -453,7 +453,7 @@ func (dt *DecisionTreeClassifier) Predict(X mat.Matrix) (mat.Matrix, error) {
 
 	for i := 0; i < nSamples; i++ {
 		node := dt.tree_
-		
+
 		// Traverse tree to leaf
 		for !node.IsLeaf {
 			if X.At(i, node.Feature) <= node.Threshold {
@@ -572,7 +572,7 @@ func (dt *DecisionTreeClassifier) GetFeatureImportances() []float64 {
 	if dt.featureImportances_ == nil {
 		return nil
 	}
-	
+
 	// Return copy
 	importances := make([]float64, len(dt.featureImportances_))
 	copy(importances, dt.featureImportances_)
