@@ -1,0 +1,14 @@
+# Semgrep ignore patterns for acceptable security risks
+
+# Performance-critical code that requires unsafe operations
+performance/
+benchmarks/
+
+# ML examples and demos that use math/rand for reproducible results
+examples/
+sklearn/cluster/minibatch_kmeans.go
+sklearn/linear_model/sgd_classifier.go  
+sklearn/linear_model/sgd_regressor.go
+
+# Test files
+*_test.go

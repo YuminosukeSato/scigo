@@ -56,11 +56,15 @@ jobs:
         
     - name: Generate release notes
       id: changelog
+      env:
+        EVENT_NAME: ${{ github.event_name }}
+        INPUT_TAG: ${{ github.event.inputs.tag }}
+        REF_NAME: ${{ github.ref_name }}
       run: |
         # Extract version from tag or input
         VERSION=${GITHUB_REF#refs/tags/}
-        if [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
-          VERSION=${{ github.event.inputs.tag }}
+        if [ "$EVENT_NAME" == "workflow_dispatch" ]; then
+          VERSION="$INPUT_TAG"
         fi
         echo "VERSION=$VERSION" >> $GITHUB_OUTPUT
         
