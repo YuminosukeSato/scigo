@@ -61,10 +61,10 @@ type Tree struct {
 
 	// Node storage
 	Nodes []Node // All nodes in the tree
-	
+
 	// Leaf values (stored separately for LightGBM format compatibility)
 	LeafValues []float64 // Leaf values array
-	
+
 	// Internal value (for init score extraction)
 	InternalValue float64 // Root node's internal value
 

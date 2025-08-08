@@ -11,35 +11,35 @@ import (
 // This structure holds the data, labels, and various parameters needed for training
 type Dataset struct {
 	// Core data
-	Data  mat.Matrix    // Feature matrix (n_samples × n_features)
-	Label mat.Matrix    // Target values (n_samples × 1 for regression/binary, n_samples × n_classes for multiclass)
+	Data   mat.Matrix    // Feature matrix (n_samples × n_features)
+	Label  mat.Matrix    // Target values (n_samples × 1 for regression/binary, n_samples × n_classes for multiclass)
 	Weight *mat.VecDense // Sample weights (optional)
-	
+
 	// Metadata
-	FeatureNames []string               // Names of features
-	CategoricalFeatures []int            // Indices of categorical features
-	Reference    *Dataset               // Reference dataset for consistent binning
-	Params       map[string]interface{} // Dataset-specific parameters
-	
+	FeatureNames        []string               // Names of features
+	CategoricalFeatures []int                  // Indices of categorical features
+	Reference           *Dataset               // Reference dataset for consistent binning
+	Params              map[string]interface{} // Dataset-specific parameters
+
 	// Internal state
 	nSamples  int
 	nFeatures int
 	isBinary  bool
 	nClasses  int
-	
+
 	// Binning information (for histogram-based algorithms)
 	binMappers []BinMapper // Bin mapping for each feature
-	
+
 	// Validation flag
 	isValid bool
 }
 
 // BinMapper handles the discretization of continuous features into bins
 type BinMapper struct {
-	FeatureIndex int       // Index of the feature
+	FeatureIndex  int       // Index of the feature
 	BinBoundaries []float64 // Boundaries for bins
-	NumBins      int       // Number of bins
-	IsCategorical bool     // Whether this feature is categorical
+	NumBins       int       // Number of bins
+	IsCategorical bool      // Whether this feature is categorical
 }
 
 // NewDataset creates a new Dataset instance similar to lgb.Dataset(data, label=y)
@@ -47,12 +47,12 @@ func NewDataset(data mat.Matrix, label mat.Matrix, options ...DatasetOption) (*D
 	if data == nil {
 		return nil, scigoErrors.NewValueError("NewDataset", "data cannot be nil")
 	}
-	
+
 	rows, cols := data.Dims()
 	if rows == 0 || cols == 0 {
 		return nil, scigoErrors.NewValueError("NewDataset", "data cannot be empty")
 	}
-	
+
 	ds := &Dataset{
 		Data:      data,
 		Label:     label,
@@ -61,19 +61,19 @@ func NewDataset(data mat.Matrix, label mat.Matrix, options ...DatasetOption) (*D
 		Params:    make(map[string]interface{}),
 		isValid:   true,
 	}
-	
+
 	// Process labels if provided
 	if label != nil {
 		if err := ds.validateLabel(); err != nil {
 			return nil, err
 		}
 	}
-	
+
 	// Apply options
 	for _, opt := range options {
 		opt(ds)
 	}
-	
+
 	// Initialize feature names if not provided
 	if len(ds.FeatureNames) == 0 {
 		ds.FeatureNames = make([]string, cols)
@@ -81,7 +81,7 @@ func NewDataset(data mat.Matrix, label mat.Matrix, options ...DatasetOption) (*D
 			ds.FeatureNames[i] = fmt.Sprintf("Column_%d", i)
 		}
 	}
-	
+
 	return ds, nil
 }
 
@@ -135,9 +135,9 @@ func (ds *Dataset) validateLabel() error {
 	if ds.Label == nil {
 		return nil
 	}
-	
+
 	labelRows, labelCols := ds.Label.Dims()
-	
+
 	if labelRows != ds.nSamples {
 		return scigoErrors.NewDimensionError(
 			"Dataset.validateLabel",
@@ -146,7 +146,7 @@ func (ds *Dataset) validateLabel() error {
 			0,
 		)
 	}
-	
+
 	// Determine task type based on label shape and values
 	if labelCols == 1 {
 		// Could be regression or binary classification
@@ -155,7 +155,7 @@ func (ds *Dataset) validateLabel() error {
 		// Multiclass with one-hot encoding
 		ds.nClasses = labelCols
 	}
-	
+
 	return nil
 }
 
@@ -163,18 +163,18 @@ func (ds *Dataset) validateLabel() error {
 func (ds *Dataset) detectBinaryClassification() {
 	rows, _ := ds.Label.Dims()
 	uniqueVals := make(map[float64]bool)
-	
+
 	for i := 0; i < rows; i++ {
 		val := ds.Label.At(i, 0)
 		uniqueVals[val] = true
-		
+
 		// If we have many unique values, it's likely regression
 		if len(uniqueVals) > rows/4 {
 			ds.isBinary = false
 			return
 		}
 	}
-	
+
 	// Check if all values are 0 or 1
 	ds.isBinary = true
 	for val := range uniqueVals {
@@ -183,7 +183,7 @@ func (ds *Dataset) detectBinaryClassification() {
 			break
 		}
 	}
-	
+
 	if ds.isBinary {
 		ds.nClasses = 2
 	}
@@ -277,7 +277,7 @@ func (ds *Dataset) GetSubset(indices []int) (*Dataset, error) {
 	if len(indices) == 0 {
 		return nil, scigoErrors.NewValueError("GetSubset", "indices cannot be empty")
 	}
-	
+
 	// Create subset data matrix
 	subsetData := mat.NewDense(len(indices), ds.nFeatures, nil)
 	for i, idx := range indices {
@@ -288,7 +288,7 @@ func (ds *Dataset) GetSubset(indices []int) (*Dataset, error) {
 			subsetData.Set(i, j, ds.Data.At(idx, j))
 		}
 	}
-	
+
 	// Create subset label if exists
 	var subsetLabel mat.Matrix
 	if ds.Label != nil {
@@ -300,7 +300,7 @@ func (ds *Dataset) GetSubset(indices []int) (*Dataset, error) {
 			}
 		}
 	}
-	
+
 	// Create subset weight if exists
 	var subsetWeight *mat.VecDense
 	if ds.Weight != nil {
@@ -310,7 +310,7 @@ func (ds *Dataset) GetSubset(indices []int) (*Dataset, error) {
 		}
 		subsetWeight = mat.NewVecDense(len(indices), weightData)
 	}
-	
+
 	// Create new dataset with subset
 	subset := &Dataset{
 		Data:                subsetData,
@@ -327,12 +327,12 @@ func (ds *Dataset) GetSubset(indices []int) (*Dataset, error) {
 		binMappers:          ds.binMappers,
 		isValid:             true,
 	}
-	
+
 	// Copy parameters
 	for k, v := range ds.Params {
 		subset.Params[k] = v
 	}
-	
+
 	return subset, nil
 }
 
@@ -342,10 +342,10 @@ func CreateValidDatasets(datasets ...*Dataset) ([]*Dataset, []string, error) {
 	if len(datasets) == 0 {
 		return nil, nil, nil
 	}
-	
+
 	validSets := make([]*Dataset, 0, len(datasets))
 	validNames := make([]string, 0, len(datasets))
-	
+
 	for i, ds := range datasets {
 		if ds == nil {
 			continue
@@ -354,7 +354,7 @@ func CreateValidDatasets(datasets ...*Dataset) ([]*Dataset, []string, error) {
 			return nil, nil, fmt.Errorf("dataset %d is not valid", i)
 		}
 		validSets = append(validSets, ds)
-		
+
 		// Generate name if not specified
 		name := fmt.Sprintf("valid_%d", i)
 		if nameParam, ok := ds.Params["name"].(string); ok {
@@ -362,7 +362,7 @@ func CreateValidDatasets(datasets ...*Dataset) ([]*Dataset, []string, error) {
 		}
 		validNames = append(validNames, name)
 	}
-	
+
 	return validSets, validNames, nil
 }
 

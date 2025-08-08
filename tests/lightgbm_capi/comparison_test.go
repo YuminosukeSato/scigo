@@ -1,3 +1,4 @@
+//go:build capi
 // +build capi
 
 package lightgbm_capi
@@ -19,14 +20,14 @@ import (
 
 // TestData holds test data for comparison
 type TestData struct {
-	XTrain      *mat.Dense
-	XTest       *mat.Dense
-	YTrain      *mat.Dense
-	YTest       *mat.Dense
-	TrainPreds  []float64
-	TestPreds   []float64
-	ModelPath   string
-	ParamsPath  string
+	XTrain        *mat.Dense
+	XTest         *mat.Dense
+	YTrain        *mat.Dense
+	YTest         *mat.Dense
+	TrainPreds    []float64
+	TestPreds     []float64
+	ModelPath     string
+	ParamsPath    string
 	ObjectiveType string
 }
 
@@ -71,69 +72,69 @@ func loadCSV(path string) ([][]float64, error) {
 // loadTestData loads test data for a specific objective
 func loadTestData(objective string) (*TestData, error) {
 	baseDir := filepath.Join("testdata", objective)
-	
+
 	// Load training data
 	xTrainData, err := loadCSV(filepath.Join(baseDir, objective+"_X_train.csv"))
 	if err != nil {
 		return nil, fmt.Errorf("failed to load X_train: %v", err)
 	}
-	
+
 	xTestData, err := loadCSV(filepath.Join(baseDir, objective+"_X_test.csv"))
 	if err != nil {
 		return nil, fmt.Errorf("failed to load X_test: %v", err)
 	}
-	
+
 	yTrainData, err := loadCSV(filepath.Join(baseDir, objective+"_y_train.csv"))
 	if err != nil {
 		return nil, fmt.Errorf("failed to load y_train: %v", err)
 	}
-	
+
 	yTestData, err := loadCSV(filepath.Join(baseDir, objective+"_y_test.csv"))
 	if err != nil {
 		return nil, fmt.Errorf("failed to load y_test: %v", err)
 	}
-	
+
 	// Convert to matrices
 	nTrainRows := len(xTrainData)
 	nTestRows := len(xTestData)
 	nCols := len(xTrainData[0])
-	
+
 	xTrainFlat := make([]float64, nTrainRows*nCols)
 	xTestFlat := make([]float64, nTestRows*nCols)
 	yTrainFlat := make([]float64, nTrainRows)
 	yTestFlat := make([]float64, nTestRows)
-	
+
 	for i, row := range xTrainData {
 		for j, val := range row {
 			xTrainFlat[i*nCols+j] = val
 		}
 	}
-	
+
 	for i, row := range xTestData {
 		for j, val := range row {
 			xTestFlat[i*nCols+j] = val
 		}
 	}
-	
+
 	for i, row := range yTrainData {
 		yTrainFlat[i] = row[0]
 	}
-	
+
 	for i, row := range yTestData {
 		yTestFlat[i] = row[0]
 	}
-	
+
 	// Load predictions
 	trainPredData, err := loadCSV(filepath.Join(baseDir, "train_predictions.csv"))
 	if err != nil {
 		return nil, fmt.Errorf("failed to load train predictions: %v", err)
 	}
-	
+
 	testPredData, err := loadCSV(filepath.Join(baseDir, "test_predictions.csv"))
 	if err != nil {
 		return nil, fmt.Errorf("failed to load test predictions: %v", err)
 	}
-	
+
 	// For multiclass, predictions have multiple columns
 	var trainPreds, testPreds []float64
 	if objective == "multiclass" {
@@ -155,16 +156,16 @@ func loadTestData(objective string) (*TestData, error) {
 			testPreds[i] = row[0]
 		}
 	}
-	
+
 	return &TestData{
-		XTrain:     mat.NewDense(nTrainRows, nCols, xTrainFlat),
-		XTest:      mat.NewDense(nTestRows, nCols, xTestFlat),
-		YTrain:     mat.NewDense(nTrainRows, 1, yTrainFlat),
-		YTest:      mat.NewDense(nTestRows, 1, yTestFlat),
-		TrainPreds: trainPreds,
-		TestPreds:  testPreds,
-		ModelPath:  filepath.Join(baseDir, "model.txt"),
-		ParamsPath: filepath.Join(baseDir, "params.json"),
+		XTrain:        mat.NewDense(nTrainRows, nCols, xTrainFlat),
+		XTest:         mat.NewDense(nTestRows, nCols, xTestFlat),
+		YTrain:        mat.NewDense(nTrainRows, 1, yTrainFlat),
+		YTest:         mat.NewDense(nTestRows, 1, yTestFlat),
+		TrainPreds:    trainPreds,
+		TestPreds:     testPreds,
+		ModelPath:     filepath.Join(baseDir, "model.txt"),
+		ParamsPath:    filepath.Join(baseDir, "params.json"),
 		ObjectiveType: objective,
 	}, nil
 }
@@ -180,19 +181,19 @@ func compareValues(a, b float64, tolerance float64) bool {
 	if math.IsInf(a, -1) && math.IsInf(b, -1) {
 		return true
 	}
-	
+
 	diff := math.Abs(a - b)
 	if diff < tolerance {
 		return true
 	}
-	
+
 	// Relative error for larger values
 	avg := (math.Abs(a) + math.Abs(b)) / 2
 	if avg > 1e-10 {
 		relError := diff / avg
 		return relError < tolerance
 	}
-	
+
 	return false
 }
 
@@ -202,22 +203,22 @@ func TestRegressionPredictionCAPI(t *testing.T) {
 	if _, err := BoosterCreateFromModelfile("testdata/regression/model.txt"); err != nil {
 		t.Skip("LightGBM C library not available, skipping C API tests")
 	}
-	
+
 	testData, err := loadTestData("regression")
 	if err != nil {
 		t.Skipf("Test data not available: %v. Run python_baseline/train_models.py first", err)
 	}
-	
+
 	// Load model using C API
 	booster, err := BoosterCreateFromModelfile(testData.ModelPath)
 	if err != nil {
 		t.Fatalf("Failed to load model: %v", err)
 	}
 	defer booster.Free()
-	
+
 	// Get test data dimensions
 	nrows, ncols := testData.XTest.Dims()
-	
+
 	// Flatten test data
 	xTestFlat := make([]float64, nrows*ncols)
 	for i := 0; i < nrows; i++ {
@@ -225,13 +226,13 @@ func TestRegressionPredictionCAPI(t *testing.T) {
 			xTestFlat[i*ncols+j] = testData.XTest.At(i, j)
 		}
 	}
-	
+
 	// Make predictions using C API
 	capiPreds, err := booster.PredictForMat(xTestFlat, nrows, ncols, PredictNormal, -1)
 	if err != nil {
 		t.Fatalf("Failed to predict with C API: %v", err)
 	}
-	
+
 	// Compare with Python predictions
 	tolerance := 1e-9
 	maxDiff := 0.0
@@ -245,7 +246,7 @@ func TestRegressionPredictionCAPI(t *testing.T) {
 				i, capiPreds[i], testData.TestPreds[i], diff)
 		}
 	}
-	
+
 	t.Logf("Regression C API test passed. Max difference: %e", maxDiff)
 }
 
@@ -255,22 +256,22 @@ func TestBinaryPredictionCAPI(t *testing.T) {
 	if _, err := BoosterCreateFromModelfile("testdata/binary/model.txt"); err != nil {
 		t.Skip("LightGBM C library not available, skipping C API tests")
 	}
-	
+
 	testData, err := loadTestData("binary")
 	if err != nil {
 		t.Skipf("Test data not available: %v. Run python_baseline/train_models.py first", err)
 	}
-	
+
 	// Load model using C API
 	booster, err := BoosterCreateFromModelfile(testData.ModelPath)
 	if err != nil {
 		t.Fatalf("Failed to load model: %v", err)
 	}
 	defer booster.Free()
-	
+
 	// Get test data dimensions
 	nrows, ncols := testData.XTest.Dims()
-	
+
 	// Flatten test data
 	xTestFlat := make([]float64, nrows*ncols)
 	for i := 0; i < nrows; i++ {
@@ -278,13 +279,13 @@ func TestBinaryPredictionCAPI(t *testing.T) {
 			xTestFlat[i*ncols+j] = testData.XTest.At(i, j)
 		}
 	}
-	
+
 	// Make predictions using C API
 	capiPreds, err := booster.PredictForMat(xTestFlat, nrows, ncols, PredictNormal, -1)
 	if err != nil {
 		t.Fatalf("Failed to predict with C API: %v", err)
 	}
-	
+
 	// Compare with Python predictions
 	tolerance := 1e-9
 	maxDiff := 0.0
@@ -298,7 +299,7 @@ func TestBinaryPredictionCAPI(t *testing.T) {
 				i, capiPreds[i], testData.TestPreds[i], diff)
 		}
 	}
-	
+
 	t.Logf("Binary C API test passed. Max difference: %e", maxDiff)
 }
 
@@ -308,28 +309,28 @@ func TestMulticlassPredictionCAPI(t *testing.T) {
 	if _, err := BoosterCreateFromModelfile("testdata/multiclass/model.txt"); err != nil {
 		t.Skip("LightGBM C library not available, skipping C API tests")
 	}
-	
+
 	testData, err := loadTestData("multiclass")
 	if err != nil {
 		t.Skipf("Test data not available: %v. Run python_baseline/train_models.py first", err)
 	}
-	
+
 	// Load model using C API
 	booster, err := BoosterCreateFromModelfile(testData.ModelPath)
 	if err != nil {
 		t.Fatalf("Failed to load model: %v", err)
 	}
 	defer booster.Free()
-	
+
 	// Get number of classes
 	numClasses, err := booster.GetNumClasses()
 	if err != nil {
 		t.Fatalf("Failed to get number of classes: %v", err)
 	}
-	
+
 	// Get test data dimensions
 	nrows, ncols := testData.XTest.Dims()
-	
+
 	// Flatten test data
 	xTestFlat := make([]float64, nrows*ncols)
 	for i := 0; i < nrows; i++ {
@@ -337,23 +338,23 @@ func TestMulticlassPredictionCAPI(t *testing.T) {
 			xTestFlat[i*ncols+j] = testData.XTest.At(i, j)
 		}
 	}
-	
+
 	// Make predictions using C API
 	capiPreds, err := booster.PredictForMat(xTestFlat, nrows, ncols, PredictNormal, -1)
 	if err != nil {
 		t.Fatalf("Failed to predict with C API: %v", err)
 	}
-	
+
 	// Compare with Python predictions
 	tolerance := 1e-9
 	maxDiff := 0.0
-	
+
 	// For multiclass, predictions are [sample0_class0, sample0_class1, ..., sample1_class0, ...]
 	if len(capiPreds) != len(testData.TestPreds) {
-		t.Fatalf("Prediction length mismatch: C API = %d, Python = %d", 
+		t.Fatalf("Prediction length mismatch: C API = %d, Python = %d",
 			len(capiPreds), len(testData.TestPreds))
 	}
-	
+
 	for i := 0; i < len(capiPreds); i++ {
 		diff := math.Abs(capiPreds[i] - testData.TestPreds[i])
 		if diff > maxDiff {
@@ -366,7 +367,7 @@ func TestMulticlassPredictionCAPI(t *testing.T) {
 				sampleIdx, classIdx, capiPreds[i], testData.TestPreds[i], diff)
 		}
 	}
-	
+
 	t.Logf("Multiclass C API test passed. Max difference: %e", maxDiff)
 }
 
@@ -376,12 +377,12 @@ func TestPureGoVsCAPI(t *testing.T) {
 	t.Run("Regression", func(t *testing.T) {
 		testPureGoVsCAPIForObjective(t, "regression")
 	})
-	
+
 	// Test binary classification
 	t.Run("Binary", func(t *testing.T) {
 		testPureGoVsCAPIForObjective(t, "binary")
 	})
-	
+
 	// Test multiclass classification
 	t.Run("Multiclass", func(t *testing.T) {
 		testPureGoVsCAPIForObjective(t, "multiclass")
@@ -394,25 +395,25 @@ func testPureGoVsCAPIForObjective(t *testing.T, objective string) {
 	if err != nil {
 		t.Skipf("Test data not available: %v. Run python_baseline/train_models.py first", err)
 	}
-	
+
 	// Skip if C API not available
 	capiBooster, err := BoosterCreateFromModelfile(testData.ModelPath)
 	if err != nil {
 		t.Skip("LightGBM C library not available, skipping comparison test")
 	}
 	defer capiBooster.Free()
-	
+
 	// Load parameters
 	paramsData, err := ioutil.ReadFile(testData.ParamsPath)
 	if err != nil {
 		t.Fatalf("Failed to load parameters: %v", err)
 	}
-	
+
 	var params map[string]interface{}
 	if err := json.Unmarshal(paramsData, &params); err != nil {
 		t.Fatalf("Failed to parse parameters: %v", err)
 	}
-	
+
 	// Create pure Go trainer with same parameters
 	goParams := lightgbm.TrainingParams{
 		NumIterations:   10,
@@ -431,30 +432,30 @@ func testPureGoVsCAPIForObjective(t *testing.T, objective string) {
 		Deterministic:   true,
 		Verbosity:       -1,
 	}
-	
+
 	if objective == "multiclass" {
 		goParams.NumClass = 3
 	}
-	
+
 	// Train pure Go model
 	trainer := lightgbm.NewTrainer(goParams)
 	if err := trainer.Fit(testData.XTrain, testData.YTrain); err != nil {
 		t.Fatalf("Failed to train pure Go model: %v", err)
 	}
-	
+
 	// Get pure Go model
 	goModel := trainer.GetModel()
-	
+
 	// Create predictor
 	predictor := lightgbm.NewPredictor(goModel)
 	predictor.SetDeterministic(true)
-	
+
 	// Make predictions with pure Go
 	goPreds, err := predictor.Predict(testData.XTest)
 	if err != nil {
 		t.Fatalf("Failed to predict with pure Go: %v", err)
 	}
-	
+
 	// Get C API predictions
 	nrows, ncols := testData.XTest.Dims()
 	xTestFlat := make([]float64, nrows*ncols)
@@ -463,17 +464,17 @@ func testPureGoVsCAPIForObjective(t *testing.T, objective string) {
 			xTestFlat[i*ncols+j] = testData.XTest.At(i, j)
 		}
 	}
-	
+
 	capiPreds, err := capiBooster.PredictForMat(xTestFlat, nrows, ncols, PredictNormal, -1)
 	if err != nil {
 		t.Fatalf("Failed to predict with C API: %v", err)
 	}
-	
+
 	// Compare predictions
 	tolerance := 0.01 // 1% tolerance for now, will improve
 	maxDiff := 0.0
 	numDiffs := 0
-	
+
 	// Handle different output formats
 	if objective == "multiclass" {
 		// Pure Go returns matrix, C API returns flat array
@@ -512,14 +513,14 @@ func testPureGoVsCAPIForObjective(t *testing.T, objective string) {
 			}
 		}
 	}
-	
+
 	// Report results
 	accuracy := 1.0 - float64(numDiffs)/float64(len(capiPreds))
 	t.Logf("%s: Pure Go vs C API comparison:", objective)
 	t.Logf("  Max difference: %e", maxDiff)
 	t.Logf("  Number of differences: %d/%d", numDiffs, len(capiPreds))
 	t.Logf("  Agreement rate: %.2f%%", accuracy*100)
-	
+
 	// Currently we expect differences due to implementation details
 	// As we improve the pure Go implementation, we'll tighten this threshold
 	if accuracy < 0.5 {

@@ -171,7 +171,7 @@ func TestBinaryLogLoss(t *testing.T) {
 			name:  "Clipping edge case",
 			yTrue: []float64{0, 1},
 			yPred: []float64{0, 1}, // Will be clipped to avoid log(0)
-			want:  0.0,               // Small value due to epsilon
+			want:  0.0,             // Small value due to epsilon
 		},
 		{
 			name:    "Non-binary labels",

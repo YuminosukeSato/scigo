@@ -16,10 +16,13 @@ import (
 // NDCG values range from 0 to 1, where 1 indicates perfect ranking.
 //
 // The formula is:
-//   NDCG@k = DCG@k / IDCG@k
+//
+//	NDCG@k = DCG@k / IDCG@k
+//
 // where:
-//   DCG@k = Σ(i=1 to k) (2^rel_i - 1) / log2(i + 1)
-//   IDCG@k = DCG@k for the ideal ordering
+//
+//	DCG@k = Σ(i=1 to k) (2^rel_i - 1) / log2(i + 1)
+//	IDCG@k = DCG@k for the ideal ordering
 //
 // Parameters:
 //   - yTrue: Ground truth relevance scores (non-negative values)
@@ -216,7 +219,8 @@ func NDCGMatrix(yTrue, yPred mat.Matrix, k int) (float64, error) {
 // relevant documents earlier in the ranking.
 //
 // The formula is:
-//   AP = Σ(Precision@k × rel_k) / number_of_relevant_items
+//
+//	AP = Σ(Precision@k × rel_k) / number_of_relevant_items
 //
 // Parameters:
 //   - yTrue: Ground truth binary relevance (0 or 1)

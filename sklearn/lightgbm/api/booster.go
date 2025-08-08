@@ -3,7 +3,6 @@ package api
 import (
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
 	"os"
 
 	lgb "github.com/YuminosukeSato/scigo/sklearn/lightgbm"
@@ -16,21 +15,20 @@ type Booster struct {
 	model           *lgb.Model
 	predictor       *lgb.Predictor
 	leavesPredictor *lgb.LeavesPredictor
-	
+
 	// Training information
-	numIterations   int
+	numIterations    int
 	currentIteration int
-	bestIteration   int
-	
+	bestIteration    int
+
 	// Evaluation results during training
 	evalResults map[string][]float64
-	validNames  []string
-	
+
 	// Parameters used for training
 	params map[string]interface{}
-	
+
 	// Feature information
-	featureNames []string
+	featureNames      []string
 	featureImportance map[string][]float64
 }
 
@@ -57,9 +55,9 @@ func (b *Booster) InitFromModel(model *lgb.Model) {
 func (b *Booster) InitFromLeavesModel(model *lgb.LeavesModel) {
 	// Convert LeavesModel to Model for compatibility
 	lgbModel := &lgb.Model{
-		NumFeatures:  model.NumFeatures,
-		NumClass:     model.NumClass,
-		Objective:    model.Objective,
+		NumFeatures: model.NumFeatures,
+		NumClass:    model.NumClass,
+		Objective:   model.Objective,
 	}
 	b.model = lgbModel
 	b.leavesPredictor = lgb.NewLeavesPredictor(model)
@@ -82,7 +80,7 @@ func (b *Booster) Predict(data mat.Matrix, options ...PredictOption) (mat.Matrix
 	if b.predictor == nil {
 		return nil, fmt.Errorf("model not initialized")
 	}
-	
+
 	// Apply prediction options
 	opts := &predictOptions{
 		numIteration:   -1, // Use all trees by default
@@ -92,13 +90,13 @@ func (b *Booster) Predict(data mat.Matrix, options ...PredictOption) (mat.Matrix
 	for _, opt := range options {
 		opt(opts)
 	}
-	
+
 	// Make predictions
 	predictions, err := b.predictor.Predict(data)
 	if err != nil {
 		return nil, err
 	}
-	
+
 	return predictions, nil
 }
 
@@ -131,16 +129,16 @@ func (b *Booster) SaveModel(filename string, options ...SaveOption) error {
 	if b.model == nil {
 		return fmt.Errorf("no model to save")
 	}
-	
+
 	opts := &saveOptions{
 		numIteration:   -1,
 		startIteration: 0,
-		saveType:      "text",
+		saveType:       "text",
 	}
 	for _, opt := range options {
 		opt(opts)
 	}
-	
+
 	// Save based on file type
 	switch opts.saveType {
 	case "json":
@@ -171,13 +169,13 @@ func WithSaveType(t string) SaveOption {
 // saveJSON saves the model in JSON format
 func (b *Booster) saveJSON(filename string) error {
 	modelData := b.DumpModel()
-	
+
 	jsonData, err := json.MarshalIndent(modelData, "", "  ")
 	if err != nil {
 		return fmt.Errorf("failed to marshal model: %w", err)
 	}
-	
-	return ioutil.WriteFile(filename, jsonData, 0600)
+
+	return os.WriteFile(filename, jsonData, 0600)
 }
 
 // saveText saves the model in text format
@@ -193,16 +191,16 @@ func LoadModel(filename string) (*Booster, error) {
 	if _, err := os.Stat(filename); os.IsNotExist(err) {
 		return nil, fmt.Errorf("model file not found: %s", filename)
 	}
-	
+
 	// Load the model using existing loader
 	model, err := lgb.LoadLeavesModelFromFile(filename)
 	if err != nil {
 		return nil, fmt.Errorf("failed to load model: %w", err)
 	}
-	
+
 	booster := NewBooster(nil)
 	booster.InitFromLeavesModel(model)
-	
+
 	return booster, nil
 }
 
@@ -212,9 +210,9 @@ func (b *Booster) DumpModel() map[string]interface{} {
 	if b.model == nil {
 		return nil
 	}
-	
+
 	dump := make(map[string]interface{})
-	
+
 	// Basic information
 	dump["name"] = "tree"
 	dump["version"] = "v3"
@@ -225,19 +223,19 @@ func (b *Booster) DumpModel() map[string]interface{} {
 	}
 	dump["label_index"] = 0
 	dump["max_feature_idx"] = b.model.NumFeatures - 1
-	
+
 	// Objective and parameters
 	dump["objective"] = b.model.Objective
 	if b.params != nil {
 		dump["params"] = b.params
 	}
-	
+
 	// Feature information
 	if len(b.featureNames) > 0 {
 		dump["feature_names"] = b.featureNames
 	}
 	dump["feature_importances"] = b.featureImportance
-	
+
 	// Tree information
 	trees := make([]map[string]interface{}, len(b.model.Trees))
 	for i, tree := range b.model.Trees {
@@ -246,15 +244,15 @@ func (b *Booster) DumpModel() map[string]interface{} {
 		treeInfo["num_leaves"] = tree.NumLeaves
 		treeInfo["num_nodes"] = tree.NumNodes
 		treeInfo["shrinkage"] = tree.ShrinkageRate
-		
+
 		// Add tree structure
 		treeStructure := b.dumpTreeStructure(tree)
 		treeInfo["tree_structure"] = treeStructure
-		
+
 		trees[i] = treeInfo
 	}
 	dump["tree_info"] = trees
-	
+
 	return dump
 }
 
@@ -266,7 +264,7 @@ func (b *Booster) dumpTreeStructure(tree lgb.Tree) map[string]interface{} {
 			"leaf_value": tree.LeafValues,
 		}
 	}
-	
+
 	// Build tree structure recursively
 	return b.dumpNode(&tree, 0)
 }
@@ -276,10 +274,10 @@ func (b *Booster) dumpNode(tree *lgb.Tree, nodeIdx int) map[string]interface{} {
 	if nodeIdx >= len(tree.Nodes) || nodeIdx < 0 {
 		return nil
 	}
-	
+
 	node := &tree.Nodes[nodeIdx]
 	nodeInfo := make(map[string]interface{})
-	
+
 	if node.IsLeaf() {
 		// Leaf node
 		nodeInfo["leaf_index"] = nodeIdx
@@ -294,7 +292,7 @@ func (b *Booster) dumpNode(tree *lgb.Tree, nodeIdx int) map[string]interface{} {
 		nodeInfo["default_left"] = node.DefaultLeft
 		nodeInfo["internal_value"] = node.InternalValue
 		nodeInfo["internal_count"] = node.InternalCount
-		
+
 		// Add children
 		if node.LeftChild >= 0 {
 			nodeInfo["left_child"] = b.dumpNode(tree, node.LeftChild)
@@ -303,7 +301,7 @@ func (b *Booster) dumpNode(tree *lgb.Tree, nodeIdx int) map[string]interface{} {
 			nodeInfo["right_child"] = b.dumpNode(tree, node.RightChild)
 		}
 	}
-	
+
 	return nodeInfo
 }
 
@@ -344,16 +342,16 @@ func (b *Booster) FeatureImportance(importanceType string) []float64 {
 	if b.model == nil {
 		return nil
 	}
-	
+
 	// Check cache
 	if importance, ok := b.featureImportance[importanceType]; ok {
 		return importance
 	}
-	
+
 	// Calculate importance
 	importance := b.model.GetFeatureImportance(importanceType)
 	b.featureImportance[importanceType] = importance
-	
+
 	return importance
 }
 
@@ -405,28 +403,28 @@ func (b *Booster) Clone() *Booster {
 		featureNames:      make([]string, len(b.featureNames)),
 		featureImportance: make(map[string][]float64),
 	}
-	
+
 	// Copy params
 	for k, v := range b.params {
 		newBooster.params[k] = v
 	}
-	
+
 	// Copy eval results
 	for k, v := range b.evalResults {
 		results := make([]float64, len(v))
 		copy(results, v)
 		newBooster.evalResults[k] = results
 	}
-	
+
 	// Copy feature names
 	copy(newBooster.featureNames, b.featureNames)
-	
+
 	// Copy feature importance
 	for k, v := range b.featureImportance {
 		importance := make([]float64, len(v))
 		copy(importance, v)
 		newBooster.featureImportance[k] = importance
 	}
-	
+
 	return newBooster
 }

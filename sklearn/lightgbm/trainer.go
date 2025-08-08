@@ -22,14 +22,14 @@ type Trainer struct {
 
 	// Histogram data structures
 	histograms [][]Histogram
-	orderedIdx [][]int // Sorted indices for each feature
-	histPool   *HistogramPool // Pool for histogram memory management
+	orderedIdx [][]int                // Sorted indices for each feature
+	histPool   *HistogramPool         // Pool for histogram memory management
 	nodeHists  map[int]*NodeHistogram // Histograms for each node
 
 	// Gradient and Hessian
 	gradients []float64 // For backward compatibility
 	hessians  []float64 // For backward compatibility
-	
+
 	// Native multiclass support with Gonum matrices
 	gradientsMatrix *mat.Dense // [samples x classes] for native multiclass
 	hessiansMatrix  *mat.Dense // [samples x classes] for native multiclass
@@ -77,7 +77,7 @@ type TrainingParams struct {
 	// Objective
 	Objective string `json:"objective"`
 	NumClass  int    `json:"num_class"`
-	
+
 	// Boosting type
 	BoostingType string `json:"boosting_type"`
 
@@ -162,8 +162,8 @@ func NewTrainer(params TrainingParams) *Trainer {
 			},
 		},
 		nodeHists:     make(map[int]*NodeHistogram),
-		gossTopRate:   0.2,  // Keep top 20% large gradient samples
-		gossOtherRate: 0.1,  // Sample 10% of remaining samples
+		gossTopRate:   0.2, // Keep top 20% large gradient samples
+		gossOtherRate: 0.1, // Sample 10% of remaining samples
 	}
 }
 
@@ -276,7 +276,7 @@ func (t *Trainer) initialize() error {
 		t.gradientsMatrix = mat.NewDense(rows, t.params.NumClass, nil)
 		t.hessiansMatrix = mat.NewDense(rows, t.params.NumClass, nil)
 		t.predictions = mat.NewDense(rows, t.params.NumClass, nil)
-		
+
 		// Initialize predictions to zero (will result in uniform softmax probabilities)
 		for i := 0; i < rows; i++ {
 			for j := 0; j < t.params.NumClass; j++ {
@@ -386,7 +386,7 @@ func (t *Trainer) buildNodeHistogram(indices []int) *NodeHistogram {
 	for _, idx := range indices {
 		grad := t.gradients[idx]
 		hess := t.hessians[idx]
-		
+
 		// Update total with Kahan summation
 		t.kahanAdd(&nodeHist.totalGrad, grad, 0)
 		t.kahanAdd(&nodeHist.totalHess, hess, 0)
@@ -457,11 +457,12 @@ func (t *Trainer) findBinIndex(value float64, feature int) int {
 }
 
 // kahanAdd performs Kahan summation for improved numerical precision
-func (t *Trainer) kahanAdd(sum *float64, value float64, compensation float64) {
+func (t *Trainer) kahanAdd(sum *float64, value float64, compensation float64) float64 {
 	y := value - compensation
 	temp := *sum + y
-	compensation = (temp - *sum) - y
+	newCompensation := (temp - *sum) - y
 	*sum = temp
+	return newCompensation
 }
 
 // findOptimalBinBoundaries finds optimal bin boundaries using quantile-based method
@@ -508,42 +509,6 @@ func (t *Trainer) findQuantileBinBoundaries(values []float64) []float64 {
 		}
 	}
 	bounds[t.params.MaxBin] = unique[len(unique)-1] + 1e-10
-
-	return bounds
-}
-
-// findBinBoundaries finds optimal bin boundaries for a feature
-func (t *Trainer) findBinBoundaries(values []float64) []float64 {
-	sorted := make([]float64, len(values))
-	copy(sorted, values)
-	sort.Float64s(sorted)
-
-	// Remove duplicates
-	unique := []float64{sorted[0]}
-	for i := 1; i < len(sorted); i++ {
-		if sorted[i] != sorted[i-1] {
-			unique = append(unique, sorted[i])
-		}
-	}
-
-	// If fewer unique values than max bins, use all
-	if len(unique) <= t.params.MaxBin {
-		bounds := make([]float64, len(unique)+1)
-		for i := 0; i < len(unique); i++ {
-			bounds[i] = unique[i] - 1e-10
-		}
-		bounds[len(unique)] = unique[len(unique)-1] + 1e-10
-		return bounds
-	}
-
-	// Otherwise, create equal-frequency bins
-	binSize := len(unique) / t.params.MaxBin
-	bounds := []float64{unique[0] - 1e-10}
-
-	for i := binSize; i < len(unique); i += binSize {
-		bounds = append(bounds, (unique[i-1]+unique[i])/2)
-	}
-	bounds = append(bounds, unique[len(unique)-1]+1e-10)
 
 	return bounds
 }
@@ -646,39 +611,39 @@ func (t *Trainer) predictSingleTree(tree Tree, sampleIdx int) float64 {
 // gosssampling performs Gradient-based One-Side Sampling
 func (t *Trainer) gosssampling() []int {
 	rows, _ := t.X.Dims()
-	
+
 	// Calculate absolute gradients
 	absGrads := make([]struct {
 		index int
 		value float64
 	}, rows)
-	
+
 	for i := 0; i < rows; i++ {
 		absGrads[i].index = i
 		absGrads[i].value = math.Abs(t.gradients[i])
 	}
-	
+
 	// Sort by absolute gradient (descending)
 	sort.Slice(absGrads, func(i, j int) bool {
 		return absGrads[i].value > absGrads[j].value
 	})
-	
+
 	// Select top samples
 	topCount := int(float64(rows) * t.gossTopRate)
 	if topCount < 1 {
 		topCount = 1
 	}
-	
+
 	// Sample from remaining
 	otherCount := int(float64(rows-topCount) * t.gossOtherRate)
-	
+
 	selectedIndices := make([]int, 0, topCount+otherCount)
-	
+
 	// Add all top gradient samples
 	for i := 0; i < topCount && i < len(absGrads); i++ {
 		selectedIndices = append(selectedIndices, absGrads[i].index)
 	}
-	
+
 	// Randomly sample from remaining samples
 	if otherCount > 0 && topCount < len(absGrads) {
 		remaining := absGrads[topCount:]
@@ -693,7 +658,7 @@ func (t *Trainer) gosssampling() []int {
 			t.hessians[idx] *= amplificationFactor
 		}
 	}
-	
+
 	return selectedIndices
 }
 
@@ -707,29 +672,6 @@ func (t *Trainer) buildTreeWithSamples(sampledIndices []int) (Tree, error) {
 
 	// Build tree recursively with sampled indices
 	t.buildNode(&tree, sampledIndices, 0, 0)
-
-	tree.NumLeaves = t.countLeaves(tree)
-
-	return tree, nil
-}
-
-// buildTree constructs a single decision tree (for backward compatibility)
-func (t *Trainer) buildTree() (Tree, error) {
-	tree := Tree{
-		TreeIndex:     t.iteration,
-		ShrinkageRate: t.params.LearningRate,
-		Nodes:         []Node{},
-	}
-
-	// Start with root node
-	rows, _ := t.X.Dims()
-	rootIndices := make([]int, rows)
-	for i := 0; i < rows; i++ {
-		rootIndices[i] = i
-	}
-
-	// Build tree recursively
-	t.buildNode(&tree, rootIndices, 0, 0)
 
 	tree.NumLeaves = t.countLeaves(tree)
 
@@ -880,100 +822,6 @@ func (t *Trainer) findBestSplitForFeatureWithHistogram(nodeHist *NodeHistogram, 
 			if len(hist.BinBounds) >= 2 {
 				bestSplit.Threshold = hist.BinBounds[1] // Use upper bound of current bin
 			}
-			bestSplit.LeftCount = leftCount
-			bestSplit.RightCount = rightCount
-			bestSplit.LeftGrad = leftGrad
-			bestSplit.RightGrad = rightGrad
-			bestSplit.LeftHess = leftHess
-			bestSplit.RightHess = rightHess
-		}
-	}
-
-	return bestSplit
-}
-
-// findBestSplit finds the best split for a set of samples (fallback method)
-func (t *Trainer) findBestSplit(indices []int) SplitInfo {
-	_, cols := t.X.Dims()
-	bestSplit := SplitInfo{Gain: -math.MaxFloat64}
-
-	// Try each feature
-	for j := 0; j < cols; j++ {
-		split := t.findBestSplitForFeature(indices, j)
-		if split.Gain > bestSplit.Gain {
-			bestSplit = split
-		}
-	}
-
-	return bestSplit
-}
-
-// findBestSplitForFeature finds the best split for a specific feature
-func (t *Trainer) findBestSplitForFeature(indices []int, feature int) SplitInfo {
-	// Get feature values and sort
-	values := make([]struct {
-		value float64
-		idx   int
-	}, len(indices))
-
-	for i, idx := range indices {
-		values[i] = struct {
-			value float64
-			idx   int
-		}{
-			value: t.X.At(idx, feature),
-			idx:   idx,
-		}
-	}
-
-	sort.Slice(values, func(i, j int) bool {
-		return values[i].value < values[j].value
-	})
-
-	// Calculate total gradient and hessian
-	totalGrad := 0.0
-	totalHess := 0.0
-	for _, idx := range indices {
-		totalGrad += t.gradients[idx]
-		totalHess += t.hessians[idx]
-	}
-
-	// Try each split point
-	bestSplit := SplitInfo{
-		Feature: feature,
-		Gain:    -math.MaxFloat64,
-	}
-
-	leftGrad := 0.0
-	leftHess := 0.0
-	leftCount := 0
-
-	for i := 0; i < len(values)-1; i++ {
-		idx := values[i].idx
-		leftGrad += t.gradients[idx]
-		leftHess += t.hessians[idx]
-		leftCount++
-
-		// Skip if same value
-		if values[i].value == values[i+1].value {
-			continue
-		}
-
-		rightGrad := totalGrad - leftGrad
-		rightHess := totalHess - leftHess
-		rightCount := len(indices) - leftCount
-
-		// Check minimum data constraints
-		if leftCount < t.params.MinDataInLeaf || rightCount < t.params.MinDataInLeaf {
-			continue
-		}
-
-		// Calculate gain
-		gain := t.calculateSplitGain(leftGrad, leftHess, rightGrad, rightHess, totalGrad, totalHess)
-
-		if gain > bestSplit.Gain {
-			bestSplit.Gain = gain
-			bestSplit.Threshold = (values[i].value + values[i+1].value) / 2
 			bestSplit.LeftCount = leftCount
 			bestSplit.RightCount = rightCount
 			bestSplit.LeftGrad = leftGrad

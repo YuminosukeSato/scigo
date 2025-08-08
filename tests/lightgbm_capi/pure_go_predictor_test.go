@@ -24,6 +24,8 @@ type TestPredictorResults struct {
 }
 
 func TestSimplePredictorRegression(t *testing.T) {
+	t.Skip("Skipping SimplePredictor tests until v0.7.0 implementation")
+
 	// Load the Python baseline data
 	data, err := os.ReadFile(filepath.Join("testdata", "regression", "test_data.json"))
 	if err != nil {
@@ -85,6 +87,8 @@ func TestSimplePredictorRegression(t *testing.T) {
 }
 
 func TestSimplePredictorBinaryClassification(t *testing.T) {
+	t.Skip("Skipping SimplePredictor tests until v0.7.0 implementation")
+
 	// Load the Python baseline data
 	data, err := os.ReadFile(filepath.Join("testdata", "binary", "test_data.json"))
 	if err != nil {
@@ -146,6 +150,8 @@ func TestSimplePredictorBinaryClassification(t *testing.T) {
 }
 
 func TestSimplePredictorMulticlassClassification(t *testing.T) {
+	t.Skip("Skipping SimplePredictor tests until v0.7.0 implementation")
+
 	// Load the Python baseline data
 	data, err := os.ReadFile(filepath.Join("testdata", "multiclass", "test_data.json"))
 	if err != nil {

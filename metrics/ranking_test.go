@@ -251,11 +251,11 @@ func TestAveragePrecision(t *testing.T) {
 
 func TestMeanAveragePrecision(t *testing.T) {
 	tests := []struct {
-		name       string
-		yTrueList  [][]float64
-		yPredList  [][]float64
-		want       float64
-		wantErr    bool
+		name      string
+		yTrueList [][]float64
+		yPredList [][]float64
+		want      float64
+		wantErr   bool
 	}{
 		{
 			name: "Multiple queries",
@@ -282,10 +282,10 @@ func TestMeanAveragePrecision(t *testing.T) {
 			want: 0.833,
 		},
 		{
-			name: "Empty lists",
+			name:      "Empty lists",
 			yTrueList: [][]float64{},
 			yPredList: [][]float64{},
-			wantErr: true,
+			wantErr:   true,
 		},
 		{
 			name: "Mismatched list sizes",
@@ -303,13 +303,13 @@ func TestMeanAveragePrecision(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			var yTrueList, yPredList []*mat.VecDense
-			
+
 			for _, y := range tt.yTrueList {
 				if len(y) > 0 {
 					yTrueList = append(yTrueList, mat.NewVecDense(len(y), y))
 				}
 			}
-			
+
 			for _, y := range tt.yPredList {
 				if len(y) > 0 {
 					yPredList = append(yPredList, mat.NewVecDense(len(y), y))
@@ -335,7 +335,7 @@ func BenchmarkNDCG(b *testing.B) {
 	yTrue := make([]float64, n)
 	yPred := make([]float64, n)
 	for i := 0; i < n; i++ {
-		yTrue[i] = float64(n - i) / float64(n) * 3 // Relevance scores 0-3
+		yTrue[i] = float64(n-i) / float64(n) * 3 // Relevance scores 0-3
 		yPred[i] = float64(i) / float64(n)
 	}
 	yTrueVec := mat.NewVecDense(n, yTrue)

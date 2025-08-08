@@ -25,38 +25,38 @@ func (p *SimplePredictor) PredictSingle(features []float64) []float64 {
 	if p.model.NumClass > 2 {
 		// Multiclass prediction
 		predictions := make([]float64, p.model.NumClass)
-		
+
 		// Initialize with init scores for each class
 		for i := range predictions {
 			predictions[i] = p.model.InitScore
 		}
-		
+
 		// Accumulate predictions from trees
 		for i, tree := range p.model.Trees {
 			classIdx := i % p.model.NumClass
 			treeOutput := p.predictTree(&tree, features)
 			predictions[classIdx] += treeOutput
 		}
-		
+
 		// Apply softmax transformation for multiclass
 		return p.softmax(predictions)
 	} else {
 		// Binary or regression - start with init score
 		prediction := p.model.InitScore
-		
+
 		// Sum predictions from all trees
 		for _, tree := range p.model.Trees {
 			treeOutput := p.predictTree(&tree, features)
 			prediction += treeOutput
 		}
-		
+
 		// Apply transformation based on objective
 		switch p.model.Objective {
 		case BinaryLogistic, BinaryCrossEntropy:
 			// Apply sigmoid for binary classification
 			prediction = p.sigmoid(prediction)
 		}
-		
+
 		return []float64{prediction}
 	}
 }
@@ -71,17 +71,17 @@ func (p *SimplePredictor) predictTree(tree *Tree, features []float64) float64 {
 		}
 		return 0.0
 	}
-	
+
 	// Start from root node (index 0)
 	nodeIdx := 0
-	
+
 	for {
 		if nodeIdx < 0 || nodeIdx >= len(tree.Nodes) {
 			return 0.0
 		}
-		
+
 		node := &tree.Nodes[nodeIdx]
-		
+
 		// Check if it's a leaf node
 		if node.NodeType == LeafNode {
 			// Apply shrinkage rate if set
@@ -90,7 +90,7 @@ func (p *SimplePredictor) predictTree(tree *Tree, features []float64) float64 {
 			}
 			return node.LeafValue
 		}
-		
+
 		// Get feature value for split
 		if node.SplitFeature >= len(features) {
 			// Invalid feature index, treat as missing
@@ -101,9 +101,9 @@ func (p *SimplePredictor) predictTree(tree *Tree, features []float64) float64 {
 			}
 			continue
 		}
-		
+
 		featureValue := features[node.SplitFeature]
-		
+
 		// Handle missing values (NaN)
 		if math.IsNaN(featureValue) {
 			// Use default direction for missing values
@@ -114,7 +114,7 @@ func (p *SimplePredictor) predictTree(tree *Tree, features []float64) float64 {
 			}
 			continue
 		}
-		
+
 		// Make decision based on threshold
 		// LightGBM uses <= for numerical splits (not <)
 		if featureValue <= node.Threshold {
@@ -122,7 +122,7 @@ func (p *SimplePredictor) predictTree(tree *Tree, features []float64) float64 {
 		} else {
 			nodeIdx = node.RightChild
 		}
-		
+
 		// Handle case where child indices are negative (leaf indicators)
 		if nodeIdx < 0 {
 			// In LightGBM text format, negative child index means leaf
@@ -145,7 +145,7 @@ func (p *SimplePredictor) Predict(X mat.Matrix) (mat.Matrix, error) {
 	if cols != p.model.NumFeatures {
 		return nil, fmt.Errorf("feature dimension mismatch: expected %d, got %d", p.model.NumFeatures, cols)
 	}
-	
+
 	// Prepare output matrix
 	var outputCols int
 	if p.model.NumClass > 2 {
@@ -153,14 +153,14 @@ func (p *SimplePredictor) Predict(X mat.Matrix) (mat.Matrix, error) {
 	} else {
 		outputCols = 1
 	}
-	
+
 	predictions := mat.NewDense(rows, outputCols, nil)
-	
+
 	// Process each sample
 	for i := 0; i < rows; i++ {
 		features := mat.Row(nil, i, X)
 		pred := p.PredictSingle(features)
-		
+
 		if p.model.NumClass > 2 {
 			// Multiclass: set all class probabilities
 			predictions.SetRow(i, pred)
@@ -169,7 +169,7 @@ func (p *SimplePredictor) Predict(X mat.Matrix) (mat.Matrix, error) {
 			predictions.Set(i, 0, pred[0])
 		}
 	}
-	
+
 	return predictions, nil
 }
 
@@ -182,7 +182,7 @@ func (p *SimplePredictor) sigmoid(x float64) float64 {
 	if x < -500 {
 		return 0.0
 	}
-	
+
 	// Standard sigmoid: 1 / (1 + exp(-x))
 	if x >= 0 {
 		expNegX := math.Exp(-x)
@@ -203,7 +203,7 @@ func (p *SimplePredictor) softmax(x []float64) []float64 {
 			maxVal = v
 		}
 	}
-	
+
 	// Compute exp(x - max) and sum
 	expSum := 0.0
 	result := make([]float64, len(x))
@@ -211,14 +211,14 @@ func (p *SimplePredictor) softmax(x []float64) []float64 {
 		result[i] = math.Exp(v - maxVal)
 		expSum += result[i]
 	}
-	
+
 	// Normalize
 	if expSum > 0 {
 		for i := range result {
 			result[i] /= expSum
 		}
 	}
-	
+
 	return result
 }
 
@@ -227,30 +227,30 @@ func (p *SimplePredictor) PredictRaw(features []float64) []float64 {
 	if p.model.NumClass > 2 {
 		// Multiclass raw scores
 		predictions := make([]float64, p.model.NumClass)
-		
+
 		// Initialize with init scores
 		for i := range predictions {
 			predictions[i] = p.model.InitScore
 		}
-		
+
 		// Accumulate predictions from trees
 		for i, tree := range p.model.Trees {
 			classIdx := i % p.model.NumClass
 			treeOutput := p.predictTree(&tree, features)
 			predictions[classIdx] += treeOutput
 		}
-		
+
 		return predictions
 	} else {
 		// Binary or regression raw score - start with init score
 		prediction := p.model.InitScore
-		
+
 		// Sum predictions from all trees
 		for _, tree := range p.model.Trees {
 			treeOutput := p.predictTree(&tree, features)
 			prediction += treeOutput
 		}
-		
+
 		return []float64{prediction}
 	}
 }

@@ -44,12 +44,12 @@ func (t *LeavesTree) Predict(fvals []float64) float64 {
 		}
 		return 0.0
 	}
-	
+
 	idx := uint32(0)
 	for {
 		node := &t.Nodes[idx]
 		left := t.decision(node, fvals[node.Feature])
-		
+
 		if left {
 			if node.Flags&leftLeaf > 0 {
 				// Left child is a leaf
@@ -60,7 +60,7 @@ func (t *LeavesTree) Predict(fvals []float64) float64 {
 			idx = node.Left
 		} else {
 			if node.Flags&rightLeaf > 0 {
-				// Right child is a leaf  
+				// Right child is a leaf
 				// IMPORTANT: LightGBM model files already contain shrinkage-adjusted values
 				leafValue := t.LeafValues[node.Right]
 				return leafValue
@@ -85,14 +85,14 @@ func (t *LeavesTree) numericalDecision(node *LeavesNode, fval float64) bool {
 	if math.IsNaN(fval) && (node.Flags&missingNan == 0) {
 		fval = 0.0
 	}
-	
+
 	const zeroThreshold = 1e-35
 	isZero := fval > -zeroThreshold && fval <= zeroThreshold
-	
+
 	if ((node.Flags&missingZero > 0) && isZero) || ((node.Flags&missingNan > 0) && math.IsNaN(fval)) {
 		return node.Flags&defaultLeft > 0
 	}
-	
+
 	// LightGBM uses <= for numerical splits
 	return fval <= node.Threshold
 }
@@ -110,21 +110,12 @@ func (t *LeavesTree) categoricalDecision(node *LeavesNode, fval float64) bool {
 		}
 		ifval = 0
 	}
-	
+
 	if node.Flags&catOneHot > 0 {
 		return int32(node.Threshold) == ifval
 	}
-	
+
 	// For simplicity, default to false for other categorical types
 	// Full implementation would handle catSmall and regular categorical
 	return false
-}
-
-// createNumericalNode creates a numerical decision node
-func createNumericalNode(feature uint32, missingType uint8, threshold float64, defaultType uint8) LeavesNode {
-	node := LeavesNode{}
-	node.Feature = feature
-	node.Flags = missingType | defaultType
-	node.Threshold = threshold
-	return node
 }

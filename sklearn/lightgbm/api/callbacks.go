@@ -61,13 +61,13 @@ func (cb *PrintEvaluationCallback) BeforeIteration(env *CallbackEnv) error {
 
 // AfterIteration is called after each iteration
 func (cb *PrintEvaluationCallback) AfterIteration(env *CallbackEnv) error {
-	if env.Iteration % cb.period != 0 {
+	if env.Iteration%cb.period != 0 {
 		return nil
 	}
-	
+
 	// Format: [Iteration] train-metric: value valid-metric: value
 	output := fmt.Sprintf("[%d]", env.Iteration+1)
-	
+
 	// Print all evaluation results
 	for key, values := range env.EvalResults {
 		if len(values) > 0 {
@@ -75,11 +75,11 @@ func (cb *PrintEvaluationCallback) AfterIteration(env *CallbackEnv) error {
 			output += fmt.Sprintf("\t%s: %.6f", key, lastValue)
 		}
 	}
-	
+
 	if output != fmt.Sprintf("[%d]", env.Iteration+1) {
 		fmt.Println(output)
 	}
-	
+
 	cb.lastTime = env.Iteration
 	return nil
 }
@@ -107,7 +107,7 @@ type EarlyStoppingCallback struct {
 	verbose        bool
 	firstMetric    bool
 	minDelta       float64
-	
+
 	// Internal state
 	bestScore      float64
 	bestIteration  int
@@ -145,12 +145,12 @@ func (cb *EarlyStoppingCallback) Init(env *CallbackEnv) error {
 			cb.bestScore = math.Inf(1)
 		}
 	}
-	
+
 	if cb.verbose {
-		fmt.Printf("[LightGBM] [Info] Early stopping is enabled. Will stop if metric doesn't improve for %d rounds.\n", 
+		fmt.Printf("[LightGBM] [Info] Early stopping is enabled. Will stop if metric doesn't improve for %d rounds.\n",
 			cb.stoppingRounds)
 	}
-	
+
 	return nil
 }
 
@@ -164,7 +164,7 @@ func (cb *EarlyStoppingCallback) AfterIteration(env *CallbackEnv) error {
 	// Get the first validation metric
 	var currentScore float64
 	var metricKey string
-	
+
 	for key, values := range env.EvalResults {
 		if len(values) > 0 {
 			// Use the first validation metric found
@@ -173,55 +173,55 @@ func (cb *EarlyStoppingCallback) AfterIteration(env *CallbackEnv) error {
 			break
 		}
 	}
-	
+
 	if metricKey == "" {
 		// No validation metric, skip early stopping
 		return nil
 	}
-	
+
 	if cb.metricName == "" {
 		cb.metricName = metricKey
 	}
-	
+
 	// Check if score improved
 	improved := false
 	if cb.isHigherBetter {
-		if currentScore > cb.bestScore + cb.minDelta {
+		if currentScore > cb.bestScore+cb.minDelta {
 			improved = true
 		}
 	} else {
-		if currentScore < cb.bestScore - cb.minDelta {
+		if currentScore < cb.bestScore-cb.minDelta {
 			improved = true
 		}
 	}
-	
+
 	if improved {
 		cb.bestScore = currentScore
 		cb.bestIteration = env.Iteration
 		cb.waitCount = 0
 		env.BestIteration = env.Iteration
 		env.BestScore = currentScore
-		
+
 		if cb.verbose {
-			fmt.Printf("[%d]\tBest iteration so far, %s: %.6f\n", 
+			fmt.Printf("[%d]\tBest iteration so far, %s: %.6f\n",
 				env.Iteration+1, cb.metricName, cb.bestScore)
 		}
 	} else {
 		cb.waitCount++
-		
+
 		if cb.waitCount >= cb.stoppingRounds {
 			if cb.verbose {
 				fmt.Printf("[LightGBM] [Info] Early stopping at iteration %d, best iteration is %d\n",
 					env.Iteration+1, cb.bestIteration+1)
 				fmt.Printf("[LightGBM] [Info] Best %s: %.6f\n", cb.metricName, cb.bestScore)
 			}
-			
+
 			env.ShouldStop = true
 			env.Booster.SetBestIteration(cb.bestIteration)
 			return ErrEarlyStop
 		}
 	}
-	
+
 	return nil
 }
 
@@ -268,18 +268,18 @@ func (cb *RecordEvaluationCallback) AfterIteration(env *CallbackEnv) error {
 				break
 			}
 		}
-		
+
 		if dataset == "" || metric == "" {
 			continue
 		}
-		
+
 		if _, ok := cb.evalResult[dataset]; !ok {
 			cb.evalResult[dataset] = make(map[string][]float64)
 		}
-		
+
 		cb.evalResult[dataset][metric] = values
 	}
-	
+
 	return nil
 }
 

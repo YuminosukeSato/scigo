@@ -131,7 +131,7 @@ func LoadFromReader(reader io.Reader) (*Model, error) {
 	if model.NumClass == 0 {
 		model.NumClass = 1
 	}
-	
+
 	// Extract InitScore from first tree's root internal value
 	if len(model.Trees) > 0 && model.Trees[0].InternalValue != 0 {
 		model.InitScore = model.Trees[0].InternalValue
@@ -160,10 +160,10 @@ func finalizeTree(tree *Tree, params map[string]string) error {
 	leftChildren := parseIntArray(params["left_child"])
 	rightChildren := parseIntArray(params["right_child"])
 	leafValues := parseFloatArray(params["leaf_value"])
-	
+
 	// Store leaf values for tree
 	tree.LeafValues = leafValues
-	
+
 	// Handle special case: constant value tree (single leaf)
 	if tree.NumLeaves == 1 {
 		// Tree with only one leaf - constant prediction
@@ -172,14 +172,14 @@ func finalizeTree(tree *Tree, params map[string]string) error {
 
 	// Parse decision_type for default direction
 	decisionTypes := parseIntArray(params["decision_type"])
-	
+
 	// Parse internal_value for init score (first value is root node's internal value)
 	internalValues := parseFloatArray(params["internal_value"])
 
 	// Build nodes - only internal nodes first
 	numInternalNodes := len(splitFeatures)
 	tree.Nodes = make([]Node, 0, numInternalNodes)
-	
+
 	// Store root internal value if this is the first tree (as InitScore)
 	if tree.TreeIndex == 0 && len(internalValues) > 0 {
 		// The first internal_value is the root node's value, which represents the init score
@@ -198,7 +198,7 @@ func finalizeTree(tree *Tree, params map[string]string) error {
 			Threshold:    thresholds[i],
 			NodeType:     NumericalNode,
 		}
-		
+
 		// Parse default direction from decision_type
 		if i < len(decisionTypes) {
 			// Bit 1 indicates default_left

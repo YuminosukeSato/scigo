@@ -1,3 +1,4 @@
+//go:build capi
 // +build capi
 
 package lightgbm_capi
@@ -53,10 +54,10 @@ func LastError() error {
 // CreateDatasetFromMat creates a dataset from a matrix
 func CreateDatasetFromMat(data []float64, nrow, ncol int, params string) (*DatasetHandle, error) {
 	var handle C.DatasetHandle
-	
+
 	cParams := C.CString(params)
 	defer C.free(unsafe.Pointer(cParams))
-	
+
 	ret := C.LGBM_DatasetCreateFromMat(
 		unsafe.Pointer(&data[0]),
 		C.C_API_DTYPE_FLOAT64,
@@ -67,11 +68,11 @@ func CreateDatasetFromMat(data []float64, nrow, ncol int, params string) (*Datas
 		nil,
 		&handle,
 	)
-	
+
 	if ret != 0 {
 		return nil, LastError()
 	}
-	
+
 	return &DatasetHandle{handle: handle}, nil
 }
 
@@ -79,7 +80,7 @@ func CreateDatasetFromMat(data []float64, nrow, ncol int, params string) (*Datas
 func (d *DatasetHandle) SetField(fieldName string, data []float32) error {
 	cFieldName := C.CString(fieldName)
 	defer C.free(unsafe.Pointer(cFieldName))
-	
+
 	ret := C.LGBM_DatasetSetField(
 		d.handle,
 		cFieldName,
@@ -87,11 +88,11 @@ func (d *DatasetHandle) SetField(fieldName string, data []float32) error {
 		C.int(len(data)),
 		C.C_API_DTYPE_FLOAT32,
 	)
-	
+
 	if ret != 0 {
 		return LastError()
 	}
-	
+
 	return nil
 }
 
@@ -107,20 +108,20 @@ func (d *DatasetHandle) Free() error {
 // BoosterCreate creates a new booster
 func BoosterCreate(trainData *DatasetHandle, params string) (*BoosterHandle, error) {
 	var handle C.BoosterHandle
-	
+
 	cParams := C.CString(params)
 	defer C.free(unsafe.Pointer(cParams))
-	
+
 	ret := C.LGBM_BoosterCreate(
 		trainData.handle,
 		cParams,
 		&handle,
 	)
-	
+
 	if ret != 0 {
 		return nil, LastError()
 	}
-	
+
 	return &BoosterHandle{handle: handle}, nil
 }
 
@@ -128,49 +129,49 @@ func BoosterCreate(trainData *DatasetHandle, params string) (*BoosterHandle, err
 func BoosterCreateFromModelfile(filename string) (*BoosterHandle, error) {
 	var handle C.BoosterHandle
 	var outNumIterations C.int
-	
+
 	cFilename := C.CString(filename)
 	defer C.free(unsafe.Pointer(cFilename))
-	
+
 	ret := C.LGBM_BoosterCreateFromModelfile(
 		cFilename,
 		&outNumIterations,
 		&handle,
 	)
-	
+
 	if ret != 0 {
 		return nil, LastError()
 	}
-	
+
 	return &BoosterHandle{handle: handle}, nil
 }
 
 // UpdateOneIter performs one boosting iteration
 func (b *BoosterHandle) UpdateOneIter() error {
 	var isFinished C.int
-	
+
 	ret := C.LGBM_BoosterUpdateOneIter(b.handle, &isFinished)
 	if ret != 0 {
 		return LastError()
 	}
-	
+
 	return nil
 }
 
 // PredictForMat makes predictions for a matrix
 func (b *BoosterHandle) PredictForMat(data []float64, nrow, ncol int, predictType int, numIteration int) ([]float64, error) {
 	var outLen C.int64_t
-	
+
 	// Estimate output length
 	// For normal prediction: nrow
 	// For leaf index: nrow * num_trees
 	// For multiclass: nrow * num_class
 	estimatedLen := nrow * 10 // Conservative estimate
 	outResult := make([]float64, estimatedLen)
-	
+
 	cParams := C.CString("")
 	defer C.free(unsafe.Pointer(cParams))
-	
+
 	ret := C.LGBM_BoosterPredictForMat(
 		b.handle,
 		unsafe.Pointer(&data[0]),
@@ -184,11 +185,11 @@ func (b *BoosterHandle) PredictForMat(data []float64, nrow, ncol int, predictTyp
 		&outLen,
 		&outResult[0],
 	)
-	
+
 	if ret != 0 {
 		return nil, LastError()
 	}
-	
+
 	// Resize to actual output length
 	return outResult[:outLen], nil
 }
@@ -197,19 +198,19 @@ func (b *BoosterHandle) PredictForMat(data []float64, nrow, ncol int, predictTyp
 func (b *BoosterHandle) SaveModel(filename string, numIteration int, featureImportanceType int) error {
 	cFilename := C.CString(filename)
 	defer C.free(unsafe.Pointer(cFilename))
-	
+
 	ret := C.LGBM_BoosterSaveModel(
 		b.handle,
-		C.int(0),     // start_iteration
+		C.int(0), // start_iteration
 		C.int(numIteration),
 		C.int(featureImportanceType),
 		cFilename,
 	)
-	
+
 	if ret != 0 {
 		return LastError()
 	}
-	
+
 	return nil
 }
 
@@ -217,7 +218,7 @@ func (b *BoosterHandle) SaveModel(filename string, numIteration int, featureImpo
 func (b *BoosterHandle) DumpModel(numIteration int, featureImportanceType int) (string, error) {
 	var outLen C.int64_t
 	var outStr *C.char
-	
+
 	ret := C.LGBM_BoosterDumpModel(
 		b.handle,
 		C.int(0), // start_iteration
@@ -227,11 +228,11 @@ func (b *BoosterHandle) DumpModel(numIteration int, featureImportanceType int) (
 		&outLen,
 		unsafe.Pointer(&outStr),
 	)
-	
+
 	if ret != 0 {
 		return "", LastError()
 	}
-	
+
 	result := C.GoStringN(outStr, C.int(outLen))
 	return result, nil
 }
@@ -239,24 +240,24 @@ func (b *BoosterHandle) DumpModel(numIteration int, featureImportanceType int) (
 // GetNumClasses returns the number of classes for multiclass classification
 func (b *BoosterHandle) GetNumClasses() (int, error) {
 	var numClass C.int
-	
+
 	ret := C.LGBM_BoosterGetNumClasses(b.handle, &numClass)
 	if ret != 0 {
 		return 0, LastError()
 	}
-	
+
 	return int(numClass), nil
 }
 
 // GetNumFeature returns the number of features
 func (b *BoosterHandle) GetNumFeature() (int, error) {
 	var numFeature C.int
-	
+
 	ret := C.LGBM_BoosterGetNumFeature(b.handle, &numFeature)
 	if ret != 0 {
 		return 0, LastError()
 	}
-	
+
 	return int(numFeature), nil
 }
 
@@ -271,8 +272,8 @@ func (b *BoosterHandle) Free() error {
 
 // Prediction types
 const (
-	PredictNormal     = 0
-	PredictRawScore   = 1
-	PredictLeafIndex  = 2
-	PredictContrib    = 3
+	PredictNormal    = 0
+	PredictRawScore  = 1
+	PredictLeafIndex = 2
+	PredictContrib   = 3
 )

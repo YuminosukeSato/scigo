@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"time"
 
-	lgb "github.com/YuminosukeSato/scigo/sklearn/lightgbm"
 	"github.com/YuminosukeSato/scigo/metrics"
+	lgb "github.com/YuminosukeSato/scigo/sklearn/lightgbm"
 	"gonum.org/v1/gonum/mat"
 )
 
@@ -23,25 +23,25 @@ import (
 func Train(params map[string]interface{}, trainSet *Dataset, numBoostRound int, validSets []*Dataset, options ...TrainOption) (*Booster, error) {
 	// Parse parameters
 	trainParams := parseParams(params)
-	
+
 	// Create trainer
 	trainer := lgb.NewTrainer(trainParams)
-	
+
 	// Create booster
 	booster := NewBooster(params)
-	
+
 	// Apply options
 	opts := &trainOptions{
-		callbacks:         []Callback{},
-		validNames:        []string{},
+		callbacks:          []Callback{},
+		validNames:         []string{},
 		earlyStoppingRound: 0,
-		verboseEval:       true,
-		evalFreq:          1,
+		verboseEval:        true,
+		evalFreq:           1,
 	}
 	for _, opt := range options {
 		opt(opts)
 	}
-	
+
 	// Add default callbacks
 	if opts.verboseEval {
 		opts.callbacks = append(opts.callbacks, NewPrintEvaluationCallback(opts.evalFreq))
@@ -49,36 +49,36 @@ func Train(params map[string]interface{}, trainSet *Dataset, numBoostRound int, 
 	if opts.earlyStoppingRound > 0 {
 		opts.callbacks = append(opts.callbacks, NewEarlyStoppingCallback(opts.earlyStoppingRound, true))
 	}
-	
+
 	// Prepare validation sets
 	if len(validSets) > 0 && len(opts.validNames) == 0 {
 		for i := range validSets {
 			opts.validNames = append(opts.validNames, fmt.Sprintf("valid_%d", i))
 		}
 	}
-	
+
 	// Initialize callbacks
 	env := &CallbackEnv{
-		Iteration:    0,
+		Iteration:     0,
 		NumBoostRound: numBoostRound,
-		Booster:      booster,
-		Params:       params,
-		EvalResults:  make(map[string][]float64),
+		Booster:       booster,
+		Params:        params,
+		EvalResults:   make(map[string][]float64),
 	}
-	
+
 	for _, cb := range opts.callbacks {
 		if err := cb.Init(env); err != nil {
 			return nil, fmt.Errorf("callback initialization failed: %w", err)
 		}
 	}
-	
+
 	// Training loop
 	fmt.Printf("[LightGBM] [Info] Start training from score %.6f\n", 0.0)
 	startTime := time.Now()
-	
+
 	for iter := 0; iter < numBoostRound; iter++ {
 		env.Iteration = iter
-		
+
 		// Before iteration callbacks
 		for _, cb := range opts.callbacks {
 			if err := cb.BeforeIteration(env); err != nil {
@@ -90,57 +90,57 @@ func Train(params map[string]interface{}, trainSet *Dataset, numBoostRound int, 
 				return nil, err
 			}
 		}
-		
+
 		// Check if should stop
 		if env.ShouldStop {
 			break
 		}
-		
+
 		// Perform one boosting iteration
 		// This would integrate with the actual trainer
 		err := trainOneIteration(trainer, trainSet, booster)
 		if err != nil {
 			return nil, fmt.Errorf("training iteration %d failed: %w", iter, err)
 		}
-		
+
 		// Evaluate on validation sets
 		if len(validSets) > 0 {
 			for i, validSet := range validSets {
 				score := evaluateDataset(booster, validSet, trainParams.Objective)
 				metricName := getMetricName(trainParams.Objective)
 				datasetName := opts.validNames[i]
-				
+
 				key := fmt.Sprintf("%s-%s", datasetName, metricName)
 				env.EvalResults[key] = append(env.EvalResults[key], score)
 				booster.AddEvalResult(datasetName, metricName, score)
 			}
 		}
-		
+
 		// After iteration callbacks
 		for _, cb := range opts.callbacks {
 			if err := cb.AfterIteration(env); err != nil {
 				return nil, err
 			}
 		}
-		
+
 		booster.currentIteration = iter + 1
 	}
-	
+
 	trainTime := time.Since(startTime)
 	fmt.Printf("[LightGBM] [Info] Training finished in %.2f seconds\n", trainTime.Seconds())
-	
+
 	// Finalize callbacks
 	for _, cb := range opts.callbacks {
 		if err := cb.Finalize(env); err != nil {
 			return nil, err
 		}
 	}
-	
+
 	// Set best iteration if not set
 	if booster.bestIteration == 0 {
 		booster.bestIteration = booster.currentIteration
 	}
-	
+
 	return booster, nil
 }
 
@@ -213,7 +213,7 @@ func parseParams(params map[string]interface{}) lgb.TrainingParams {
 		Deterministic:   false,
 		Verbosity:       1,
 	}
-	
+
 	// Parse from map
 	if val, ok := params["num_iterations"].(int); ok {
 		tp.NumIterations = val
@@ -272,7 +272,7 @@ func parseParams(params map[string]interface{}) lgb.TrainingParams {
 	if val, ok := params["num_class"].(int); ok {
 		tp.NumClass = val
 	}
-	
+
 	return tp
 }
 
@@ -282,14 +282,14 @@ func trainOneIteration(trainer *lgb.Trainer, trainSet *Dataset, booster *Booster
 	// 1. Use the trainer to build one tree
 	// 2. Add the tree to the model
 	// 3. Update the booster
-	
+
 	// For now, we just simulate the training
 	if booster.model == nil {
 		// Initialize model on first iteration
 		rows, cols := trainSet.Data.Dims()
 		booster.model = lgb.NewModel()
 		booster.model.NumFeatures = cols
-		
+
 		// Detect task type
 		if trainSet.isBinary {
 			booster.model.Objective = lgb.BinaryLogistic
@@ -300,17 +300,17 @@ func trainOneIteration(trainer *lgb.Trainer, trainSet *Dataset, booster *Booster
 		} else {
 			booster.model.Objective = lgb.RegressionL2
 		}
-		
+
 		booster.predictor = lgb.NewPredictor(booster.model)
-		
+
 		// Set feature names
 		if len(trainSet.FeatureNames) > 0 {
 			booster.SetFeatureNames(trainSet.FeatureNames)
 		}
-		
+
 		_ = rows // Use rows to avoid unused variable
 	}
-	
+
 	// Simulate adding a tree (actual implementation would use trainer.Fit)
 	tree := lgb.Tree{
 		TreeIndex:     booster.currentIteration,
@@ -319,7 +319,7 @@ func trainOneIteration(trainer *lgb.Trainer, trainSet *Dataset, booster *Booster
 		ShrinkageRate: 0.1,
 	}
 	booster.model.Trees = append(booster.model.Trees, tree)
-	
+
 	return nil
 }
 
@@ -328,13 +328,13 @@ func evaluateDataset(booster *Booster, dataset *Dataset, objective string) float
 	if booster.model == nil || dataset == nil {
 		return 0.0
 	}
-	
+
 	// Make predictions
 	predictions, err := booster.Predict(dataset.Data)
 	if err != nil {
 		return 0.0
 	}
-	
+
 	// Calculate metric based on objective
 	var score float64
 	switch objective {
@@ -355,7 +355,7 @@ func evaluateDataset(booster *Booster, dataset *Dataset, objective string) float
 	default:
 		score = 0.0
 	}
-	
+
 	return score
 }
 
@@ -393,26 +393,26 @@ func calculateAccuracy(yTrue, yPred mat.Matrix) float64 {
 	if yTrue == nil || yPred == nil {
 		return 0.0
 	}
-	
+
 	rows, _ := yTrue.Dims()
 	correct := 0
-	
+
 	for i := 0; i < rows; i++ {
 		trueVal := yTrue.At(i, 0)
 		predVal := yPred.At(i, 0)
-		
+
 		// For binary/multiclass, round predictions
 		if predVal > 0.5 {
 			predVal = 1.0
 		} else {
 			predVal = 0.0
 		}
-		
+
 		if trueVal == predVal {
 			correct++
 		}
 	}
-	
+
 	return float64(correct) / float64(rows)
 }
 
@@ -424,7 +424,7 @@ func QuickTrain(X, y mat.Matrix, params map[string]interface{}) (*Booster, error
 	if err != nil {
 		return nil, err
 	}
-	
+
 	// Set default parameters if not provided
 	if params == nil {
 		params = make(map[string]interface{})
@@ -443,7 +443,7 @@ func QuickTrain(X, y mat.Matrix, params map[string]interface{}) (*Booster, error
 	if _, ok := params["num_iterations"]; !ok {
 		params["num_iterations"] = 100
 	}
-	
+
 	// Train model
 	numRound := params["num_iterations"].(int)
 	return Train(params, trainData, numRound, nil)
