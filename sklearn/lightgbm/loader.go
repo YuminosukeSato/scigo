@@ -131,14 +131,17 @@ func LoadFromReader(reader io.Reader) (*Model, error) {
 	if model.NumClass == 0 {
 		model.NumClass = 1
 	}
+	
+	// Extract InitScore from first tree's root internal value
+	if len(model.Trees) > 0 && model.Trees[0].InternalValue != 0 {
+		model.InitScore = model.Trees[0].InternalValue
+	}
 
 	return model, nil
 }
 
 // finalizeTree parses the tree parameters and constructs the tree nodes
 func finalizeTree(tree *Tree, params map[string]string) error {
-	// Parse tree parameters for future expansion
-	_ = params // Currently unused, reserved for future enhancements
 	// Parse num_leaves
 	if v, ok := params["num_leaves"]; ok {
 		numLeaves, _ := strconv.Atoi(v)
@@ -157,75 +160,62 @@ func finalizeTree(tree *Tree, params map[string]string) error {
 	leftChildren := parseIntArray(params["left_child"])
 	rightChildren := parseIntArray(params["right_child"])
 	leafValues := parseFloatArray(params["leaf_value"])
+	
+	// Store leaf values for tree
+	tree.LeafValues = leafValues
+	
+	// Handle special case: constant value tree (single leaf)
+	if tree.NumLeaves == 1 {
+		// Tree with only one leaf - constant prediction
+		return nil
+	}
 
-	// Build nodes
+	// Parse decision_type for default direction
+	decisionTypes := parseIntArray(params["decision_type"])
+	
+	// Parse internal_value for init score (first value is root node's internal value)
+	internalValues := parseFloatArray(params["internal_value"])
+
+	// Build nodes - only internal nodes first
 	numInternalNodes := len(splitFeatures)
-	numLeaves := len(leafValues)
-	totalNodes := numInternalNodes + numLeaves
-
-	tree.Nodes = make([]Node, 0, totalNodes)
+	tree.Nodes = make([]Node, 0, numInternalNodes)
+	
+	// Store root internal value if this is the first tree (as InitScore)
+	if tree.TreeIndex == 0 && len(internalValues) > 0 {
+		// The first internal_value is the root node's value, which represents the init score
+		// This is stored temporarily and will be transferred to model.InitScore later
+		tree.InternalValue = internalValues[0]
+	}
 
 	// Create internal nodes
 	for i := 0; i < numInternalNodes; i++ {
 		node := Node{
 			NodeID:       i,
-			ParentID:     -1, // Will be set later
+			ParentID:     -1, // Will be set later if needed
 			LeftChild:    leftChildren[i],
 			RightChild:   rightChildren[i],
 			SplitFeature: splitFeatures[i],
 			Threshold:    thresholds[i],
 			NodeType:     NumericalNode,
 		}
+		
+		// Parse default direction from decision_type
+		if i < len(decisionTypes) {
+			// Bit 1 indicates default_left
+			node.DefaultLeft = (decisionTypes[i] & (1 << 1)) != 0
+		}
 
-		// Check if it's actually a leaf (-1 means leaf)
+		// Check if it's actually a leaf (-1 or negative means leaf)
 		if leftChildren[i] < 0 && rightChildren[i] < 0 {
-			// This is actually a leaf node, get its value
+			// This is actually a leaf node
 			leafIdx := -(leftChildren[i] + 1)
-			if leafIdx < len(leafValues) {
+			if leafIdx >= 0 && leafIdx < len(leafValues) {
 				node.LeafValue = leafValues[leafIdx]
 				node.NodeType = LeafNode
 			}
 		}
 
 		tree.Nodes = append(tree.Nodes, node)
-	}
-
-	// Add leaf nodes that aren't already added
-	leafNodeID := numInternalNodes
-	for i := 0; i < numLeaves; i++ {
-		// Check if this leaf was already added as part of internal nodes
-		alreadyAdded := false
-		for j := 0; j < numInternalNodes; j++ {
-			if leftChildren[j] == -(i+1) || rightChildren[j] == -(i+1) {
-				// This leaf is referenced, but we need to create it properly
-				node := Node{
-					NodeID:     leafNodeID,
-					ParentID:   j,
-					LeftChild:  -1,
-					RightChild: -1,
-					LeafValue:  leafValues[i],
-					NodeType:   LeafNode,
-				}
-				tree.Nodes = append(tree.Nodes, node)
-				leafNodeID++
-				alreadyAdded = true
-				break
-			}
-		}
-
-		if !alreadyAdded {
-			// Standalone leaf node
-			node := Node{
-				NodeID:     leafNodeID,
-				ParentID:   -1,
-				LeftChild:  -1,
-				RightChild: -1,
-				LeafValue:  leafValues[i],
-				NodeType:   LeafNode,
-			}
-			tree.Nodes = append(tree.Nodes, node)
-			leafNodeID++
-		}
 	}
 
 	return nil
@@ -391,7 +381,7 @@ func parseNodeFromJSON(nodeMap map[string]interface{}) *NodeJSON {
 	// Use json.Marshal and Unmarshal to map the generic interface to a struct
 	jsonBytes, _ := json.Marshal(nodeMap)
 	var nodeJSON NodeJSON
-	json.Unmarshal(jsonBytes, &nodeJSON)
+	_ = json.Unmarshal(jsonBytes, &nodeJSON)
 	return &nodeJSON
 }
 

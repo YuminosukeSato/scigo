@@ -25,8 +25,13 @@ type Trainer struct {
 	orderedIdx [][]int // Sorted indices for each feature
 
 	// Gradient and Hessian
-	gradients []float64
-	hessians  []float64
+	gradients []float64 // For backward compatibility
+	hessians  []float64 // For backward compatibility
+	
+	// Native multiclass support with Gonum matrices
+	gradientsMatrix *mat.Dense // [samples x classes] for native multiclass
+	hessiansMatrix  *mat.Dense // [samples x classes] for native multiclass
+	predictions     *mat.Dense // [samples x classes] for native multiclass
 
 	// Trees
 	trees []Tree
@@ -221,9 +226,26 @@ func (t *Trainer) Fit(X, y mat.Matrix) error {
 func (t *Trainer) initialize() error {
 	rows, cols := t.X.Dims()
 
-	// Initialize gradients and hessians
-	t.gradients = make([]float64, rows)
-	t.hessians = make([]float64, rows)
+	// Check if native multiclass
+	isNativeMulticlass := t.params.Objective == "multiclass_native" && t.params.NumClass > 2
+
+	if isNativeMulticlass {
+		// Initialize Gonum matrices for native multiclass
+		t.gradientsMatrix = mat.NewDense(rows, t.params.NumClass, nil)
+		t.hessiansMatrix = mat.NewDense(rows, t.params.NumClass, nil)
+		t.predictions = mat.NewDense(rows, t.params.NumClass, nil)
+		
+		// Initialize predictions to zero (will result in uniform softmax probabilities)
+		for i := 0; i < rows; i++ {
+			for j := 0; j < t.params.NumClass; j++ {
+				t.predictions.Set(i, j, 0.0)
+			}
+		}
+	} else {
+		// Initialize traditional arrays for backward compatibility
+		t.gradients = make([]float64, rows)
+		t.hessians = make([]float64, rows)
+	}
 
 	// Initialize sample weights if not provided
 	if t.sampleWeight == nil {
@@ -327,15 +349,57 @@ func (t *Trainer) findBinBoundaries(values []float64) []float64 {
 func (t *Trainer) calculateGradients() {
 	rows, _ := t.y.Dims()
 
-	// This is a simplified version for regression
-	// In practice, this would depend on the objective function
-	for i := 0; i < rows; i++ {
-		// For L2 loss: gradient = prediction - target
-		prediction := t.getCurrentPrediction(i)
-		target := t.y.At(i, 0)
+	switch t.params.Objective {
+	case "binary", "binary:logistic":
+		// Binary classification with logistic loss
+		for i := 0; i < rows; i++ {
+			// Get raw prediction (before sigmoid)
+			rawPred := t.getCurrentPrediction(i)
+			// Apply sigmoid to get probability
+			prob := 1.0 / (1.0 + math.Exp(-rawPred))
+			target := t.y.At(i, 0)
 
-		t.gradients[i] = prediction - target
-		t.hessians[i] = 1.0 // For L2 loss, hessian is constant
+			// Gradient = prediction - target
+			t.gradients[i] = prob - target
+			// Hessian = prediction * (1 - prediction)
+			t.hessians[i] = prob * (1.0 - prob)
+		}
+
+	case "multiclass", "multiclass:softmax":
+		// Multiclass classification with softmax
+		// For multiclass, we need to handle multiple trees per iteration
+		// This is a simplified version - full implementation would require
+		// tracking predictions per class
+		for i := 0; i < rows; i++ {
+			target := int(t.y.At(i, 0))
+
+			// For now, use a simplified approach
+			// In full implementation, we'd compute softmax over all classes
+			if t.params.NumClass > 0 {
+				// Simplified: treat as one-vs-all
+				prob := 1.0 / float64(t.params.NumClass)
+				if target < t.params.NumClass {
+					t.gradients[i] = prob - 1.0
+				} else {
+					t.gradients[i] = prob
+				}
+				t.hessians[i] = prob * (1.0 - prob)
+			} else {
+				// Fallback to regression
+				t.gradients[i] = 0.0
+				t.hessians[i] = 1.0
+			}
+		}
+
+	default:
+		// Regression with L2 loss
+		for i := 0; i < rows; i++ {
+			prediction := t.getCurrentPrediction(i)
+			target := t.y.At(i, 0)
+
+			t.gradients[i] = prediction - target
+			t.hessians[i] = 1.0 // For L2 loss, hessian is constant
+		}
 	}
 }
 
@@ -583,7 +647,6 @@ func (t *Trainer) splitData(indices []int, split SplitInfo) ([]int, []int) {
 
 // calculateLeafValue calculates the optimal value for a leaf node
 func (t *Trainer) calculateLeafValue(indices []int) float64 {
-	// For regression with L2 loss
 	sumGrad := 0.0
 	sumHess := 0.0
 
@@ -593,6 +656,7 @@ func (t *Trainer) calculateLeafValue(indices []int) float64 {
 	}
 
 	// Optimal leaf value with L2 regularization
+	// This formula works for both regression and classification
 	return -sumGrad / (sumHess + t.params.Lambda)
 }
 
