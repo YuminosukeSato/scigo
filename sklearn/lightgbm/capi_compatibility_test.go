@@ -485,7 +485,7 @@ func loadNPYFloat64Matrix(path string) (*mat.Dense, error) {
     if err != nil {
         return nil, err
     }
-    if header.descr != "<f8" && header.descr != "|f8" && header.descr != "<f8" {
+    if header.descr != "<f8" && header.descr != "|f8" {
         return nil, fmt.Errorf("unsupported dtype: %s", header.descr)
     }
     if header.fortran {
@@ -523,7 +523,7 @@ func loadNPYFloat64VectorAsMatrix(path string) (*mat.Dense, error) {
     if err != nil {
         return nil, err
     }
-    if header.descr != "<f8" && header.descr != "|f8" && header.descr != "<f8" {
+    if header.descr != "<f8" && header.descr != "|f8" {
         return nil, fmt.Errorf("unsupported dtype: %s", header.descr)
     }
     if header.fortran {
@@ -577,7 +577,7 @@ func readNPYHeader(f *os.File) (*npyHeader, error) {
     if _, err := io.ReadFull(f, ver); err != nil {
         return nil, err
     }
-    major, minor := ver[0], ver[1]
+    major := ver[0]
     var headerLen uint32
     if major == 1 {
         // 2-byte little-endian

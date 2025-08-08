@@ -301,7 +301,7 @@ func TestPythonOutputFormat(t *testing.T) {
 		t.Errorf("Expected 5 iterations, got %d", bst.CurrentIteration())
 	}
 	
-	fmt.Println("=== Output Format Test Complete ===\n")
+	fmt.Println("=== Output Format Test Complete ===")
 }
 
 // BenchmarkPythonStyleAPI benchmarks the Python-style API

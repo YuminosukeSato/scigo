@@ -1,3 +1,5 @@
+// This example demonstrates LightGBM Python-style API usage with synthetic data.
+// Uses math/rand for reproducible examples - NOT suitable for production secrets.
 package main
 
 import (
@@ -188,7 +190,8 @@ func main() {
 func generateRandomMatrix(rows, cols int) *mat.Dense {
 	data := make([]float64, rows*cols)
 	for i := range data {
-		data[i] = rand.NormFloat64() // math/rand: acceptable for ML examples
+		// #nosec G404 -- Using math/rand for reproducible ML examples, not cryptographic purposes
+		data[i] = rand.NormFloat64() // Deterministic random for consistent demo results
 	}
 	return mat.NewDense(rows, cols, data)
 }
@@ -199,7 +202,8 @@ func generateRandomMatrix(rows, cols int) *mat.Dense {
 func generateBinaryLabels(n int) *mat.Dense {
 	data := make([]float64, n)
 	for i := range data {
-		if rand.Float64() > 0.5 { // math/rand: acceptable for ML examples
+		// #nosec G404 -- Using math/rand for reproducible ML examples, not cryptographic purposes
+		if rand.Float64() > 0.5 { // Deterministic random for consistent demo results
 			data[i] = 1.0
 		}
 	}

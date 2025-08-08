@@ -13,8 +13,9 @@ import (
 // Booster represents a trained LightGBM model, similar to Python's Booster class
 type Booster struct {
 	// Core model components
-	model     *lgb.Model
-	predictor *lgb.Predictor
+	model           *lgb.Model
+	predictor       *lgb.Predictor
+	leavesPredictor *lgb.LeavesPredictor
 	
 	// Training information
 	numIterations   int
@@ -50,6 +51,20 @@ func (b *Booster) InitFromModel(model *lgb.Model) {
 	b.numIterations = len(model.Trees)
 	b.currentIteration = b.numIterations
 	b.bestIteration = model.BestIteration
+}
+
+// InitFromLeavesModel initializes the booster from a leaves model
+func (b *Booster) InitFromLeavesModel(model *lgb.LeavesModel) {
+	// Convert LeavesModel to Model for compatibility
+	lgbModel := &lgb.Model{
+		NumFeatures:  model.NumFeatures,
+		NumClass:     model.NumClass,
+		Objective:    model.Objective,
+	}
+	b.model = lgbModel
+	b.leavesPredictor = lgb.NewLeavesPredictor(model)
+	b.numIterations = len(model.Trees)
+	b.currentIteration = b.numIterations
 }
 
 // Update performs one boosting iteration
@@ -186,7 +201,7 @@ func LoadModel(filename string) (*Booster, error) {
 	}
 	
 	booster := NewBooster(nil)
-	booster.InitFromModel(model)
+	booster.InitFromLeavesModel(model)
 	
 	return booster, nil
 }

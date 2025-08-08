@@ -296,7 +296,7 @@ func (ds *Dataset) GetSubset(indices []int) (*Dataset, error) {
 		subsetLabel = mat.NewDense(len(indices), labelCols, nil)
 		for i, idx := range indices {
 			for j := 0; j < labelCols; j++ {
-				subsetLabel.Set(i, j, ds.Label.At(idx, j))
+				subsetLabel.(*mat.Dense).Set(i, j, ds.Label.At(idx, j))
 			}
 		}
 	}
