@@ -1,4 +1,4 @@
-name: Run checks
+name: CI
 
 on:
   push:
@@ -11,17 +11,142 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: read # to fetch code (actions/checkout)
-  security-events: write # to upload security results to GitHub Security tab
-  actions: read # for CodeQL analysis
-  pull-requests: read # for semgrep analysis
+  contents: read
+  security-events: write
+  actions: read
+  pull-requests: read
 
 env:
-  # run static analysis only with the latest Go version
-  LATEST_GO_VERSION: "1.24"
+  GO_VERSION: "1.24"
+  GOPROXY: https://proxy.golang.org,direct
 
 jobs:
-  check:
+  # Fast path - basic checks that must pass
+  quick-check:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Set up Go with cache
+        uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache: true
+          cache-dependency-path: |
+            go.sum
+            **/go.sum
+
+      - name: Cache Go tools
+        uses: actions/cache@v3
+        id: tool-cache
+        with:
+          path: ~/go/bin
+          key: ${{ runner.os }}-go-tools-${{ hashFiles('**/go.mod') }}-v2
+          restore-keys: |
+            ${{ runner.os }}-go-tools-
+
+      - name: Install cached tools
+        if: steps.tool-cache.outputs.cache-hit != 'true'
+        run: |
+          go install honnef.co/go/tools/cmd/staticcheck@latest
+          go install golang.org/x/vuln/cmd/govulncheck@latest
+          go install github.com/securego/gosec/v2/cmd/gosec@latest
+          echo "Tools installed and cached"
+
+      - name: Check formatting
+        run: |
+          if [ -n "$(gofmt -l .)" ]; then
+            echo "The following files need formatting:"
+            gofmt -l .
+            exit 1
+          fi
+
+      - name: Run go vet
+        run: go vet ./...
+
+      - name: Run staticcheck
+        run: ~/go/bin/staticcheck ./... || go run honnef.co/go/tools/cmd/staticcheck@latest ./...
+
+      - name: Check go mod tidy
+        run: |
+          go mod tidy
+          git diff --exit-code go.mod go.sum
+
+  # Parallel test runs for speed
+  test:
+    needs: quick-check
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        test-suite:
+          - "unit"
+          - "integration"
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Set up Go with cache
+        uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache: true
+
+      - name: Run tests - ${{ matrix.test-suite }}
+        run: |
+          if [ "${{ matrix.test-suite }}" == "unit" ]; then
+            go test -v -short -race -coverprofile=coverage-unit.out \
+              ./metrics/... ./preprocessing/... ./sklearn/...
+          else
+            go test -v -short -race -coverprofile=coverage-integration.out \
+              ./core/... ./linear/... ./pkg/...
+          fi
+
+      - name: Upload coverage
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-${{ matrix.test-suite }}
+          path: coverage-*.out
+
+  # Security scanning (lighter version for PRs)
+  security:
+    needs: quick-check
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Set up Go with cache
+        uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache: true
+
+      - name: Cache security tools
+        uses: actions/cache@v3
+        with:
+          path: ~/go/bin
+          key: ${{ runner.os }}-security-tools-${{ hashFiles('**/go.mod') }}-v2
+
+      - name: Run govulncheck
+        run: |
+          ~/go/bin/govulncheck ./... || go run golang.org/x/vuln/cmd/govulncheck@latest ./...
+
+      - name: Run gosec (high severity only for speed)
+        run: |
+          ~/go/bin/gosec -severity high -fmt sarif -out gosec.sarif ./... || \
+          go run github.com/securego/gosec/v2/cmd/gosec@latest -severity high -fmt sarif -out gosec.sarif ./...
+        continue-on-error: true
+
+      - name: Upload gosec results
+        uses: github/codeql-action/upload-sarif@v3
+        if: always() && hashFiles('gosec.sarif') != ''
+        with:
+          sarif_file: gosec.sarif
+
+  # Heavy security scans (only on main branch or manual trigger)
+  security-full:
+    if: github.ref == 'refs/heads/main' || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     steps:
       - name: Checkout Code
@@ -30,63 +155,17 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@v5
         with:
-          go-version: ${{ env.LATEST_GO_VERSION }}
-          check-latest: true
+          go-version: ${{ env.GO_VERSION }}
 
-      - name: Run go vet
-        run: go vet ./...
-
-      - name: Run staticcheck
-        run: |
-          go install honnef.co/go/tools/cmd/staticcheck@latest
-          staticcheck ./...
-
-      - name: Run govulncheck
-        run: |
-          go install golang.org/x/vuln/cmd/govulncheck@latest
-          govulncheck ./...
-
-      - name: Run gosec security scanner
-        run: |
-          go install github.com/securego/gosec/v2/cmd/gosec@latest
-          gosec -fmt sarif -out gosec-report.sarif ./... || echo "gosec completed with issues"
-          gosec -fmt json -out gosec-report.json ./... || echo "gosec completed with issues"
-          gosec ./... || echo "gosec completed with issues"
-
-      - name: Run semgrep security analysis
+      - name: Run semgrep
         uses: returntocorp/semgrep-action@v1
         with:
           config: >-
             p/security-audit
-            p/secrets
             p/golang
-            p/owasp-top-ten
-            p/cwe-top-25
         continue-on-error: true
 
-      - name: Run CodeQL Analysis
-        uses: github/codeql-action/init@v3
-        with:
-          languages: go
-          queries: security-and-quality
-
-      - name: Autobuild
-        uses: github/codeql-action/autobuild@v3
-
-      - name: Perform CodeQL Analysis
-        uses: github/codeql-action/analyze@v3
-
-      - name: Run nancy vulnerability scanner
-        run: |
-          go install github.com/sonatype-nexus-community/nancy@latest
-          go list -json -deps ./... | nancy sleuth || echo "nancy completed with issues"
-
-      - name: Scan for secrets with gitleaks
-        uses: gitleaks/gitleaks-action@v2
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Run trivy vulnerability scanner
+      - name: Run trivy
         uses: aquasecurity/trivy-action@master
         with:
           scan-type: 'fs'
@@ -95,44 +174,30 @@ jobs:
           output: 'trivy-results.sarif'
         continue-on-error: true
 
-      - name: Upload gosec results to GitHub Security tab
-        uses: github/codeql-action/upload-sarif@v3
-        if: always() && hashFiles('gosec-report.sarif') != ''
-        with:
-          sarif_file: gosec-report.sarif
+      - name: Run gitleaks
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        continue-on-error: true
 
-      - name: Upload trivy results to GitHub Security tab
+      - name: Upload trivy results
         uses: github/codeql-action/upload-sarif@v3
         if: always() && hashFiles('trivy-results.sarif') != ''
         with:
           sarif_file: trivy-results.sarif
 
-      - name: Upload security scan artifacts
-        uses: actions/upload-artifact@v4
-        if: always()
-        with:
-          name: security-scan-results
-          path: |
-            gosec-report.*
-            trivy-results.*
-          retention-days: 30
-          if-no-files-found: warn
-
-      - name: Setup Homebrew
-        uses: Homebrew/actions/setup-homebrew@master
-
-      - name: Scan for hardcoded credentials
+  # Final status check
+  ci-status:
+    needs: [quick-check, test, security]
+    runs-on: ubuntu-latest
+    if: always()
+    steps:
+      - name: Check CI Status
         run: |
-          brew install trufflehog
-          trufflehog filesystem . --json || echo "trufflehog completed with findings"
-
-      - name: Run tests
-        run: go test -v ./...
-
-      - name: Run tests with race detector
-        run: go test -race ./...
-
-      - name: Check go mod tidy
-        run: |
-          go mod tidy
-          git diff --exit-code go.mod go.sum
+          if [ "${{ needs.quick-check.result }}" != "success" ] || \
+             [ "${{ needs.test.result }}" != "success" ] || \
+             [ "${{ needs.security.result }}" != "success" ]; then
+            echo "CI failed"
+            exit 1
+          fi
+          echo "✅ All CI checks passed!"

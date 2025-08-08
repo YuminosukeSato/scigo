@@ -1,0 +1,38 @@
+version: '3.8'
+
+services:
+  ci-fast:
+    build:
+      context: .
+      dockerfile: Dockerfile.ci
+      cache_from:
+        - golang:1.24-alpine
+    image: scigo-ci:latest
+    volumes:
+      - .:/workspace
+      - go-mod-cache:/go/pkg/mod
+      - go-build-cache:/root/.cache/go-build
+    working_dir: /workspace
+    command: make ci-fast
+    environment:
+      - GOPROXY=https://proxy.golang.org,direct
+      - CGO_ENABLED=1
+
+  ci-test:
+    extends: ci-fast
+    command: go test -short -parallel 4 ./...
+
+  ci-lint:
+    extends: ci-fast
+    command: |
+      sh -c "
+        staticcheck ./... &
+        golangci-lint run --fast &
+        wait
+      "
+
+volumes:
+  go-mod-cache:
+    driver: local
+  go-build-cache:
+    driver: local

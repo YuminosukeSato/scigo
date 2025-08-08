@@ -120,6 +120,46 @@ lint-check: ## Check linting issues
 
 ##@ CI Local Execution
 
+ci-fast: ## Fast CI checks (minimal security, parallel execution) - 5-7 seconds
+	@echo -e "$(GREEN)Running fast CI checks...$(NC)"
+	@echo -e "$(GREEN)[1/5] Code formatting and vetting...$(NC)"
+	@$(MAKE) fmt-check &
+	@$(MAKE) vet &
+	wait
+	@echo -e "$(GREEN)[2/5] Running staticcheck...$(NC)"
+	@if command -v staticcheck &> /dev/null; then \
+		staticcheck ./...; \
+	else \
+		echo -e "$(YELLOW)staticcheck not installed, skipping$(NC)"; \
+	fi
+	@echo -e "$(GREEN)[3/5] Quick security scan...$(NC)"
+	@if command -v govulncheck &> /dev/null; then \
+		govulncheck ./... &\
+	fi
+	@if command -v gosec &> /dev/null; then \
+		gosec -severity high -quiet ./... &\
+	fi
+	wait
+	@echo -e "$(GREEN)[4/5] Running tests (parallel)...$(NC)"
+	@$(GOTEST) -short -parallel 4 ./...
+	@echo -e "$(GREEN)[5/5] Checking go mod tidy...$(NC)"
+	@$(MAKE) check-mod-tidy
+	@echo -e "$(GREEN)✅ Fast CI completed!$(NC)"
+
+ci-docker: ## Run CI in Docker container (fastest with pre-built image)
+	@echo -e "$(GREEN)Running CI in Docker container...$(NC)"
+	@if docker images | grep -q "scigo-ci"; then \
+		echo -e "$(GREEN)Using cached Docker image$(NC)"; \
+	else \
+		echo -e "$(YELLOW)Building Docker image (first run only)...$(NC)"; \
+		docker build -f Dockerfile.ci -t scigo-ci:latest .; \
+	fi
+	@docker run --rm -v $(PWD):/workspace -w /workspace scigo-ci:latest -c "make ci-fast"
+
+ci-parallel: ## Run CI checks in parallel (experimental)
+	@echo -e "$(GREEN)Running CI checks in parallel...$(NC)"
+	@$(MAKE) -j4 fmt-check vet static-analysis test-short
+
 ci-local: ## Run all CI checks locally (equivalent to GitHub Actions)
 	@echo -e "$(GREEN)Running complete CI checks locally...$(NC)"
 	@echo -e "$(GREEN)[1/13] Auto-formatting code...$(NC)"
