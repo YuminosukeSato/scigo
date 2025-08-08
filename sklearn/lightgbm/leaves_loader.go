@@ -4,7 +4,9 @@ import (
 	"bufio"
 	"fmt"
 	"io"
+	"math"
 	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
 )
@@ -21,8 +23,19 @@ type LeavesModel struct {
 }
 
 // LoadLeavesModelFromFile loads a LightGBM model in leaves-compatible format
-func LoadLeavesModelFromFile(filepath string) (*LeavesModel, error) {
-	file, err := os.Open(filepath)
+func LoadLeavesModelFromFile(filePath string) (*LeavesModel, error) {
+	// Validate file path to prevent path traversal attacks
+	cleanPath := filepath.Clean(filePath)
+	if cleanPath != filePath {
+		return nil, fmt.Errorf("invalid file path: %s", filePath)
+	}
+	
+	// Check for directory traversal patterns
+	if strings.Contains(cleanPath, "..") {
+		return nil, fmt.Errorf("path traversal detected in file path: %s", filePath)
+	}
+	
+	file, err := os.Open(cleanPath)
 	if err != nil {
 		return nil, fmt.Errorf("failed to open file: %w", err)
 	}
@@ -210,13 +223,21 @@ func readLeavesTree(reader *bufio.Reader, treeIndex int) (LeavesTree, error) {
 		// Handle children - set leaf flags and indices
 		if leftChilds[idx] < 0 {
 			node.Flags |= leftLeaf
-			// Convert negative child index to leaf value index
-			node.Left = uint32(^leftChilds[idx])
+			// Convert negative child index to leaf value index with overflow check
+			leafIdx := ^leftChilds[idx]
+			if leafIdx < 0 || leafIdx > math.MaxUint32 {
+				return node, fmt.Errorf("leaf index overflow: %d", leafIdx)
+			}
+			node.Left = uint32(leafIdx)
 		}
 		if rightChilds[idx] < 0 {
 			node.Flags |= rightLeaf
-			// Convert negative child index to leaf value index
-			node.Right = uint32(^rightChilds[idx])
+			// Convert negative child index to leaf value index with overflow check
+			leafIdx := ^rightChilds[idx]
+			if leafIdx < 0 || leafIdx > math.MaxUint32 {
+				return node, fmt.Errorf("leaf index overflow: %d", leafIdx)
+			}
+			node.Right = uint32(leafIdx)
 		}
 		
 		return node, nil
@@ -252,7 +273,16 @@ func readLeavesTree(reader *bufio.Reader, treeIndex int) (LeavesTree, error) {
 					return t, err
 				}
 				t.Nodes = append(t.Nodes, node)
-				convNewIdx := uint32(len(t.Nodes) - 1)
+				// Check for overflow when converting length to uint32
+				nodeCount := len(t.Nodes) - 1
+				if nodeCount < 0 || nodeCount > math.MaxUint32 {
+					return t, fmt.Errorf("node count overflow: %d", nodeCount)
+				}
+				convNewIdx := uint32(nodeCount)
+				// Check for overflow when converting origRightIdx to uint32
+				if origRightIdx < 0 || origRightIdx > math.MaxUint32 {
+					return t, fmt.Errorf("right child index overflow: %d", origRightIdx)
+				}
 				convNodeIdxStack = append(convNodeIdxStack, convNewIdx)
 				origNodeIdxStack = append(origNodeIdxStack, uint32(origRightIdx))
 				visited[origRightIdx] = true
@@ -272,7 +302,16 @@ func readLeavesTree(reader *bufio.Reader, treeIndex int) (LeavesTree, error) {
 					return t, err
 				}
 				t.Nodes = append(t.Nodes, node)
-				convNewIdx := uint32(len(t.Nodes) - 1)
+				// Check for overflow when converting length to uint32
+				nodeCount := len(t.Nodes) - 1
+				if nodeCount < 0 || nodeCount > math.MaxUint32 {
+					return t, fmt.Errorf("node count overflow: %d", nodeCount)
+				}
+				convNewIdx := uint32(nodeCount)
+				// Check for overflow when converting origLeftIdx to uint32
+				if origLeftIdx < 0 || origLeftIdx > math.MaxUint32 {
+					return t, fmt.Errorf("left child index overflow: %d", origLeftIdx)
+				}
 				convNodeIdxStack = append(convNodeIdxStack, convNewIdx)
 				origNodeIdxStack = append(origNodeIdxStack, uint32(origLeftIdx))
 				visited[origLeftIdx] = true

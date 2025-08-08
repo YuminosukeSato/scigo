@@ -182,18 +182,24 @@ func main() {
 
 // Helper functions
 
+// generateRandomMatrix creates a random matrix for demonstration purposes
+// Note: Uses math/rand for reproducible examples. For cryptographic purposes,
+// use crypto/rand instead.
 func generateRandomMatrix(rows, cols int) *mat.Dense {
 	data := make([]float64, rows*cols)
 	for i := range data {
-		data[i] = rand.NormFloat64()
+		data[i] = rand.NormFloat64() // math/rand: acceptable for ML examples
 	}
 	return mat.NewDense(rows, cols, data)
 }
 
+// generateBinaryLabels creates binary classification labels for demonstration
+// Note: Uses math/rand for reproducible examples. For cryptographic purposes,
+// use crypto/rand instead.
 func generateBinaryLabels(n int) *mat.Dense {
 	data := make([]float64, n)
 	for i := range data {
-		if rand.Float64() > 0.5 {
+		if rand.Float64() > 0.5 { // math/rand: acceptable for ML examples
 			data[i] = 1.0
 		}
 	}
