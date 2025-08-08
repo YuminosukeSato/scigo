@@ -1,7 +1,6 @@
 package api_test
 
 import (
-	"fmt"
 	"math"
 	"testing"
 
@@ -289,7 +288,7 @@ func TestPythonOutputFormat(t *testing.T) {
 	// [2]	train-binary_logloss: 0.686354	valid-binary_logloss: 0.686354
 	// ...
 
-	fmt.Println("\n=== Testing Python-style Output Format ===")
+	// Test Python-style output format
 	bst, err := api.Train(params, trainData, 5, []*api.Dataset{trainData},
 		api.WithValidNames([]string{"train"}),
 		api.WithVerboseEval(true, 1),
@@ -303,7 +302,7 @@ func TestPythonOutputFormat(t *testing.T) {
 		t.Errorf("Expected 5 iterations, got %d", bst.CurrentIteration())
 	}
 
-	fmt.Println("=== Output Format Test Complete ===")
+	// Test complete
 }
 
 // BenchmarkPythonStyleAPI benchmarks the Python-style API

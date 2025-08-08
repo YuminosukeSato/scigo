@@ -251,14 +251,6 @@ func parseFloatArray(s string) []float64 {
 	return result
 }
 
-// parseTreeStructure is kept for compatibility but not really used in text format
-// Deprecated: This function is no longer used and will be removed in future versions
-// func parseTreeStructure(tree *Tree, structure string) error {
-// 	// This function was for JSON-style tree structures
-// 	// The text format uses separate arrays for each parameter
-// 	return nil
-// }
-
 // LoadFromJSON loads a LightGBM model from JSON format
 // This supports the format from dump_model()
 func LoadFromJSON(jsonData []byte) (*Model, error) {
