@@ -225,7 +225,7 @@ func readLeavesTree(reader *bufio.Reader, treeIndex int) (LeavesTree, error) {
 			node.Flags |= leftLeaf
 			// Convert negative child index to leaf value index with overflow check
 			leafIdx := ^leftChilds[idx]
-			if leafIdx < 0 || leafIdx > math.MaxUint32 {
+			if leafIdx < 0 {
 				return node, fmt.Errorf("leaf index overflow: %d", leafIdx)
 			}
 			node.Left = uint32(leafIdx)
@@ -234,7 +234,7 @@ func readLeavesTree(reader *bufio.Reader, treeIndex int) (LeavesTree, error) {
 			node.Flags |= rightLeaf
 			// Convert negative child index to leaf value index with overflow check
 			leafIdx := ^rightChilds[idx]
-			if leafIdx < 0 || leafIdx > math.MaxUint32 {
+			if leafIdx < 0 {
 				return node, fmt.Errorf("leaf index overflow: %d", leafIdx)
 			}
 			node.Right = uint32(leafIdx)
@@ -275,12 +275,12 @@ func readLeavesTree(reader *bufio.Reader, treeIndex int) (LeavesTree, error) {
 				t.Nodes = append(t.Nodes, node)
 				// Check for overflow when converting length to uint32
 				nodeCount := len(t.Nodes) - 1
-				if nodeCount < 0 || nodeCount > math.MaxUint32 {
+				if nodeCount < 0 || nodeCount > int(math.MaxUint32) {
 					return t, fmt.Errorf("node count overflow: %d", nodeCount)
 				}
 				convNewIdx := uint32(nodeCount)
 				// Check for overflow when converting origRightIdx to uint32
-				if origRightIdx < 0 || origRightIdx > math.MaxUint32 {
+				if origRightIdx < 0 {
 					return t, fmt.Errorf("right child index overflow: %d", origRightIdx)
 				}
 				convNodeIdxStack = append(convNodeIdxStack, convNewIdx)
@@ -304,12 +304,12 @@ func readLeavesTree(reader *bufio.Reader, treeIndex int) (LeavesTree, error) {
 				t.Nodes = append(t.Nodes, node)
 				// Check for overflow when converting length to uint32
 				nodeCount := len(t.Nodes) - 1
-				if nodeCount < 0 || nodeCount > math.MaxUint32 {
+				if nodeCount < 0 || nodeCount > int(math.MaxUint32) {
 					return t, fmt.Errorf("node count overflow: %d", nodeCount)
 				}
 				convNewIdx := uint32(nodeCount)
 				// Check for overflow when converting origLeftIdx to uint32
-				if origLeftIdx < 0 || origLeftIdx > math.MaxUint32 {
+				if origLeftIdx < 0 {
 					return t, fmt.Errorf("left child index overflow: %d", origLeftIdx)
 				}
 				convNodeIdxStack = append(convNodeIdxStack, convNewIdx)
