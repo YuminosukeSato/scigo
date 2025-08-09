@@ -188,7 +188,7 @@ func TestLogisticRegression_Score(t *testing.T) {
 		WithLRMaxIter(1000),
 		WithLRC(10.0), // Less regularization for better fit
 	)
-	lr2.Fit(XSimple, ySimple)
+	_ = lr2.Fit(XSimple, ySimple)
 
 	scoreSimple := lr2.Score(XSimple, ySimple)
 	if scoreSimple != 1.0 {
@@ -221,14 +221,14 @@ func TestLogisticRegression_Regularization(t *testing.T) {
 		WithLRC(0.01), // Strong regularization (small C)
 		WithLRMaxIter(1000),
 	)
-	lrStrong.Fit(X, y)
+	_ = lrStrong.Fit(X, y)
 
 	// Train with weak regularization
 	lrWeak := NewLogisticRegression(
 		WithLRC(100.0), // Weak regularization (large C)
 		WithLRMaxIter(1000),
 	)
-	lrWeak.Fit(X, y)
+	_ = lrWeak.Fit(X, y)
 
 	// Check that strong regularization produces smaller weights
 	strongNorm := 0.0

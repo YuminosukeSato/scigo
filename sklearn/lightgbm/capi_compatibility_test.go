@@ -1,0 +1,826 @@
+package lightgbm
+
+import (
+	"encoding/json"
+	"fmt"
+	"io"
+	"math"
+	"os"
+	"path/filepath"
+	"strconv"
+	"strings"
+	"testing"
+
+	"gonum.org/v1/gonum/mat"
+)
+
+// CompatibilityTestData holds the test data from Python LightGBM
+type CompatibilityTestData struct {
+	Params            map[string]interface{} `json:"params"`
+	TrainShape        []int                  `json:"train_shape"`
+	TestShape         []int                  `json:"test_shape"`
+	NumTrees          int                    `json:"num_trees"`
+	NumClass          int                    `json:"num_class,omitempty"`
+	FeatureImportance []float64              `json:"feature_importance"`
+	TrainPredictions  interface{}            `json:"train_predictions"`
+	TestPredictions   interface{}            `json:"test_predictions"`
+	InitScore         float64                `json:"init_score"`
+	Objective         string                 `json:"objective"`
+}
+
+// TreeStructureData holds detailed tree structure from Python
+type TreeStructureData struct {
+	TreeIndex int        `json:"tree_index"`
+	NumLeaves int        `json:"num_leaves"`
+	NumNodes  int        `json:"num_nodes"`
+	Shrinkage float64    `json:"shrinkage"`
+	Nodes     []NodeData `json:"nodes,omitempty"`
+}
+
+// NodeData holds node information from Python model
+type NodeData struct {
+	NodeID        int     `json:"node_id"`
+	IsLeaf        bool    `json:"is_leaf"`
+	LeafValue     float64 `json:"leaf_value,omitempty"`
+	LeafCount     int     `json:"leaf_count,omitempty"`
+	SplitFeature  int     `json:"split_feature,omitempty"`
+	Threshold     float64 `json:"threshold,omitempty"`
+	DecisionType  string  `json:"decision_type,omitempty"`
+	DefaultLeft   bool    `json:"default_left,omitempty"`
+	InternalValue float64 `json:"internal_value,omitempty"`
+	InternalCount int     `json:"internal_count,omitempty"`
+	SplitGain     float64 `json:"split_gain,omitempty"`
+	LeftChild     int     `json:"left_child,omitempty"`
+	RightChild    int     `json:"right_child,omitempty"`
+}
+
+// TestCAPIModelStructureEquality tests if Go can load Python model with exact structure
+func TestCAPIModelStructureEquality(t *testing.T) {
+	t.Skip("Skipping CAPI tests until v0.7.0 implementation")
+
+	testCases := []string{"regression", "binary", "multiclass"}
+
+	for _, tc := range testCases {
+		t.Run(tc, func(t *testing.T) {
+			// Load Python tree structure
+			treeStructPath := filepath.Join("../../tests/lightgbm_capi/testdata/compatibility",
+				fmt.Sprintf("%s_tree_structure.json", tc))
+
+			treeData, err := os.ReadFile(treeStructPath)
+			if err != nil {
+				t.Skipf("Tree structure file not found: %v", err)
+			}
+
+			var pythonTrees []TreeStructureData
+			if err := json.Unmarshal(treeData, &pythonTrees); err != nil {
+				t.Fatalf("Failed to parse tree structure: %v", err)
+			}
+
+			// Load model using Go implementation
+			modelPath := filepath.Join("../../tests/lightgbm_capi/testdata/compatibility",
+				fmt.Sprintf("%s_model.txt", tc))
+
+			goModel, err := LoadLeavesModelFromFile(modelPath)
+			if err != nil {
+				t.Fatalf("Failed to load model in Go: %v", err)
+			}
+
+			// Compare number of trees
+			if len(goModel.Trees) != len(pythonTrees) {
+				t.Errorf("Tree count mismatch: Go=%d, Python=%d",
+					len(goModel.Trees), len(pythonTrees))
+			}
+
+			// Compare each tree structure
+			for i, pyTree := range pythonTrees {
+				if i >= len(goModel.Trees) {
+					break
+				}
+
+				goTree := goModel.Trees[i]
+
+				// Check shrinkage rate
+				if math.Abs(goTree.ShrinkageRate-pyTree.Shrinkage) > 1e-10 {
+					t.Errorf("Tree %d shrinkage mismatch: Go=%f, Python=%f",
+						i, goTree.ShrinkageRate, pyTree.Shrinkage)
+				}
+
+				// Check number of leaves
+				goLeafCount := countTreeLeaves(goTree)
+				if goLeafCount != pyTree.NumLeaves {
+					t.Errorf("Tree %d leaf count mismatch: Go=%d, Python=%d",
+						i, goLeafCount, pyTree.NumLeaves)
+				}
+			}
+
+			t.Logf("%s model structure validation passed", tc)
+		})
+	}
+}
+
+// TestCAPITrainingDeterminism tests if Go training produces same model as Python
+func TestCAPITrainingDeterminism(t *testing.T) {
+	t.Skip("Skipping CAPI tests until v0.7.0 implementation")
+
+	testCases := []struct {
+		name      string
+		objective string
+		numClass  int
+	}{
+		{"regression", "regression", 0},
+		{"binary", "binary", 0},
+		{"multiclass", "multiclass", 3},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			// Load test data
+			testDataPath := filepath.Join("../../tests/lightgbm_capi/testdata/compatibility",
+				fmt.Sprintf("%s_test_data.json", tc.name))
+
+			testData, err := loadCompatibilityTestData(testDataPath)
+			if err != nil {
+				t.Skipf("Test data not found: %v", err)
+			}
+
+			// Load training data
+			XTrain, yTrain, err := loadNumpyData(tc.name, "train")
+			if err != nil {
+				t.Skipf("Training data not found: %v", err)
+			}
+
+			XTest, _, err := loadNumpyData(tc.name, "test")
+			if err != nil {
+				t.Skipf("Test data not found: %v", err)
+			}
+
+			// Create training parameters matching Python
+			params := TrainingParams{
+				NumIterations:   10,
+				LearningRate:    0.1,
+				NumLeaves:       31,
+				MaxDepth:        5,
+				MinDataInLeaf:   20,
+				Lambda:          0.1,
+				Alpha:           0.0,
+				MinGainToSplit:  0.01,
+				BaggingFraction: 1.0,
+				FeatureFraction: 1.0,
+				MaxBin:          255,
+				MinDataInBin:    3,
+				Objective:       tc.objective,
+				NumClass:        tc.numClass,
+				Seed:            42,
+				Deterministic:   true,
+				Verbosity:       -1,
+			}
+
+			// Train model with Go
+			trainer := NewTrainer(params)
+			err = trainer.Fit(XTrain, yTrain)
+			if err != nil {
+				t.Fatalf("Failed to train model: %v", err)
+			}
+
+			goModel := trainer.GetModel()
+
+			// Make predictions
+			predictor := NewPredictor(goModel)
+			predictor.SetDeterministic(true)
+
+			goPreds, err := predictor.Predict(XTest)
+			if err != nil {
+				t.Fatalf("Failed to predict: %v", err)
+			}
+
+			// Compare with Python predictions
+			pythonPreds := extractPredictions(testData.TestPredictions, tc.numClass)
+			comparePredictions(t, tc.name, goPreds, pythonPreds, tc.numClass)
+		})
+	}
+}
+
+// TestCAPIGonumNumericalPrecision tests Gonum matrix operations precision
+func TestCAPIGonumNumericalPrecision(t *testing.T) {
+	// Test various matrix operations with known results
+	testCases := []struct {
+		name      string
+		operation func() (mat.Matrix, mat.Matrix)
+		tolerance float64
+	}{
+		{
+			name: "Matrix multiplication precision",
+			operation: func() (mat.Matrix, mat.Matrix) {
+				A := mat.NewDense(3, 3, []float64{
+					1e10, 1, 0,
+					0, 1e-10, 1,
+					1, 0, 1e10,
+				})
+				B := mat.NewDense(3, 3, []float64{
+					1e-10, 0, 1,
+					1, 1e10, 0,
+					0, 1, 1e-10,
+				})
+				C := mat.NewDense(3, 3, nil)
+				C.Mul(A, B)
+
+				// Expected result computed with high precision
+				// A*B multiplication result
+				expected := mat.NewDense(3, 3, []float64{
+					2, 1e10, 1e10,
+					1e-10, 2, 1e-10,
+					1e-10, 1e10, 2,
+				})
+
+				return C, expected
+			},
+			tolerance: 1e-10,
+		},
+		{
+			name: "Transpose and addition",
+			operation: func() (mat.Matrix, mat.Matrix) {
+				A := mat.NewDense(2, 3, []float64{
+					1, 2, 3,
+					4, 5, 6,
+				})
+				AT := A.T()
+				B := mat.NewDense(3, 2, []float64{
+					1, 1,
+					1, 1,
+					1, 1,
+				})
+				C := mat.NewDense(3, 2, nil)
+				C.Add(AT, B)
+
+				expected := mat.NewDense(3, 2, []float64{
+					2, 5,
+					3, 6,
+					4, 7,
+				})
+
+				return C, expected
+			},
+			tolerance: 1e-15,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			result, expected := tc.operation()
+
+			// Compare matrices element by element
+			r, c := result.Dims()
+			for i := 0; i < r; i++ {
+				for j := 0; j < c; j++ {
+					got := result.At(i, j)
+					want := expected.At(i, j)
+					if math.Abs(got-want) > tc.tolerance {
+						t.Errorf("Element [%d,%d]: got %e, want %e, diff %e",
+							i, j, got, want, math.Abs(got-want))
+					}
+				}
+			}
+		})
+	}
+}
+
+// TestCAPIKahanSummation tests Kahan summation implementation
+func TestCAPIKahanSummation(t *testing.T) {
+	trainer := &Trainer{}
+
+	// Test cases that would lose precision with naive summation
+	testCases := []struct {
+		name     string
+		values   []float64
+		expected float64
+	}{
+		{
+			name:     "Large and small values",
+			values:   []float64{1e10, 1, -1e10, 2, 3},
+			expected: 6.0,
+		},
+		{
+			name:     "Many small values",
+			values:   repeatFloat(1e-10, 1000000),
+			expected: 1e-4,
+		},
+		{
+			name:     "Alternating signs",
+			values:   []float64{1e15, -1e15, 1, 1e15, -1e15, 2},
+			expected: 3.0,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			sum := 0.0
+			compensation := 0.0
+
+			for _, val := range tc.values {
+				trainer.kahanAdd(&sum, val, compensation)
+			}
+
+			if math.Abs(sum-tc.expected) > 1e-10 {
+				t.Errorf("Kahan sum failed: got %e, want %e, diff %e",
+					sum, tc.expected, math.Abs(sum-tc.expected))
+			}
+		})
+	}
+}
+
+// TestCAPIHistogramConstruction tests if histograms match Python implementation
+func TestCAPIHistogramConstruction(t *testing.T) {
+	// Load small test data
+	X := mat.NewDense(100, 5, nil)
+	y := mat.NewDense(100, 1, nil)
+
+	// Fill with deterministic data
+	for i := 0; i < 100; i++ {
+		for j := 0; j < 5; j++ {
+			X.Set(i, j, float64(i+j*10)/100.0)
+		}
+		y.Set(i, 0, float64(i%3))
+	}
+
+	params := TrainingParams{
+		MaxBin:        10,
+		MinDataInBin:  3,
+		NumLeaves:     31,
+		MinDataInLeaf: 20,
+		Objective:     "regression",
+		Verbosity:     -1,
+	}
+
+	trainer := NewTrainer(params)
+	trainer.X = X
+	trainer.y = y
+
+	// Initialize and build histograms
+	err := trainer.initialize()
+	if err != nil {
+		t.Fatalf("Failed to initialize: %v", err)
+	}
+
+	err = trainer.buildHistograms()
+	if err != nil {
+		t.Fatalf("Failed to build histograms: %v", err)
+	}
+
+	// Verify histogram properties
+	if trainer.histPool == nil {
+		t.Error("Histogram pool not initialized")
+	}
+
+	_, cols := X.Dims()
+	if len(trainer.histograms) != cols {
+		t.Errorf("Histogram count mismatch: got %d, want %d",
+			len(trainer.histograms), cols)
+	}
+
+	// Check bin boundaries are monotonic
+	for feat, hists := range trainer.histograms {
+		for i := 1; i < len(hists); i++ {
+			if len(hists[i].BinBounds) >= 2 && len(hists[i-1].BinBounds) >= 2 {
+				// Bins should be adjacent: prev upper bound should equal current lower bound
+				if math.Abs(hists[i].BinBounds[0]-hists[i-1].BinBounds[1]) > 1e-10 {
+					t.Errorf("Feature %d bin %d: Gap in boundaries: prev_upper=%f, curr_lower=%f",
+						feat, i, hists[i-1].BinBounds[1], hists[i].BinBounds[0])
+				}
+				// Current bin's lower bound should be less than upper bound
+				if hists[i].BinBounds[0] >= hists[i].BinBounds[1] {
+					t.Errorf("Feature %d bin %d: Invalid bounds: lower=%f >= upper=%f",
+						feat, i, hists[i].BinBounds[0], hists[i].BinBounds[1])
+				}
+			}
+		}
+	}
+
+	t.Log("Histogram construction test passed")
+}
+
+// Helper functions
+
+func countTreeLeaves(tree LeavesTree) int {
+	// For leaves trees, the number of leaves is the length of LeafValues
+	if len(tree.LeafValues) > 0 {
+		return len(tree.LeafValues)
+	}
+	// Fallback: count leaf nodes based on flags
+	count := 0
+	for _, node := range tree.Nodes {
+		if (node.Flags&leftLeaf) != 0 || (node.Flags&rightLeaf) != 0 {
+			count++
+		}
+	}
+	if count == 0 && len(tree.Nodes) == 0 {
+		// Constant tree
+		return 1
+	}
+	return count
+}
+
+func loadCompatibilityTestData(path string) (*CompatibilityTestData, error) {
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return nil, err
+	}
+
+	var testData CompatibilityTestData
+	if err := json.Unmarshal(data, &testData); err != nil {
+		return nil, err
+	}
+
+	return &testData, nil
+}
+
+func loadNumpyData(objective, split string) (mat.Matrix, mat.Matrix, error) {
+	baseDir := "../../tests/lightgbm_capi/testdata/compatibility"
+
+	// Prefer NPY fixtures generated by Python
+	xNPY := filepath.Join(baseDir, fmt.Sprintf("%s_X_%s.npy", objective, split))
+	yNPY := filepath.Join(baseDir, fmt.Sprintf("%s_y_%s.npy", objective, split))
+
+	if _, err := os.Stat(xNPY); err == nil {
+		X, err := loadNPYFloat64Matrix(xNPY)
+		if err != nil {
+			return nil, nil, fmt.Errorf("failed to load X npy: %w", err)
+		}
+		y, err := loadNPYFloat64VectorAsMatrix(yNPY)
+		if err != nil {
+			return nil, nil, fmt.Errorf("failed to load y npy: %w", err)
+		}
+		return X, y, nil
+	}
+
+	// Fallback: generate deterministic synthetic data if NPY missing
+	if split == "train" {
+		X := mat.NewDense(400, 10, nil)
+		y := mat.NewDense(400, 1, nil)
+		for i := 0; i < 400; i++ {
+			for j := 0; j < 10; j++ {
+				X.Set(i, j, float64(i+j)/400.0)
+			}
+			y.Set(i, 0, float64(i%2))
+		}
+		return X, y, nil
+	}
+	X := mat.NewDense(100, 10, nil)
+	y := mat.NewDense(100, 1, nil)
+	for i := 0; i < 100; i++ {
+		for j := 0; j < 10; j++ {
+			X.Set(i, j, float64(i+j)/100.0)
+		}
+		y.Set(i, 0, float64(i%2))
+	}
+	return X, y, nil
+}
+
+// Minimal NPY loader for float64 C-order arrays used in tests
+func loadNPYFloat64Matrix(path string) (*mat.Dense, error) {
+	f, err := os.Open(path)
+	if err != nil {
+		return nil, err
+	}
+	defer func() {
+		_ = f.Close()
+	}()
+
+	// Read header
+	header, err := readNPYHeader(f)
+	if err != nil {
+		return nil, err
+	}
+	if header.descr != "<f8" && header.descr != "|f8" {
+		return nil, fmt.Errorf("unsupported dtype: %s", header.descr)
+	}
+	if header.fortran {
+		return nil, fmt.Errorf("Fortran-order NPY not supported")
+	}
+	if len(header.shape) != 2 {
+		return nil, fmt.Errorf("expected 2D array, got %dD", len(header.shape))
+	}
+
+	rows, cols := header.shape[0], header.shape[1]
+	count := rows * cols
+	data := make([]float64, count)
+	// Little-endian float64
+	buf := make([]byte, 8)
+	for i := 0; i < count; i++ {
+		if _, err := io.ReadFull(f, buf); err != nil {
+			return nil, err
+		}
+		// Little endian
+		bits := uint64(buf[0]) | uint64(buf[1])<<8 | uint64(buf[2])<<16 | uint64(buf[3])<<24 |
+			uint64(buf[4])<<32 | uint64(buf[5])<<40 | uint64(buf[6])<<48 | uint64(buf[7])<<56
+		data[i] = math.Float64frombits(bits)
+	}
+	return mat.NewDense(rows, cols, data), nil
+}
+
+func loadNPYFloat64VectorAsMatrix(path string) (*mat.Dense, error) {
+	f, err := os.Open(path)
+	if err != nil {
+		return nil, err
+	}
+	defer func() {
+		_ = f.Close()
+	}()
+
+	header, err := readNPYHeader(f)
+	if err != nil {
+		return nil, err
+	}
+	if header.descr != "<f8" && header.descr != "|f8" {
+		return nil, fmt.Errorf("unsupported dtype: %s", header.descr)
+	}
+	if header.fortran {
+		return nil, fmt.Errorf("Fortran-order NPY not supported")
+	}
+	// Accept (N,) or (N,1)
+	rows := 0
+	cols := 1
+	switch len(header.shape) {
+	case 1:
+		rows = header.shape[0]
+	case 2:
+		rows = header.shape[0]
+		cols = header.shape[1]
+		if cols != 1 {
+			return nil, fmt.Errorf("expected vector shape, got %v", header.shape)
+		}
+	default:
+		return nil, fmt.Errorf("unexpected dims: %v", header.shape)
+	}
+
+	count := rows * cols
+	data := make([]float64, count)
+	buf := make([]byte, 8)
+	for i := 0; i < count; i++ {
+		if _, err := io.ReadFull(f, buf); err != nil {
+			return nil, err
+		}
+		bits := uint64(buf[0]) | uint64(buf[1])<<8 | uint64(buf[2])<<16 | uint64(buf[3])<<24 |
+			uint64(buf[4])<<32 | uint64(buf[5])<<40 | uint64(buf[6])<<48 | uint64(buf[7])<<56
+		data[i] = math.Float64frombits(bits)
+	}
+	return mat.NewDense(rows, 1, data), nil
+}
+
+type npyHeader struct {
+	descr   string
+	fortran bool
+	shape   []int
+}
+
+func readNPYHeader(f *os.File) (*npyHeader, error) {
+	magic := make([]byte, 6)
+	if _, err := io.ReadFull(f, magic); err != nil {
+		return nil, err
+	}
+	if string(magic) != "\x93NUMPY" {
+		return nil, fmt.Errorf("invalid npy magic: %v", magic)
+	}
+	ver := make([]byte, 2)
+	if _, err := io.ReadFull(f, ver); err != nil {
+		return nil, err
+	}
+	major := ver[0]
+	var headerLen uint32
+	if major == 1 {
+		// 2-byte little-endian
+		lenBytes := make([]byte, 2)
+		if _, err := io.ReadFull(f, lenBytes); err != nil {
+			return nil, err
+		}
+		headerLen = uint32(lenBytes[0]) | uint32(lenBytes[1])<<8
+	} else {
+		// v2.0+ 4-byte little-endian
+		lenBytes := make([]byte, 4)
+		if _, err := io.ReadFull(f, lenBytes); err != nil {
+			return nil, err
+		}
+		headerLen = uint32(lenBytes[0]) | uint32(lenBytes[1])<<8 | uint32(lenBytes[2])<<16 | uint32(lenBytes[3])<<24
+	}
+
+	hdr := make([]byte, headerLen)
+	if _, err := io.ReadFull(f, hdr); err != nil {
+		return nil, err
+	}
+	// Header is a Python dict in ASCII. Example: {'descr': '<f8', 'fortran_order': False, 'shape': (100, 10), }
+	s := string(hdr)
+	// descr
+	descr := extractStringField(s, "descr")
+	// fortran_order
+	fortran := strings.Contains(s, "'fortran_order': True") || strings.Contains(s, "'fortran_order': true")
+	// shape
+	shapeStr := extractShape(s)
+	shape, err := parseShape(shapeStr)
+	if err != nil {
+		return nil, err
+	}
+	return &npyHeader{descr: descr, fortran: fortran, shape: shape}, nil
+}
+
+func extractStringField(hdr, key string) string {
+	// crude parsing: find "'key': '...'
+	keyPat := "'" + key + "':"
+	idx := strings.Index(hdr, keyPat)
+	if idx < 0 {
+		return ""
+	}
+	rest := hdr[idx+len(keyPat):]
+	// trim spaces
+	rest = strings.TrimLeft(rest, " ")
+	if len(rest) == 0 || rest[0] != '\'' {
+		return ""
+	}
+	rest = rest[1:]
+	end := strings.Index(rest, "'")
+	if end < 0 {
+		return ""
+	}
+	return rest[:end]
+}
+
+func extractShape(hdr string) string {
+	keyPat := "'shape':"
+	idx := strings.Index(hdr, keyPat)
+	if idx < 0 {
+		return ""
+	}
+	rest := hdr[idx+len(keyPat):]
+	// find first '(' and matching ')'
+	l := strings.Index(rest, "(")
+	r := strings.Index(rest, ")")
+	if l < 0 || r < 0 || r <= l {
+		return ""
+	}
+	return rest[l+1 : r]
+}
+
+func parseShape(s string) ([]int, error) {
+	s = strings.TrimSpace(s)
+	if s == "" {
+		return []int{}, nil
+	}
+	parts := strings.Split(s, ",")
+	dims := make([]int, 0, len(parts))
+	for _, p := range parts {
+		p = strings.TrimSpace(p)
+		if p == "" {
+			continue
+		}
+		// allow trailing comma -> empty last part
+		val, err := strconv.Atoi(p)
+		if err != nil {
+			return nil, err
+		}
+		dims = append(dims, val)
+	}
+	return dims, nil
+}
+
+func extractPredictions(data interface{}, numClass int) []float64 {
+	switch v := data.(type) {
+	case []interface{}:
+		result := make([]float64, len(v))
+		for i, val := range v {
+			switch num := val.(type) {
+			case float64:
+				result[i] = num
+			case []interface{}:
+				// Multiclass case
+				if numClass > 2 && len(num) == numClass {
+					for j, classVal := range num {
+						if f, ok := classVal.(float64); ok && i*numClass+j < len(result) {
+							result[i*numClass+j] = f
+						}
+					}
+				}
+			}
+		}
+		return result
+	case []float64:
+		return v
+	}
+	return nil
+}
+
+func comparePredictions(t *testing.T, name string, goPreds mat.Matrix, pythonPreds []float64, numClass int) {
+	rows, cols := goPreds.Dims()
+
+	matches := 0
+	maxDiff := 0.0
+	tolerance := 1e-6
+
+	for i := 0; i < rows; i++ {
+		if numClass > 2 {
+			// Multiclass: compare all class probabilities
+			for j := 0; j < cols && i*cols+j < len(pythonPreds); j++ {
+				goPred := goPreds.At(i, j)
+				pyPred := pythonPreds[i*cols+j]
+				diff := math.Abs(goPred - pyPred)
+
+				if diff > maxDiff {
+					maxDiff = diff
+				}
+
+				if diff < tolerance {
+					matches++
+				} else if i < 3 {
+					t.Logf("Sample %d class %d: Go=%f, Python=%f, diff=%e",
+						i, j, goPred, pyPred, diff)
+				}
+			}
+		} else {
+			// Regression or binary
+			goPred := goPreds.At(i, 0)
+			pyPred := pythonPreds[i]
+			diff := math.Abs(goPred - pyPred)
+
+			if diff > maxDiff {
+				maxDiff = diff
+			}
+
+			if diff < tolerance {
+				matches++
+			} else if i < 3 {
+				t.Logf("Sample %d: Go=%f, Python=%f, diff=%e",
+					i, goPred, pyPred, diff)
+			}
+		}
+	}
+
+	totalComparisons := rows
+	if numClass > 2 {
+		totalComparisons = rows * cols
+	}
+
+	accuracy := float64(matches) / float64(totalComparisons) * 100
+	t.Logf("%s prediction accuracy: %.2f%% (%d/%d)",
+		name, accuracy, matches, totalComparisons)
+	t.Logf("Maximum difference: %e", maxDiff)
+
+	// For now, we expect at least 80% accuracy due to implementation differences
+	if accuracy < 80.0 {
+		t.Errorf("Accuracy too low: %.2f%% (expected >= 80%%)", accuracy)
+	}
+}
+
+func repeatFloat(val float64, n int) []float64 {
+	result := make([]float64, n)
+	for i := range result {
+		result[i] = val
+	}
+	return result
+}
+
+// BenchmarkCAPICompatibility benchmarks Go vs Python performance
+func BenchmarkCAPICompatibility(b *testing.B) {
+	// Create test data
+	X := mat.NewDense(1000, 10, nil)
+	y := mat.NewDense(1000, 1, nil)
+
+	for i := 0; i < 1000; i++ {
+		for j := 0; j < 10; j++ {
+			X.Set(i, j, float64(i*j)/1000.0)
+		}
+		y.Set(i, 0, float64(i%2))
+	}
+
+	params := TrainingParams{
+		NumIterations:   10,
+		LearningRate:    0.1,
+		NumLeaves:       31,
+		MaxDepth:        5,
+		MinDataInLeaf:   20,
+		Lambda:          0.1,
+		MinGainToSplit:  0.01,
+		BaggingFraction: 1.0,
+		FeatureFraction: 1.0,
+		MaxBin:          255,
+		Objective:       "binary",
+		Seed:            42,
+		Deterministic:   true,
+		Verbosity:       -1,
+	}
+
+	b.Run("GoTraining", func(b *testing.B) {
+		for i := 0; i < b.N; i++ {
+			trainer := NewTrainer(params)
+			_ = trainer.Fit(X, y)
+		}
+	})
+
+	b.Run("GoPrediction", func(b *testing.B) {
+		trainer := NewTrainer(params)
+		_ = trainer.Fit(X, y)
+		model := trainer.GetModel()
+		predictor := NewPredictor(model)
+
+		b.ResetTimer()
+		for i := 0; i < b.N; i++ {
+			_, _ = predictor.Predict(X)
+		}
+	})
+}

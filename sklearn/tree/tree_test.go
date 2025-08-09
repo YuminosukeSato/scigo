@@ -177,7 +177,7 @@ func TestDecisionTreeClassifier_Score(t *testing.T) {
 	})
 
 	dtSimple := NewDecisionTreeClassifier(WithMaxDepth(3))
-	dtSimple.Fit(XSimple, ySimple)
+	_ = dtSimple.Fit(XSimple, ySimple)
 
 	scoreSimple := dtSimple.Score(XSimple, ySimple)
 	if scoreSimple != 1.0 {
