@@ -85,7 +85,6 @@ type TrainingParams struct {
 	Objective string `json:"objective"`
 	NumClass  int    `json:"num_class"`
 
-
 	// Objective-specific parameters
 	HuberDelta    float64 `json:"huber_delta"`    // Delta for Huber loss
 	QuantileAlpha float64 `json:"quantile_alpha"` // Alpha for Quantile regression
@@ -95,7 +94,6 @@ type TrainingParams struct {
 	CategoricalFeatures []int   `json:"categorical_features"` // Indices of categorical features
 	MaxCatToOnehot      int     `json:"max_cat_to_onehot"`    // Max categories to use one-hot encoding
 	CatSmooth           float64 `json:"cat_smooth"`           // Smoothing for categorical splits
-
 
 	// Other
 	Seed          int    `json:"seed"`
@@ -808,7 +806,6 @@ func (t *Trainer) buildNode(tree *Tree, indices []int, parentIdx int, depth int)
 func (t *Trainer) findBestSplitWithHistogram(nodeHist *NodeHistogram, indices []int) SplitInfo {
 	_, cols := t.X.Dims()
 	bestSplit := SplitInfo{Gain: -math.MaxFloat64}
-
 
 	// Try each feature
 	for j := 0; j < cols; j++ {
