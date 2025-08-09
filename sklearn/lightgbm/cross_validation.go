@@ -58,7 +58,7 @@ func (kf *KFold) Split(X, y mat.Matrix) []CVFold {
 
 	// Shuffle if requested
 	if kf.Shuffle {
-		r := rand.New(rand.NewSource(int64(kf.RandomSeed)))
+		r := rand.New(rand.NewSource(int64(kf.RandomSeed))) // #nosec G404 - deterministic random for reproducible CV splits
 		r.Shuffle(len(indices), func(i, j int) {
 			indices[i], indices[j] = indices[j], indices[i]
 		})
@@ -143,7 +143,7 @@ func (skf *StratifiedKFold) Split(X, y mat.Matrix) []CVFold {
 
 	// Shuffle indices within each class if requested
 	if skf.Shuffle {
-		r := rand.New(rand.NewSource(int64(skf.RandomSeed)))
+		r := rand.New(rand.NewSource(int64(skf.RandomSeed))) // #nosec G404 - deterministic random for reproducible CV splits
 		for label := range classIndices {
 			indices := classIndices[label]
 			r.Shuffle(len(indices), func(i, j int) {

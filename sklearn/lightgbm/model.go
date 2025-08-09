@@ -409,5 +409,5 @@ func (m *Model) SaveToFile(filepath string) error {
 	}
 
 	// Write to file
-	return os.WriteFile(filepath, []byte(sb.String()), 0644)
+	return os.WriteFile(filepath, []byte(sb.String()), 0600)
 }
