@@ -59,9 +59,8 @@ func TestTrainerBasic(t *testing.T) {
 	}
 }
 
-// TestClassifierTraining tests classifier training
-func TestClassifierTraining(t *testing.T) {
-	t.Skip("LightGBM training not yet implemented - planned for v0.7.0")
+// TestTrainer_Fit_BinaryClassification tests binary classification training
+func TestTrainer_Fit_BinaryClassification(t *testing.T) {
 	// Create simple binary classification data
 	X := mat.NewDense(50, 2, nil)
 	y := mat.NewDense(50, 1, nil)
@@ -80,36 +79,108 @@ func TestClassifierTraining(t *testing.T) {
 		y.Set(i, 0, 1)
 	}
 
-	// Train classifier
-	clf := NewLGBMClassifier()
-	clf.NumIterations = 5
-	clf.LearningRate = 0.1
-	clf.Verbosity = -1
+	// Create trainer with binary objective
+	params := TrainingParams{
+		NumIterations: 5,
+		LearningRate:  0.1,
+		NumLeaves:     31,
+		MaxDepth:      5,
+		MinDataInLeaf: 5,
+		Lambda:        1.0,
+		Objective:     "binary",
+		Verbosity:     -1,
+	}
 
-	err := clf.Fit(X, y)
+	trainer := NewTrainer(params)
+
+	// Train model - this should fail initially
+	err := trainer.Fit(X, y)
 	if err != nil {
-		t.Fatalf("Classifier training failed: %v", err)
+		t.Fatalf("Binary classification training failed: %v", err)
 	}
 
-	// Make predictions
-	predictions, err := clf.Predict(X)
+	// Check that we have trees
+	if len(trainer.trees) == 0 {
+		t.Error("No trees were built for binary classification")
+	}
+
+	// Get model
+	model := trainer.GetModel()
+	if model == nil {
+		t.Fatal("GetModel returned nil")
+	}
+
+	// Check objective is set correctly
+	if string(model.Objective) != "binary" {
+		t.Errorf("Model objective incorrect: got %s, want binary", model.Objective)
+	}
+}
+
+// TestTrainer_Fit_MultiClassClassification tests multiclass classification training
+func TestTrainer_Fit_MultiClassClassification(t *testing.T) {
+	// Create simple 3-class classification data
+	X := mat.NewDense(60, 2, nil)
+	y := mat.NewDense(60, 1, nil)
+
+	// Class 0: x1 < 0.33
+	for i := 0; i < 20; i++ {
+		X.Set(i, 0, float64(i)/60.0)
+		X.Set(i, 1, float64(i%5)/5.0)
+		y.Set(i, 0, 0)
+	}
+
+	// Class 1: 0.33 <= x1 < 0.66
+	for i := 20; i < 40; i++ {
+		X.Set(i, 0, 0.33+float64(i-20)/60.0)
+		X.Set(i, 1, float64(i%5)/5.0)
+		y.Set(i, 0, 1)
+	}
+
+	// Class 2: x1 >= 0.66
+	for i := 40; i < 60; i++ {
+		X.Set(i, 0, 0.66+float64(i-40)/60.0)
+		X.Set(i, 1, float64(i%5)/5.0)
+		y.Set(i, 0, 2)
+	}
+
+	// Create trainer with multiclass objective
+	params := TrainingParams{
+		NumIterations: 5,
+		LearningRate:  0.1,
+		NumLeaves:     31,
+		MaxDepth:      5,
+		MinDataInLeaf: 5,
+		Lambda:        1.0,
+		Objective:     "multiclass",
+		NumClass:      3,
+		Verbosity:     -1,
+	}
+
+	trainer := NewTrainer(params)
+
+	// Train model - this should fail initially
+	err := trainer.Fit(X, y)
 	if err != nil {
-		t.Fatalf("Prediction failed: %v", err)
+		t.Fatalf("Multiclass classification training failed: %v", err)
 	}
 
-	// Check accuracy
-	correct := 0
-	for i := 0; i < 50; i++ {
-		pred := predictions.At(i, 0)
-		actual := y.At(i, 0)
-		if pred == actual {
-			correct++
-		}
+	// Check that we have trees
+	if len(trainer.trees) == 0 {
+		t.Error("No trees were built for multiclass classification")
 	}
 
-	accuracy := float64(correct) / 50.0
-	if accuracy < 0.8 {
-		t.Errorf("Accuracy too low: %.2f", accuracy)
+	// Get model
+	model := trainer.GetModel()
+	if model == nil {
+		t.Fatal("GetModel returned nil")
+	}
+
+	// Check objective and num_class are set correctly
+	if string(model.Objective) != "multiclass" {
+		t.Errorf("Model objective incorrect: got %s, want multiclass", model.Objective)
+	}
+	if model.NumClass != 3 {
+		t.Errorf("Model NumClass incorrect: got %d, want 3", model.NumClass)
 	}
 }
 
@@ -227,6 +298,217 @@ func TestLeafValueCalculation(t *testing.T) {
 	expected := 1.5
 	if math.Abs(leafValue-expected) > 1e-6 {
 		t.Errorf("Leaf value calculation wrong: got %.4f, want %.4f", leafValue, expected)
+	}
+}
+
+// TestBinaryClassificationGradients tests gradient calculation for binary classification
+func TestBinaryClassificationGradients(t *testing.T) {
+	// Create simple binary classification data
+	X := mat.NewDense(4, 2, []float64{
+		0.1, 0.2,
+		0.3, 0.4,
+		0.7, 0.8,
+		0.9, 1.0,
+	})
+	y := mat.NewDense(4, 1, []float64{0, 0, 1, 1})
+
+	trainer := &Trainer{
+		params: TrainingParams{
+			Objective: "binary",
+		},
+		X:         X,
+		y:         y,
+		gradients: make([]float64, 4),
+		hessians:  make([]float64, 4),
+		trees:     []Tree{}, // No trees yet, so initial prediction = 0
+	}
+
+	// Calculate gradients for binary classification
+	trainer.calculateGradients()
+
+	// For binary classification with logistic loss:
+	// When initial prediction = 0 (sigmoid(0) = 0.5):
+	// gradient = prediction - target
+	// For y=0: gradient = 0.5 - 0 = 0.5
+	// For y=1: gradient = 0.5 - 1 = -0.5
+	// hessian = prediction * (1 - prediction) = 0.5 * 0.5 = 0.25
+
+	for i := 0; i < 4; i++ {
+		target := y.At(i, 0)
+		if target == 0 {
+			// For binary classification, this should NOT be prediction - target (regression)
+			// but sigmoid(pred) - target
+			if math.Abs(trainer.gradients[i]-0.5) > 0.1 {
+				t.Errorf("Sample %d: Expected gradient ~0.5 for y=0, got %.4f", i, trainer.gradients[i])
+			}
+		} else {
+			if math.Abs(trainer.gradients[i]+0.5) > 0.1 {
+				t.Errorf("Sample %d: Expected gradient ~-0.5 for y=1, got %.4f", i, trainer.gradients[i])
+			}
+		}
+		// For binary classification, hessian should be p*(1-p), not 1.0
+		if math.Abs(trainer.hessians[i]-0.25) > 0.1 && trainer.params.Objective == "binary" {
+			t.Errorf("Sample %d: Expected hessian ~0.25 for binary classification, got %.4f", i, trainer.hessians[i])
+		}
+	}
+}
+
+// TestMulticlassClassificationGradients tests gradient calculation for multiclass classification
+func TestMulticlassClassificationGradients(t *testing.T) {
+	// Create simple 3-class classification data
+	X := mat.NewDense(6, 2, []float64{
+		0.1, 0.1,
+		0.2, 0.2,
+		0.5, 0.5,
+		0.6, 0.6,
+		0.8, 0.8,
+		0.9, 0.9,
+	})
+	y := mat.NewDense(6, 1, []float64{0, 0, 1, 1, 2, 2})
+
+	trainer := &Trainer{
+		params: TrainingParams{
+			Objective: "multiclass",
+			NumClass:  3,
+		},
+		X:         X,
+		y:         y,
+		gradients: make([]float64, 6),
+		hessians:  make([]float64, 6),
+		trees:     []Tree{}, // No trees yet
+	}
+
+	// Calculate gradients for multiclass classification
+	trainer.calculateGradients()
+
+	// For multiclass with softmax:
+	// Initial predictions are uniform (1/3 for each class)
+	// gradient = prediction[class] - 1 (for true class)
+	// gradient = prediction[class] (for other classes)
+	// This test checks that gradients are NOT constant 1.0 (regression behavior)
+
+	for i := 0; i < 6; i++ {
+		// For multiclass, gradients should depend on softmax probabilities
+		// They should NOT all be 1.0 (regression behavior)
+		if trainer.params.Objective == "multiclass" && math.Abs(trainer.hessians[i]-1.0) < 0.01 {
+			t.Errorf("Sample %d: Hessian appears to use regression formula (1.0), not multiclass", i)
+		}
+	}
+}
+
+// TestNativeMulticlassWithGonum tests native multiclass implementation using Gonum matrices
+func TestNativeMulticlassWithGonum(t *testing.T) {
+	t.Skip("Skipping native multiclass tests until v0.7.0 implementation")
+
+	// Create 3-class classification data
+	nSamples := 60
+	nFeatures := 2
+	nClasses := 3
+
+	X := mat.NewDense(nSamples, nFeatures, nil)
+	y := mat.NewDense(nSamples, 1, nil)
+
+	// Generate simple separable data for 3 classes
+	for i := 0; i < nSamples; i++ {
+		classIdx := i / (nSamples / nClasses)
+		y.Set(i, 0, float64(classIdx))
+
+		// Create somewhat separable features
+		X.Set(i, 0, float64(classIdx)*0.3+0.1*float64(i%10)/10.0)
+		X.Set(i, 1, float64(classIdx)*0.4+0.1*float64(i%5)/5.0)
+	}
+
+	// Create trainer with native multiclass objective
+	params := TrainingParams{
+		NumIterations: 5,
+		LearningRate:  0.1,
+		NumLeaves:     31,
+		MaxDepth:      5,
+		MinDataInLeaf: 5,
+		Lambda:        1.0,
+		Objective:     "multiclass_native", // New objective type
+		NumClass:      nClasses,
+		Verbosity:     -1,
+	}
+
+	trainer := NewTrainer(params)
+
+	// For native multiclass, check that trainer initializes properly
+	if trainer.params.NumClass != nClasses {
+		t.Errorf("NumClass not set correctly: got %d, want %d", trainer.params.NumClass, nClasses)
+	}
+
+	// Train model
+	err := trainer.Fit(X, y)
+	if err != nil {
+		t.Fatalf("Native multiclass training failed: %v", err)
+	}
+
+	// Check that we have the right number of trees
+	// For native multiclass, we should have NumIterations trees (not NumIterations * NumClass)
+	expectedTrees := params.NumIterations
+	if len(trainer.trees) != expectedTrees {
+		t.Errorf("Native multiclass should create %d trees, got %d", expectedTrees, len(trainer.trees))
+	}
+
+	// Get model
+	model := trainer.GetModel()
+	if model == nil {
+		t.Fatal("GetModel returned nil")
+	}
+
+	// Check that model has correct objective
+	if string(model.Objective) != "multiclass_native" {
+		t.Errorf("Model objective incorrect: got %s, want multiclass_native", model.Objective)
+	}
+}
+
+// TestNativeMulticlassGradients tests gradient calculation for native multiclass with Gonum
+func TestNativeMulticlassGradients(t *testing.T) {
+	// Create simple 3-class data
+	X := mat.NewDense(6, 2, []float64{
+		0.1, 0.1,
+		0.2, 0.2,
+		0.5, 0.5,
+		0.6, 0.6,
+		0.8, 0.8,
+		0.9, 0.9,
+	})
+	y := mat.NewDense(6, 1, []float64{0, 0, 1, 1, 2, 2})
+
+	trainer := &Trainer{
+		params: TrainingParams{
+			Objective: "multiclass_native",
+			NumClass:  3,
+		},
+		X: X,
+		y: y,
+	}
+
+	// Initialize trainer for native multiclass
+	rows, _ := X.Dims()
+	trainer.gradients = make([]float64, rows) // Will be replaced with mat.Dense
+	trainer.hessians = make([]float64, rows)  // Will be replaced with mat.Dense
+	trainer.trees = []Tree{}
+
+	// When properly implemented, gradients should be a matrix [samples x classes]
+	// For now, test that calculateGradients doesn't panic
+	trainer.calculateGradients()
+
+	// After native implementation, gradients should be different for each class
+	// This is a placeholder test that will be updated when implementation is complete
+	if trainer.params.Objective == "multiclass_native" {
+		// Check that gradients are computed (not all zero)
+		allZero := true
+		for i := 0; i < rows; i++ {
+			if trainer.gradients[i] != 0 {
+				allZero = false
+				break
+			}
+		}
+		if allZero {
+			t.Error("Native multiclass gradients should not be all zero")
+		}
 	}
 }
 

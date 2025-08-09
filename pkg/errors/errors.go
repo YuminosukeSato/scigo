@@ -1,5 +1,5 @@
-// Package errors はプロジェクト全体のエラーハンドリングと警告システムを提供します。
-// scikit-learnの警告・例外システムにインスパイアされており、構造化されたエラー情報を提供します。
+// Package errors provides error handling and warning systems for the entire project.
+// Inspired by scikit-learn's warning and exception system, it provides structured error information.
 package errors
 
 import (
@@ -13,26 +13,26 @@ import (
 
 // ===========================================================================
 //
-//	グローバル警告ハンドリング
+//	Global Warning Handling
 //
 // ===========================================================================
 var (
 	warningMutex   sync.Mutex
 	warningHandler = func(w error) {
-		// デフォルトのハンドラは標準エラー出力にログを出す
+		// Default handler logs to standard error output
 		log.Printf("GoML-Warning: %v\n", w)
 	}
-	// zerologロガー（循環importを避けるため遅延初期化）
+	// zerolog logger (lazy initialization to avoid circular import)
 	zerologWarnFunc func(warning error)
 )
 
-// SetWarningHandler はGoMLライブラリ全体の警告ハンドラを設定します。
-// これにより、ConvergenceWarningなどのカスタム警告の処理方法を制御できます。
+// SetWarningHandler sets the warning handler for the entire GoML library.
+// This allows you to control how custom warnings like ConvergenceWarning are handled.
 //
-// 例:
+// Example:
 //
 //	errors.SetWarningHandler(func(w error) {
-//	    // 警告を無視する
+//	    // Ignore warnings
 //	})
 func SetWarningHandler(handler func(w error)) {
 	warningMutex.Lock()
@@ -40,26 +40,26 @@ func SetWarningHandler(handler func(w error)) {
 	warningHandler = handler
 }
 
-// SetZerologWarnFunc はzerolog警告関数を設定します（循環importを避けるため）。
+// SetZerologWarnFunc sets the zerolog warning function (to avoid circular import).
 func SetZerologWarnFunc(warnFunc func(warning error)) {
 	warningMutex.Lock()
 	defer warningMutex.Unlock()
 	zerologWarnFunc = warnFunc
 }
 
-// Warn は警告を発生させます。
-// zerologが利用可能な場合は構造化ログとして出力し、そうでなければ従来のハンドラを使用します。
+// Warn raises a warning.
+// If zerolog is available, it outputs as structured log, otherwise uses traditional handler.
 func Warn(w error) {
 	warningMutex.Lock()
 	defer warningMutex.Unlock()
 
-	// zerologが設定されている場合は優先的に使用
+	// Use zerolog if configured
 	if zerologWarnFunc != nil {
 		zerologWarnFunc(w)
 		return
 	}
 
-	// フォールバック: 従来のハンドラ
+	// Fallback: traditional handler
 	if warningHandler != nil {
 		warningHandler(w)
 	}
@@ -67,11 +67,11 @@ func Warn(w error) {
 
 // ===========================================================================
 //
-//	scikit-learn互換の警告型
+//	scikit-learn Compatible Warning Types
 //
 // ===========================================================================
 
-// ConvergenceWarning は最適化アルゴリズムが収束しなかった場合に発生する警告です。
+// ConvergenceWarning is a warning raised when optimization algorithms fail to converge.
 type ConvergenceWarning struct {
 	Algorithm  string
 	Iterations int
@@ -85,7 +85,7 @@ func (w *ConvergenceWarning) Error() string {
 	return fmt.Sprintf("%s failed to converge after %d iterations. Consider increasing max_iter or adjusting parameters.", w.Algorithm, w.Iterations)
 }
 
-// MarshalZerologObject はzerologのイベントに構造化された警告情報を追加します。
+// MarshalZerologObject adds structured warning information to zerolog events.
 func (w *ConvergenceWarning) MarshalZerologObject(e *zerolog.Event) {
 	e.Str("algorithm", w.Algorithm).
 		Int("iterations", w.Iterations).
@@ -93,12 +93,12 @@ func (w *ConvergenceWarning) MarshalZerologObject(e *zerolog.Event) {
 		Str("type", "ConvergenceWarning")
 }
 
-// NewConvergenceWarning は新しいConvergenceWarningを作成します。
+// NewConvergenceWarning creates a new ConvergenceWarning.
 func NewConvergenceWarning(algorithm string, iterations int, message string) *ConvergenceWarning {
 	return &ConvergenceWarning{Algorithm: algorithm, Iterations: iterations, Message: message}
 }
 
-// DataConversionWarning はデータの型が暗黙的に変換された場合に発生する警告です。
+// DataConversionWarning is a warning raised when data types are implicitly converted.
 type DataConversionWarning struct {
 	FromType string
 	ToType   string
@@ -109,7 +109,7 @@ func (w *DataConversionWarning) Error() string {
 	return fmt.Sprintf("data converted from %s to %s. Reason: %s", w.FromType, w.ToType, w.Reason)
 }
 
-// MarshalZerologObject はzerologのイベントに構造化された警告情報を追加します。
+// MarshalZerologObject adds structured warning information to zerolog events.
 func (w *DataConversionWarning) MarshalZerologObject(e *zerolog.Event) {
 	e.Str("from_type", w.FromType).
 		Str("to_type", w.ToType).
@@ -117,35 +117,35 @@ func (w *DataConversionWarning) MarshalZerologObject(e *zerolog.Event) {
 		Str("type", "DataConversionWarning")
 }
 
-// NewDataConversionWarning は新しいDataConversionWarningを作成します。
+// NewDataConversionWarning creates a new DataConversionWarning.
 func NewDataConversionWarning(from, to, reason string) *DataConversionWarning {
 	return &DataConversionWarning{FromType: from, ToType: to, Reason: reason}
 }
 
-// UndefinedMetricWarning は評価指標が計算できない場合に発生する警告です。
-// 例えば、適合率(precision)を計算する際に、陽性クラスの予測が一つもなかった場合など。
+// UndefinedMetricWarning is a warning raised when metrics cannot be calculated.
+// For example, when calculating precision with no positive class predictions.
 type UndefinedMetricWarning struct {
 	Metric    string
 	Condition string
-	Result    float64 // この条件で返される値
+	Result    float64 // Value returned under this condition
 }
 
 func (w *UndefinedMetricWarning) Error() string {
 	return fmt.Sprintf("'%s' is ill-defined and being set to %f due to %s.", w.Metric, w.Result, w.Condition)
 }
 
-// NewUndefinedMetricWarning は新しいUndefinedMetricWarningを作成します。
+// NewUndefinedMetricWarning creates a new UndefinedMetricWarning.
 func NewUndefinedMetricWarning(metric, condition string, result float64) *UndefinedMetricWarning {
 	return &UndefinedMetricWarning{Metric: metric, Condition: condition, Result: result}
 }
 
 // ===========================================================================
 //
-//	構造化されたエラー型
+//	Structured Error Types
 //
 // ===========================================================================
 
-// NotFittedError はモデルが未学習の状態で `Predict` や `Transform` を呼び出した場合のエラーです。
+// NotFittedError is an error raised when calling `Predict` or `Transform` on an unfitted model.
 type NotFittedError struct {
 	ModelName string
 	Method    string
@@ -155,20 +155,20 @@ func (e *NotFittedError) Error() string {
 	return fmt.Sprintf("goml: %s: this model is not fitted yet. Call Fit() before using %s()", e.ModelName, e.Method)
 }
 
-// MarshalZerologObject はzerologのイベントに構造化されたエラー情報を追加します。
+// MarshalZerologObject adds structured error information to zerolog events.
 func (e *NotFittedError) MarshalZerologObject(event *zerolog.Event) {
 	event.Str("model_name", e.ModelName).
 		Str("method", e.Method).
 		Str("type", "NotFittedError")
 }
 
-// NewNotFittedError は新しいNotFittedErrorを作成し、スタックトレースを付与します。
+// NewNotFittedError creates a new NotFittedError with stack trace.
 func NewNotFittedError(modelName, method string) error {
 	err := &NotFittedError{ModelName: modelName, Method: method}
 	return errors.WithStack(err)
 }
 
-// DimensionError は入力データの次元が期待値と異なる場合のエラーです。
+// DimensionError is an error raised when input data dimensions don't match expected values.
 type DimensionError struct {
 	Op       string
 	Expected int
@@ -184,7 +184,7 @@ func (e *DimensionError) Error() string {
 	return fmt.Sprintf("goml: %s: dimension mismatch on axis %d (%s). Expected %d, got %d", e.Op, e.Axis, axisName, e.Expected, e.Got)
 }
 
-// MarshalZerologObject はzerologのイベントに構造化されたエラー情報を追加します。
+// MarshalZerologObject adds structured error information to zerolog events.
 func (e *DimensionError) MarshalZerologObject(event *zerolog.Event) {
 	axisName := "features"
 	if e.Axis == 0 {
@@ -198,14 +198,14 @@ func (e *DimensionError) MarshalZerologObject(event *zerolog.Event) {
 		Str("type", "DimensionError")
 }
 
-// NewDimensionError は新しいDimensionErrorを作成し、スタックトレースを付与します。
+// NewDimensionError creates a new DimensionError with stack trace.
 func NewDimensionError(op string, expected, got, axis int) error {
 	err := &DimensionError{Op: op, Expected: expected, Got: got, Axis: axis}
 	return errors.WithStack(err)
 }
 
-// ValidationError は入力パラメータの検証に失敗した場合のエラーです。
-// `ValueError`よりも具体的なバリデーションロジックの失敗を示します。
+// ValidationError is an error raised when input parameter validation fails.
+// It indicates more specific validation logic failures than `ValueError`.
 type ValidationError struct {
 	ParamName string
 	Reason    string
@@ -216,7 +216,7 @@ func (e *ValidationError) Error() string {
 	return fmt.Sprintf("goml: validation failed for parameter '%s': %s (got: %v)", e.ParamName, e.Reason, e.Value)
 }
 
-// MarshalZerologObject はzerologのイベントに構造化されたエラー情報を追加します。
+// MarshalZerologObject adds structured error information to zerolog events.
 func (e *ValidationError) MarshalZerologObject(event *zerolog.Event) {
 	event.Str("param_name", e.ParamName).
 		Str("reason", e.Reason).
@@ -224,14 +224,14 @@ func (e *ValidationError) MarshalZerologObject(event *zerolog.Event) {
 		Str("type", "ValidationError")
 }
 
-// NewValidationError は新しいValidationErrorを作成し、スタックトレースを付与します。
+// NewValidationError creates a new ValidationError with stack trace.
 func NewValidationError(param, reason string, value interface{}) error {
 	err := &ValidationError{ParamName: param, Reason: reason, Value: value}
 	return errors.WithStack(err)
 }
 
-// ValueError は引数の値が不適切または不正な場合に発生するエラーです。
-// 例えば、`log`関数に負の数を渡した場合など。
+// ValueError is an error raised when argument values are inappropriate or invalid.
+// For example, passing negative numbers to a `log` function.
 type ValueError struct {
 	Op      string
 	Message string
@@ -241,13 +241,13 @@ func (e *ValueError) Error() string {
 	return fmt.Sprintf("goml: %s: %s", e.Op, e.Message)
 }
 
-// NewValueError は新しいValueErrorを作成し、スタックトレースを付与します。
+// NewValueError creates a new ValueError with stack trace.
 func NewValueError(op, message string) error {
 	err := &ValueError{Op: op, Message: message}
 	return errors.WithStack(err)
 }
 
-// ModelError は機械学習モデルに関する一般的なエラーです。
+// ModelError is a general error related to machine learning models.
 type ModelError struct {
 	Op   string
 	Kind string
@@ -265,7 +265,7 @@ func (e *ModelError) Unwrap() error {
 	return e.Err
 }
 
-// NewModelError は新しいModelErrorを作成し、スタックトレースを付与します。
+// NewModelError creates a new ModelError with stack trace.
 func NewModelError(op, kind string, err error) error {
 	modelErr := &ModelError{Op: op, Kind: kind, Err: err}
 	return errors.WithStack(modelErr)
@@ -273,58 +273,58 @@ func NewModelError(op, kind string, err error) error {
 
 // ===========================================================================
 //
-//	cockroachdb/errors ラッパー関数
+//	cockroachdb/errors Wrapper Functions
 //
 // ===========================================================================
 
-// Is はエラーが特定のターゲットエラーかどうかを判定します。
+// Is reports whether err matches target.
 func Is(err, target error) bool {
 	return errors.Is(err, target)
 }
 
-// As はエラーが特定の型にキャスト可能かどうかを判定します。
+// As finds the first error in err's chain that matches target.
 func As(err error, target interface{}) bool {
 	return errors.As(err, target)
 }
 
-// Wrap は既存のエラーをメッセージ付きでラップします。
+// Wrap wraps an existing error with a message.
 func Wrap(err error, message string) error {
 	return errors.Wrap(err, message)
 }
 
-// Wrapf は既存のエラーをフォーマット文字列でラップします。
+// Wrapf wraps an existing error with a formatted message.
 func Wrapf(err error, format string, args ...interface{}) error {
 	return errors.Wrapf(err, format, args...)
 }
 
-// New は新しいエラーを作成します。
+// New creates a new error.
 func New(message string) error {
 	return errors.New(message)
 }
 
-// Newf は新しいフォーマット済みエラーを作成します。
+// Newf creates a new formatted error.
 func Newf(format string, args ...interface{}) error {
 	return errors.Newf(format, args...)
 }
 
-// WithStack はエラーにスタックトレースを付与します。
+// WithStack annotates err with a stack trace.
 func WithStack(err error) error {
 	return errors.WithStack(err)
 }
 
 // ===========================================================================
 //
-//	オンライン学習特有のエラー型
+//	Online Learning Specific Error Types
 //
 // ===========================================================================
 
-// NumericalInstabilityError は数値計算が不安定になった場合のエラーです。
-// NaN、Inf、オーバーフロー、アンダーフローなどを検出します。
+// NumericalInstabilityError is an error raised when numerical computation becomes unstable.
+// It detects NaN, Inf, overflow, underflow, etc.
 type NumericalInstabilityError struct {
-	Operation string                 // 発生した操作（例: "gradient_update", "loss_calculation"）
-	Values    []float64              // 問題のある値
-	Context   map[string]interface{} // デバッグ用の追加コンテキスト情報
-	Iteration int                    // 発生したイテレーション番号
+	Operation string                 // Operation where error occurred (e.g., "gradient_update", "loss_calculation")
+	Values    []float64              // Problematic values
+	Context   map[string]interface{} // Additional context for debugging
+	Iteration int                    // Iteration number where error occurred
 }
 
 func (e *NumericalInstabilityError) Error() string {
@@ -343,7 +343,7 @@ func (e *NumericalInstabilityError) Error() string {
 		e.Operation, e.Iteration, valStr)
 }
 
-// NewNumericalInstabilityError は新しいNumericalInstabilityErrorを作成します。
+// NewNumericalInstabilityError creates a new NumericalInstabilityError.
 func NewNumericalInstabilityError(operation string, values []float64, iteration int) error {
 	err := &NumericalInstabilityError{
 		Operation: operation,

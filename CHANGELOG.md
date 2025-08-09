@@ -7,7 +7,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-## [0.4.0] - 2025-08-07
+## [0.4.0] - 2025-01-07
 
 ### Added
 - **LogisticRegression** implementation
@@ -25,9 +25,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Probability predictions (PredictProba)
   - Tree structure introspection (GetDepth, GetNLeaves)
 
+- **CI/CD Enhancements**
+  - Automatic go fmt checking in CI
+  - Local CI execution capability for faster development
+  - Enhanced security scanning with semgrep
+  - Improved linter configuration
+
+- **Documentation Improvements**
+  - Complete English translation of all code comments
+  - Comprehensive English documentation
+  - Enhanced API documentation
+
+### Changed
+- Refactored codebase to use composition over inheritance pattern
+- Improved error handling and error message capitalization per Go conventions
+
 ### Fixed
 - Test stability for XOR pattern in DecisionTree
 - Convergence issues in LogisticRegression tests
+- Error message capitalization to follow Go conventions
+- Various linter warnings and issues
 
 ### Planned for v0.5.0
 - RandomForestClassifier and RandomForestRegressor

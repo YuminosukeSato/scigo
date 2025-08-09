@@ -35,8 +35,9 @@ type Node struct {
 	DefaultLeft  bool    // Default direction for missing values
 
 	// Leaf information (for leaf nodes)
-	LeafValue float64 // Value at leaf node
-	LeafCount int     // Number of samples at leaf
+	LeafValue  float64   // Value at leaf node (for backward compatibility)
+	LeafValues []float64 // Values for each class (native multiclass)
+	LeafCount  int       // Number of samples at leaf
 
 	// Statistics
 	InternalValue float64 // Internal value (used during training)
@@ -60,6 +61,12 @@ type Tree struct {
 
 	// Node storage
 	Nodes []Node // All nodes in the tree
+
+	// Leaf values (stored separately for LightGBM format compatibility)
+	LeafValues []float64 // Leaf values array
+
+	// Internal value (for init score extraction)
+	InternalValue float64 // Root node's internal value
 
 	// Feature information
 	FeatureNames      []string  // Optional feature names
