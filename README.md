@@ -51,31 +51,58 @@ go get github.com/YuminosukeSato/scigo@latest
 
 > 💡 **Tip**: For complete API documentation with examples, visit [pkg.go.dev/scigo](https://pkg.go.dev/github.com/YuminosukeSato/scigo)
 
-### Option 1: One-Liner with LightGBM 🌲
+### Option 1: LightGBM with Python Compatibility 🌲
 ```go
 package main
 
 import (
+    "fmt"
+    "log"
+    
     "github.com/YuminosukeSato/scigo/sklearn/lightgbm"
     "gonum.org/v1/gonum/mat"
 )
 
 func main() {
-    // Super convenient one-liner training!
-    X := mat.NewDense(100, 4, data) // Your data
+    // Create training data
+    X := mat.NewDense(100, 4, data) // Your features
     y := mat.NewDense(100, 1, labels) // Your labels
     
-    // Train and predict in one line!
-    result := lightgbm.QuickTrain(X, y)
-    predictions := result.Predict(X_test)
+    // Option A: Use familiar scikit-learn API
+    reg := lightgbm.NewLGBMRegressor()
     
-    // Or use AutoML for automatic tuning
-    best := lightgbm.AutoFit(X, y)
+    // Set parameters using Python names!
+    err := reg.SetParams(map[string]interface{}{
+        "n_estimators":      100,
+        "learning_rate":     0.1,
+        "num_leaves":        31,
+        "min_child_samples": 20,
+        "random_state":      42,
+    })
+    if err != nil {
+        log.Fatal(err)
+    }
     
-    // Load Python LightGBM models directly!
-    model := lightgbm.NewLGBMClassifier()
-    model.LoadModel("python_model.txt") // Full compatibility!
-    predictions, _ := model.Predict(X_test)
+    // Train the model
+    err = reg.Fit(X, y)
+    if err != nil {
+        log.Fatal(err)
+    }
+    
+    // Make predictions
+    predictions, _ := reg.Predict(X_test)
+    
+    // Option B: Load Python LightGBM models directly!
+    model, err := lightgbm.LoadFromFile("python_model.txt")
+    if err != nil {
+        log.Fatal(err)
+    }
+    
+    // Use loaded Python model
+    predictor := lightgbm.NewPredictor(model)
+    pythonPredictions, _ := predictor.Predict(X_test)
+    
+    fmt.Println("Go predictions match Python exactly!")
 }
 ```
 
@@ -174,12 +201,20 @@ go test -v ./metrics -run Example
 - ✅ **OneHotEncoder** - Encodes categorical features as one-hot numeric arrays
 
 #### Tree-based Models
-- ✅ **LightGBM** - Full Python model compatibility (.txt/JSON/string formats)
-  - LGBMClassifier - Binary and multiclass classification
-  - LGBMRegressor - Regression with multiple objectives
-  - QuickTrain - One-liner training with automatic model selection
-  - AutoFit - Automatic hyperparameter tuning
-  - Superior to [leaves](https://github.com/dmitryikh/leaves) - training + convenience features
+- ✅ **LightGBM** - Complete Python-compatible implementation with full feature parity
+  - **LGBMClassifier** - Binary and multiclass classification with all Python parameters
+  - **LGBMRegressor** - Regression with 7+ objectives (L1, L2, Huber, Quantile, Fair, Poisson)
+  - **Cross-Validation** - K-Fold and Stratified K-Fold with parallel processing
+  - **Early Stopping** - Validation-based training control
+  - **Callbacks** - PrintEvaluation, EarlyStoppingCallback, TimeLimit, LearningRateSchedule
+  - **Parameter Mapping** - 100% Python LightGBM parameter compatibility with aliases
+  - **Model Loading** - Load Python LightGBM models (.txt/JSON/string formats)
+  - **Evaluation Metrics** - RMSE, MAE, MAPE, R², AUC, Logloss, Accuracy
+  - **Histogram Optimization** - Memory-efficient split finding
+  - **Parallel Processing** - Built-in goroutine-based parallelization
+  - Superior to [leaves](https://github.com/dmitryikh/leaves) - full training + all convenience features
+- 🚧 **DART** - Dropout-based ensemble (Coming v0.7.0)
+- 🚧 **GOSS** - Gradient-based One-Side Sampling (Coming v0.7.0)
 - 🚧 Random Forest (Coming Soon)
 - 🚧 XGBoost compatibility (Coming Soon)
 
@@ -277,7 +312,13 @@ Comprehensive evaluation metrics with full documentation:
   - R² (Coefficient of Determination) - [`pkg.go.dev/metrics.R2Score`](https://pkg.go.dev/github.com/YuminosukeSato/scigo/metrics#R2Score)
   - MAPE (Mean Absolute Percentage Error) - [`pkg.go.dev/metrics.MAPE`](https://pkg.go.dev/github.com/YuminosukeSato/scigo/metrics#MAPE)
   - Explained Variance Score - [`pkg.go.dev/metrics.ExplainedVarianceScore`](https://pkg.go.dev/github.com/YuminosukeSato/scigo/metrics#ExplainedVarianceScore)
-- **Classification**: Accuracy, Precision, Recall, F1-Score, ROC-AUC (coming)
+- **Classification Metrics**: 
+  - Accuracy - [`sklearn/lightgbm.AccuracyScore`](https://pkg.go.dev/github.com/YuminosukeSato/scigo/sklearn/lightgbm#AccuracyScore)
+  - Precision - [`sklearn/lightgbm.PrecisionScore`](https://pkg.go.dev/github.com/YuminosukeSato/scigo/sklearn/lightgbm#PrecisionScore)
+  - Recall - [`sklearn/lightgbm.RecallScore`](https://pkg.go.dev/github.com/YuminosukeSato/scigo/sklearn/lightgbm#RecallScore)
+  - F1-Score - [`sklearn/lightgbm.F1Score`](https://pkg.go.dev/github.com/YuminosukeSato/scigo/sklearn/lightgbm#F1Score)
+  - ROC-AUC - [`sklearn/lightgbm.AUC`](https://pkg.go.dev/github.com/YuminosukeSato/scigo/sklearn/lightgbm#AUC)
+  - Log Loss - [`sklearn/lightgbm.LogLoss`](https://pkg.go.dev/github.com/YuminosukeSato/scigo/sklearn/lightgbm#LogLoss)
 - **Clustering**: Silhouette Score, Davies-Bouldin Index (coming)
 
 ## 🧪 Testing & Quality
@@ -312,10 +353,24 @@ go test -v ./core/model -run Example
 
 Check out the [examples](examples/) directory:
 
+### 🌲 LightGBM Examples
+- [Basic Regression](examples/lightgbm/basic_regression.go) - Complete LightGBM regression training
+- [Cross-Validation](examples/lightgbm/cross_validation.go) - K-Fold and Stratified CV with metrics
+- [LightGBM Guide](docs/lightgbm-guide.md) - Comprehensive usage guide
+
+### 🎯 Core ML Examples
 - [Linear Regression](examples/linear_regression/) - Basic regression
 - [Streaming Learning](examples/streaming_demo/) - Online learning demo
 - [Iris Classification](examples/iris_regression/) - Classic dataset
 - [Error Handling](examples/error_demo/) - Robust error management
+
+### 🚀 Quick Run
+```bash
+# Try LightGBM examples
+cd examples/lightgbm
+go run basic_regression.go
+go run cross_validation.go
+```
 
 ## 🤝 Contributing
 
@@ -374,6 +429,7 @@ golangci-lint run
 | `BaseEstimator` | core/model | [pkg.go.dev/model.BaseEstimator](https://pkg.go.dev/github.com/YuminosukeSato/scigo/core/model#BaseEstimator) |
 
 ### Migration & Advanced Guides
+- **[🌲 LightGBM Complete Guide](docs/lightgbm-guide.md)** - Comprehensive LightGBM usage with Python compatibility
 - **[📚 scikit-learn Migration Guide](docs/sklearn-migration-guide.md)** - Complete guide for Python developers
 - **[🏗️ API Stability Analysis](docs/api-stability.md)** - v1.0.0 roadmap and compatibility
 - [🌊 Streaming Guide](docs/streaming.md) (Coming Soon)
