@@ -38,6 +38,13 @@ type Trainer struct {
 	// Thread pool for parallel processing
 	numThreads int
 	pool       *sync.Pool
+
+	// Objective function
+	objective ObjectiveFunction
+	initScore float64
+
+	// Callbacks
+	callbacks *CallbackList
 }
 
 // TrainingParams contains all training hyperparameters
@@ -67,11 +74,22 @@ type TrainingParams struct {
 	Objective string `json:"objective"`
 	NumClass  int    `json:"num_class"`
 
+	// Objective-specific parameters
+	HuberDelta    float64 `json:"huber_delta"`    // Delta for Huber loss
+	QuantileAlpha float64 `json:"quantile_alpha"` // Alpha for Quantile regression
+	FairC         float64 `json:"fair_c"`         // C parameter for Fair loss
+
+	// Categorical features
+	CategoricalFeatures []int   `json:"categorical_features"` // Indices of categorical features
+	MaxCatToOnehot      int     `json:"max_cat_to_onehot"`    // Max categories to use one-hot encoding
+	CatSmooth           float64 `json:"cat_smooth"`           // Smoothing for categorical splits
+
 	// Other
-	Seed          int  `json:"seed"`
-	Deterministic bool `json:"deterministic"`
-	Verbosity     int  `json:"verbosity"`
-	EarlyStopping int  `json:"early_stopping_rounds"`
+	Seed          int    `json:"seed"`
+	Deterministic bool   `json:"deterministic"`
+	Verbosity     int    `json:"verbosity"`
+	EarlyStopping int    `json:"early_stopping_rounds"`
+	Metric        string `json:"metric"` // Metric for evaluation
 }
 
 // Histogram represents a histogram bin
@@ -130,7 +148,14 @@ func NewTrainer(params TrainingParams) *Trainer {
 				return &Histogram{}
 			},
 		},
+		callbacks: nil, // Initialize callbacks as nil
 	}
+}
+
+// WithCallbacks sets the callbacks for training
+func (t *Trainer) WithCallbacks(callbacks ...Callback) *Trainer {
+	t.callbacks = NewCallbackList(callbacks...)
+	return t
 }
 
 // Fit trains the LightGBM model
@@ -172,6 +197,21 @@ func (t *Trainer) Fit(X, y mat.Matrix) error {
 		return fmt.Errorf("initialization failed: %w", err)
 	}
 
+	// Create objective function
+	objFunc, err := CreateObjectiveFunction(t.params.Objective, &t.params)
+	if err != nil {
+		return fmt.Errorf("failed to create objective function: %w", err)
+	}
+	t.objective = objFunc
+
+	// Calculate initial score
+	rows, _ := t.y.Dims()
+	targets := make([]float64, rows)
+	for i := 0; i < rows; i++ {
+		targets[i] = t.y.At(i, 0)
+	}
+	t.initScore = t.objective.GetInitScore(targets)
+
 	// Build histograms
 	if err := t.buildHistograms(); err != nil {
 		return fmt.Errorf("histogram building failed: %w", err)
@@ -180,6 +220,21 @@ func (t *Trainer) Fit(X, y mat.Matrix) error {
 	// Main training loop
 	for iter := 0; iter < t.params.NumIterations; iter++ {
 		t.iteration = iter
+
+		// Before iteration callbacks
+		if t.callbacks != nil {
+			model := t.GetModel()
+			if err := t.callbacks.BeforeIteration(iter, model); err != nil {
+				return fmt.Errorf("callback error at iteration %d: %w", iter, err)
+			}
+			if t.callbacks.ShouldStop() {
+				if t.params.Verbosity > 0 {
+					logger := log.GetLoggerWithName("lightgbm.trainer")
+					logger.Info("Training stopped by callback", "iteration", iter)
+				}
+				break
+			}
+		}
 
 		// Calculate gradients and hessians
 		t.calculateGradients()
@@ -196,7 +251,27 @@ func (t *Trainer) Fit(X, y mat.Matrix) error {
 		// Update predictions
 		t.updatePredictions(tree)
 
-		// Check early stopping
+		// Calculate evaluation metrics
+		evalResults := make(map[string]float64)
+		loss := t.calculateLoss()
+		evalResults["training_loss"] = loss
+
+		// After iteration callbacks
+		if t.callbacks != nil {
+			model := t.GetModel()
+			if err := t.callbacks.AfterIteration(iter, model, evalResults); err != nil {
+				return fmt.Errorf("callback error at iteration %d: %w", iter, err)
+			}
+			if t.callbacks.ShouldStop() {
+				if t.params.Verbosity > 0 {
+					logger := log.GetLoggerWithName("lightgbm.trainer")
+					logger.Info("Training stopped by callback", "iteration", iter)
+				}
+				break
+			}
+		}
+
+		// Check early stopping (legacy)
 		if t.params.EarlyStopping > 0 && t.checkEarlyStopping() {
 			if t.params.Verbosity > 0 {
 				logger := log.GetLoggerWithName("lightgbm.trainer")
@@ -210,7 +285,7 @@ func (t *Trainer) Fit(X, y mat.Matrix) error {
 			logger := log.GetLoggerWithName("lightgbm.trainer")
 			logger.Debug("Training progress",
 				"iteration", iter,
-				"loss", t.calculateLoss())
+				"loss", loss)
 		}
 	}
 
@@ -327,22 +402,28 @@ func (t *Trainer) findBinBoundaries(values []float64) []float64 {
 func (t *Trainer) calculateGradients() {
 	rows, _ := t.y.Dims()
 
-	// This is a simplified version for regression
-	// In practice, this would depend on the objective function
 	for i := 0; i < rows; i++ {
-		// For L2 loss: gradient = prediction - target
 		prediction := t.getCurrentPrediction(i)
 		target := t.y.At(i, 0)
 
-		t.gradients[i] = prediction - target
-		t.hessians[i] = 1.0 // For L2 loss, hessian is constant
+		// Use objective function to calculate gradients and hessians
+		t.gradients[i] = t.objective.CalculateGradient(prediction, target)
+		t.hessians[i] = t.objective.CalculateHessian(prediction, target)
+
+		// Apply sample weight if provided
+		if t.sampleWeight != nil {
+			t.gradients[i] *= t.sampleWeight[i]
+			t.hessians[i] *= t.sampleWeight[i]
+		}
 	}
 }
 
 // getCurrentPrediction gets the current ensemble prediction for a sample
 func (t *Trainer) getCurrentPrediction(sampleIdx int) float64 {
+	// Start with initial score
+	pred := t.initScore
+
 	// Sum predictions from all trees
-	pred := 0.0
 	for _, tree := range t.trees {
 		pred += t.predictSingleTree(tree, sampleIdx) * t.params.LearningRate
 	}
@@ -404,7 +485,10 @@ func (t *Trainer) buildNode(tree *Tree, indices []int, parentIdx int, depth int)
 	nodeIdx := len(tree.Nodes)
 
 	// Check stopping conditions
-	if depth >= t.params.MaxDepth || len(indices) < t.params.MinDataInLeaf {
+	numLeaves := t.countLeavesInTree(tree)
+	if (t.params.MaxDepth > 0 && depth >= t.params.MaxDepth) ||
+		len(indices) < t.params.MinDataInLeaf ||
+		(t.params.NumLeaves > 0 && numLeaves >= t.params.NumLeaves-1) {
 		// Create leaf node
 		leafValue := t.calculateLeafValue(indices)
 		tree.Nodes = append(tree.Nodes, Node{
@@ -436,17 +520,38 @@ func (t *Trainer) buildNode(tree *Tree, indices []int, parentIdx int, depth int)
 		return nodeIdx
 	}
 
-	// Create internal node
+	// Create internal node with gain information
+	nodeType := NumericalNode
+	var categories []int
+
+	// Check if this is a categorical split
+	if t.isCategoricalFeature(bestSplit.Feature) {
+		nodeType = CategoricalNode
+		categories = t.getCategoriesForSplit(indices, bestSplit.Feature, bestSplit)
+	}
+
 	tree.Nodes = append(tree.Nodes, Node{
 		NodeID:       nodeIdx,
 		ParentID:     parentIdx,
-		NodeType:     NumericalNode,
+		NodeType:     nodeType,
 		SplitFeature: bestSplit.Feature,
 		Threshold:    bestSplit.Threshold,
+		Categories:   categories,
+		Gain:         bestSplit.Gain,
 	})
 
 	// Split data
-	leftIndices, rightIndices := t.splitData(indices, bestSplit)
+	var leftIndices, rightIndices []int
+	if nodeType == CategoricalNode {
+		// Create map for fast lookup
+		leftCatMap := make(map[int]bool)
+		for _, cat := range categories {
+			leftCatMap[cat] = true
+		}
+		leftIndices, rightIndices = t.splitCategoricalData(indices, bestSplit.Feature, leftCatMap)
+	} else {
+		leftIndices, rightIndices = t.splitData(indices, bestSplit)
+	}
 
 	// Build child nodes
 	leftChild := t.buildNode(tree, leftIndices, nodeIdx, depth+1)
@@ -466,7 +571,15 @@ func (t *Trainer) findBestSplit(indices []int) SplitInfo {
 
 	// Try each feature
 	for j := 0; j < cols; j++ {
-		split := t.findBestSplitForFeature(indices, j)
+		var split SplitInfo
+
+		// Check if feature is categorical
+		if t.isCategoricalFeature(j) {
+			split = t.findBestCategoricalSplit(indices, j)
+		} else {
+			split = t.findBestSplitForFeature(indices, j)
+		}
+
 		if split.Gain > bestSplit.Gain {
 			bestSplit = split
 		}
@@ -583,7 +696,6 @@ func (t *Trainer) splitData(indices []int, split SplitInfo) ([]int, []int) {
 
 // calculateLeafValue calculates the optimal value for a leaf node
 func (t *Trainer) calculateLeafValue(indices []int) float64 {
-	// For regression with L2 loss
 	sumGrad := 0.0
 	sumHess := 0.0
 
@@ -592,8 +704,14 @@ func (t *Trainer) calculateLeafValue(indices []int) float64 {
 		sumHess += t.hessians[idx]
 	}
 
+	// Ensure numerical stability
+	epsilon := 1e-10
+	if math.Abs(sumHess) < epsilon {
+		sumHess = epsilon
+	}
+
 	// Optimal leaf value with L2 regularization
-	return -sumGrad / (sumHess + t.params.Lambda)
+	return -sumGrad / (sumHess + t.params.Lambda + epsilon)
 }
 
 // updatePredictions updates predictions with the new tree
@@ -621,15 +739,26 @@ func (t *Trainer) checkEarlyStopping() bool {
 func (t *Trainer) calculateLoss() float64 {
 	rows, _ := t.y.Dims()
 	loss := 0.0
+	totalWeight := 0.0
 
 	for i := 0; i < rows; i++ {
 		pred := t.getCurrentPrediction(i)
 		target := t.y.At(i, 0)
-		diff := pred - target
-		loss += diff * diff
+
+		// Use objective function to calculate loss
+		sampleLoss := t.objective.CalculateLoss(pred, target)
+
+		if t.sampleWeight != nil {
+			sampleLoss *= t.sampleWeight[i]
+			totalWeight += t.sampleWeight[i]
+		} else {
+			totalWeight += 1.0
+		}
+
+		loss += sampleLoss
 	}
 
-	return loss / float64(rows)
+	return loss / totalWeight
 }
 
 // countLeaves counts the number of leaf nodes in a tree
@@ -637,6 +766,17 @@ func (t *Trainer) countLeaves(tree Tree) int {
 	count := 0
 	for _, node := range tree.Nodes {
 		if node.NodeType == LeafNode {
+			count++
+		}
+	}
+	return count
+}
+
+// countLeavesInTree counts the number of leaf nodes in a tree being built
+func (t *Trainer) countLeavesInTree(tree *Tree) int {
+	count := 0
+	for _, node := range tree.Nodes {
+		if node.NodeType == LeafNode || (node.LeftChild == -1 && node.RightChild == -1) {
 			count++
 		}
 	}
@@ -653,6 +793,7 @@ func (t *Trainer) GetModel() *Model {
 	model.LearningRate = t.params.LearningRate
 	model.NumLeaves = t.params.NumLeaves
 	model.MaxDepth = t.params.MaxDepth
+	model.InitScore = t.initScore
 
 	if t.params.NumClass > 0 {
 		model.NumClass = t.params.NumClass

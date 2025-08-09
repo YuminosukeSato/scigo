@@ -540,3 +540,68 @@ func (lgb *LGBMClassifier) SetParams(params map[string]interface{}) error {
 	}
 	return nil
 }
+
+// DecisionFunction returns the decision function values (raw scores before sigmoid/softmax)
+func (lgb *LGBMClassifier) DecisionFunction(X mat.Matrix) (mat.Matrix, error) {
+	if !lgb.state.IsFitted() {
+		return nil, scigoErrors.NewNotFittedError("LGBMClassifier", "DecisionFunction")
+	}
+
+	_, cols := X.Dims()
+	if cols != lgb.nFeatures_ {
+		return nil, scigoErrors.NewDimensionError("DecisionFunction", lgb.nFeatures_, cols, 1)
+	}
+
+	// Get raw predictions without applying sigmoid/softmax
+	rows, _ := X.Dims()
+
+	// For binary classification, return single column
+	// For multiclass, return one column per class
+	var outputCols int
+	if lgb.nClasses_ == 2 {
+		outputCols = 1
+	} else {
+		outputCols = lgb.nClasses_
+	}
+
+	decision := mat.NewDense(rows, outputCols, nil)
+
+	// Process each sample
+	for i := 0; i < rows; i++ {
+		features := mat.Row(nil, i, X)
+		// Get raw predictions (before transformation)
+		rawPred := lgb.Model.PredictSingle(features, -1)
+
+		if lgb.nClasses_ == 2 {
+			// Binary: single decision value
+			decision.Set(i, 0, rawPred[0])
+		} else {
+			// Multiclass: one value per class
+			for j := 0; j < lgb.nClasses_; j++ {
+				if j < len(rawPred) {
+					decision.Set(i, j, rawPred[j])
+				}
+			}
+		}
+	}
+
+	return decision, nil
+}
+
+// SaveModel saves the model to a file
+func (lgb *LGBMClassifier) SaveModel(filepath string) error {
+	if !lgb.state.IsFitted() {
+		return scigoErrors.NewNotFittedError("LGBMClassifier", "SaveModel")
+	}
+	return lgb.Model.SaveToFile(filepath)
+}
+
+// IsFitted returns whether the model has been fitted
+func (lgb *LGBMClassifier) IsFitted() bool {
+	return lgb.state.IsFitted()
+}
+
+// FeatureImportance is an alias for GetFeatureImportance for compatibility
+func (lgb *LGBMClassifier) FeatureImportance(importanceType string) []float64 {
+	return lgb.GetFeatureImportance(importanceType)
+}

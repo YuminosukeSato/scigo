@@ -2,6 +2,8 @@ package lightgbm
 
 import (
 	"fmt"
+	"os"
+	"strings"
 
 	"gonum.org/v1/gonum/mat"
 )
@@ -33,6 +35,7 @@ type Node struct {
 	Threshold    float64 // Threshold value for numerical splits
 	Categories   []int   // Categories for categorical splits
 	DefaultLeft  bool    // Default direction for missing values
+	Gain         float64 // Split gain (reduction in loss)
 
 	// Leaf information (for leaf nodes)
 	LeafValue float64 // Value at leaf node
@@ -41,7 +44,6 @@ type Node struct {
 	// Statistics
 	InternalValue float64 // Internal value (used during training)
 	InternalCount int     // Internal count (used during training)
-	Gain          float64 // Split gain
 }
 
 // IsLeaf returns true if the node is a leaf node
@@ -368,4 +370,44 @@ func softmax(x []float64) []float64 {
 	}
 
 	return result
+}
+
+// SaveToFile saves the model to a file in LightGBM text format
+func (m *Model) SaveToFile(filepath string) error {
+	var sb strings.Builder
+
+	// Write header
+	sb.WriteString("tree\n")
+	sb.WriteString(fmt.Sprintf("version=v3\n"))
+	sb.WriteString(fmt.Sprintf("num_class=%d\n", m.NumClass))
+	sb.WriteString(fmt.Sprintf("num_tree_per_iteration=%d\n", 1))
+	sb.WriteString(fmt.Sprintf("label_index=0\n"))
+	sb.WriteString(fmt.Sprintf("max_feature_idx=%d\n", m.NumFeatures-1))
+	sb.WriteString(fmt.Sprintf("objective=%s\n", m.Objective))
+	sb.WriteString(fmt.Sprintf("feature_names=%s\n", strings.Join(m.FeatureNames, " ")))
+	sb.WriteString(fmt.Sprintf("feature_infos=none\n"))
+	sb.WriteString(fmt.Sprintf("tree_sizes=%d\n", len(m.Trees)))
+
+	// Write trees
+	for i, tree := range m.Trees {
+		sb.WriteString(fmt.Sprintf("\nTree=%d\n", i))
+		sb.WriteString(fmt.Sprintf("num_leaves=%d\n", tree.NumLeaves))
+		sb.WriteString(fmt.Sprintf("num_cat=0\n"))
+		sb.WriteString(fmt.Sprintf("shrinkage=%f\n", tree.ShrinkageRate))
+
+		// For simplified version, write minimal tree structure
+		if len(tree.Nodes) > 0 {
+			for _, node := range tree.Nodes {
+				if node.IsLeaf() {
+					sb.WriteString(fmt.Sprintf("leaf_value=%f\n", node.LeafValue))
+				} else {
+					sb.WriteString(fmt.Sprintf("split_feature=%d\n", node.SplitFeature))
+					sb.WriteString(fmt.Sprintf("threshold=%f\n", node.Threshold))
+				}
+			}
+		}
+	}
+
+	// Write to file
+	return os.WriteFile(filepath, []byte(sb.String()), 0644)
 }

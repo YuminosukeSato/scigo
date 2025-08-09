@@ -7,6 +7,7 @@ toolchain go1.24.6
 require (
 	github.com/cockroachdb/errors v1.12.0
 	github.com/rs/zerolog v1.34.0
+	github.com/stretchr/testify v1.8.4
 	gonum.org/v1/gonum v0.16.0
 	gonum.org/v1/plot v0.16.0
 )
@@ -20,6 +21,7 @@ require (
 	github.com/campoy/embedmd v1.0.0 // indirect
 	github.com/cockroachdb/logtags v0.0.0-20230118201751-21c54148d20b // indirect
 	github.com/cockroachdb/redact v1.1.6 // indirect
+	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/getsentry/sentry-go v0.35.0 // indirect
 	github.com/gogo/protobuf v1.3.2 // indirect
 	github.com/golang/freetype v0.0.0-20170609003504-e2365dfdc4a0 // indirect
@@ -33,4 +35,5 @@ require (
 	golang.org/x/image v0.29.0 // indirect
 	golang.org/x/sys v0.35.0 // indirect
 	golang.org/x/text v0.27.0 // indirect
+	gopkg.in/yaml.v3 v3.0.1 // indirect
 )

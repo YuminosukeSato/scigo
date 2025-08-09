@@ -22,27 +22,31 @@ type LGBMRegressor struct {
 	Predictor *Predictor
 
 	// Hyperparameters (matching Python LightGBM)
-	NumLeaves           int     // Number of leaves in one tree
-	MaxDepth            int     // Maximum tree depth
-	LearningRate        float64 // Boosting learning rate
-	NumIterations       int     // Number of boosting iterations
-	MinChildSamples     int     // Minimum number of data in one leaf
-	MinChildWeight      float64 // Minimum sum of hessians in one leaf
-	Subsample           float64 // Subsample ratio of training data
-	SubsampleFreq       int     // Frequency of subsample
-	ColsampleBytree     float64 // Subsample ratio of columns when constructing tree
-	RegAlpha            float64 // L1 regularization
-	RegLambda           float64 // L2 regularization
-	RandomState         int     // Random seed
-	Objective           string  // Objective function (regression, regression_l1, etc.)
-	Metric              string  // Evaluation metric
-	NumThreads          int     // Number of threads for prediction
-	Deterministic       bool    // Deterministic mode for reproducibility
-	Verbosity           int     // Verbosity level
-	EarlyStopping       int     // Early stopping rounds
-	Alpha               float64 // For quantile and fair regression
-	Lambda              float64 // For Tweedie regression
-	CategoricalFeatures []int   // Indices of categorical features
+	NumLeaves            int     // Number of leaves in one tree
+	MaxDepth             int     // Maximum tree depth
+	LearningRate         float64 // Boosting learning rate
+	NumIterations        int     // Number of boosting iterations
+	MinChildSamples      int     // Minimum number of data in one leaf
+	MinChildWeight       float64 // Minimum sum of hessians in one leaf
+	Subsample            float64 // Subsample ratio of training data
+	SubsampleFreq        int     // Frequency of subsample
+	ColsampleBytree      float64 // Subsample ratio of columns when constructing tree
+	RegAlpha             float64 // L1 regularization
+	RegLambda            float64 // L2 regularization
+	RandomState          int     // Random seed
+	Objective            string  // Objective function (regression, regression_l1, etc.)
+	Metric               string  // Evaluation metric
+	NumThreads           int     // Number of threads for prediction
+	Deterministic        bool    // Deterministic mode for reproducibility
+	Verbosity            int     // Verbosity level
+	EarlyStopping        int     // Early stopping rounds
+	Alpha                float64 // For quantile regression (quantile level)
+	HuberAlpha           float64 // For Huber loss (delta parameter)
+	FairC                float64 // For Fair loss (c parameter)
+	TweedieVariancePower float64 // For Tweedie regression
+	CategoricalFeatures  []int   // Indices of categorical features
+	BoostingType         string  // Boosting type (gbdt, dart, goss, rf)
+	ImportanceType       string  // Feature importance type (gain, split)
 
 	// Progress tracking
 	ShowProgress bool // Show progress bar during training
@@ -57,27 +61,31 @@ type LGBMRegressor struct {
 // NewLGBMRegressor creates a new LightGBM regressor with default parameters
 func NewLGBMRegressor() *LGBMRegressor {
 	regressor := &LGBMRegressor{
-		NumLeaves:       31,
-		MaxDepth:        -1, // No limit
-		LearningRate:    0.1,
-		NumIterations:   100,
-		MinChildSamples: 20,
-		MinChildWeight:  1e-3,
-		Subsample:       1.0,
-		SubsampleFreq:   0,
-		ColsampleBytree: 1.0,
-		RegAlpha:        0.0,
-		RegLambda:       0.0,
-		RandomState:     42,
-		Objective:       "regression", // L2 regression by default
-		Metric:          "l2",
-		NumThreads:      -1, // Use all cores
-		Deterministic:   false,
-		Verbosity:       -1,
-		EarlyStopping:   0,
-		Alpha:           0.5, // For quantile regression
-		Lambda:          1.5, // For Tweedie regression
-		ShowProgress:    false,
+		NumLeaves:            31,
+		MaxDepth:             -1, // No limit
+		LearningRate:         0.1,
+		NumIterations:        100,
+		MinChildSamples:      20,
+		MinChildWeight:       1e-3,
+		Subsample:            1.0,
+		SubsampleFreq:        0,
+		ColsampleBytree:      1.0,
+		RegAlpha:             0.0,
+		RegLambda:            0.0,
+		RandomState:          42,
+		Objective:            "regression", // L2 regression by default
+		Metric:               "l2",
+		NumThreads:           -1, // Use all cores
+		Deterministic:        false,
+		Verbosity:            -1,
+		EarlyStopping:        0,
+		Alpha:                0.5, // For quantile regression
+		HuberAlpha:           1.0, // For Huber loss
+		FairC:                1.0, // For Fair loss
+		TweedieVariancePower: 1.5, // For Tweedie regression
+		BoostingType:         "gbdt",
+		ImportanceType:       "gain",
+		ShowProgress:         false,
 	}
 
 	// Initialize state manager and logger
@@ -172,25 +180,30 @@ func (lgb *LGBMRegressor) Fit(X, y mat.Matrix) (err error) {
 
 	// Create training parameters
 	params := TrainingParams{
-		NumIterations:   lgb.NumIterations,
-		LearningRate:    lgb.LearningRate,
-		NumLeaves:       lgb.NumLeaves,
-		MaxDepth:        lgb.MaxDepth,
-		MinDataInLeaf:   lgb.MinChildSamples,
-		Lambda:          lgb.RegLambda,
-		Alpha:           lgb.RegAlpha,
-		MinGainToSplit:  1e-7,
-		BaggingFraction: lgb.Subsample,
-		BaggingFreq:     lgb.SubsampleFreq,
-		FeatureFraction: lgb.ColsampleBytree,
-		MaxBin:          255,
-		MinDataInBin:    3,
-		Objective:       lgb.Objective,
-		NumClass:        1, // Regression always has 1 output
-		Seed:            lgb.RandomState,
-		Deterministic:   lgb.Deterministic,
-		Verbosity:       lgb.Verbosity,
-		EarlyStopping:   lgb.EarlyStopping,
+		NumIterations:       lgb.NumIterations,
+		LearningRate:        lgb.LearningRate,
+		NumLeaves:           lgb.NumLeaves,
+		MaxDepth:            lgb.MaxDepth,
+		MinDataInLeaf:       lgb.MinChildSamples,
+		Lambda:              lgb.RegLambda,
+		Alpha:               lgb.RegAlpha,
+		MinGainToSplit:      1e-7,
+		BaggingFraction:     lgb.Subsample,
+		BaggingFreq:         lgb.SubsampleFreq,
+		FeatureFraction:     lgb.ColsampleBytree,
+		MaxBin:              255,
+		MinDataInBin:        3,
+		Objective:           lgb.Objective,
+		NumClass:            1, // Regression always has 1 output
+		HuberDelta:          lgb.HuberAlpha,
+		QuantileAlpha:       lgb.Alpha,
+		FairC:               lgb.FairC,
+		CategoricalFeatures: lgb.CategoricalFeatures,
+		MaxCatToOnehot:      4, // Default value
+		Seed:                lgb.RandomState,
+		Deterministic:       lgb.Deterministic,
+		Verbosity:           lgb.Verbosity,
+		EarlyStopping:       lgb.EarlyStopping,
 	}
 
 	// Create and run trainer
@@ -334,102 +347,132 @@ func (lgb *LGBMRegressor) GetFeatureImportance(importanceType string) []float64 
 	return lgb.Model.GetFeatureImportance(importanceType)
 }
 
-// GetParams returns the parameters of the regressor
+// GetParams returns the parameters of the regressor with Python-compatible names
 func (lgb *LGBMRegressor) GetParams() map[string]interface{} {
-	return map[string]interface{}{
-		"num_leaves":        lgb.NumLeaves,
-		"max_depth":         lgb.MaxDepth,
-		"learning_rate":     lgb.LearningRate,
-		"n_estimators":      lgb.NumIterations,
-		"min_child_samples": lgb.MinChildSamples,
-		"min_child_weight":  lgb.MinChildWeight,
-		"subsample":         lgb.Subsample,
-		"subsample_freq":    lgb.SubsampleFreq,
-		"colsample_bytree":  lgb.ColsampleBytree,
-		"reg_alpha":         lgb.RegAlpha,
-		"reg_lambda":        lgb.RegLambda,
-		"random_state":      lgb.RandomState,
-		"objective":         lgb.Objective,
-		"metric":            lgb.Metric,
-		"n_jobs":            lgb.NumThreads,
-		"deterministic":     lgb.Deterministic,
-		"verbosity":         lgb.Verbosity,
-		"alpha":             lgb.Alpha,
-		"lambda":            lgb.Lambda,
+	// Create Go parameter map
+	goParams := map[string]interface{}{
+		"NumLeaves":           lgb.NumLeaves,
+		"MaxDepth":            lgb.MaxDepth,
+		"LearningRate":        lgb.LearningRate,
+		"NumIterations":       lgb.NumIterations,
+		"MinDataInLeaf":       lgb.MinChildSamples,
+		"MinSumHessianInLeaf": lgb.MinChildWeight,
+		"BaggingFraction":     lgb.Subsample,
+		"BaggingFreq":         lgb.SubsampleFreq,
+		"FeatureFraction":     lgb.ColsampleBytree,
+		"Alpha":               lgb.RegAlpha,
+		"Lambda":              lgb.RegLambda,
+		"Seed":                lgb.RandomState,
+		"Objective":           lgb.Objective,
+		"Metric":              lgb.Metric,
+		"NumThreads":          lgb.NumThreads,
+		"Deterministic":       lgb.Deterministic,
+		"Verbosity":           lgb.Verbosity,
+		"EarlyStopping":       lgb.EarlyStopping,
+		"Boosting":            lgb.BoostingType,
+		"ImportanceType":      lgb.ImportanceType,
 	}
+
+	// Map to Python parameter names
+	mapper := NewParameterMapper()
+	return mapper.MapGoToPython(goParams)
 }
 
-// SetParams sets the parameters of the regressor
+// SetParams sets the parameters of the regressor with LightGBM-compatible parameter names
 func (lgb *LGBMRegressor) SetParams(params map[string]interface{}) error {
-	for key, value := range params {
+	// Create parameter mapper
+	mapper := NewParameterMapper()
+
+	// Map Python parameters to Go field names
+	mappedParams := mapper.MapPythonToGo(params)
+
+	// Apply mapped parameters
+	for key, value := range mappedParams {
 		switch key {
-		case "num_leaves", "n_leaves":
+		case "NumLeaves":
 			if v, ok := value.(int); ok {
 				lgb.NumLeaves = v
 			}
-		case "max_depth":
+		case "MaxDepth":
 			if v, ok := value.(int); ok {
 				lgb.MaxDepth = v
 			}
-		case "learning_rate":
+		case "LearningRate":
 			if v, ok := value.(float64); ok {
 				lgb.LearningRate = v
 			}
-		case "n_estimators", "num_iterations":
+		case "NumIterations":
 			if v, ok := value.(int); ok {
 				lgb.NumIterations = v
 			}
-		case "min_child_samples":
+		case "MinDataInLeaf":
 			if v, ok := value.(int); ok {
 				lgb.MinChildSamples = v
 			}
-		case "min_child_weight":
+		case "MinSumHessianInLeaf":
 			if v, ok := value.(float64); ok {
 				lgb.MinChildWeight = v
 			}
-		case "subsample":
+		case "BaggingFraction":
 			if v, ok := value.(float64); ok {
 				lgb.Subsample = v
 			}
-		case "colsample_bytree":
+		case "BaggingFreq":
+			if v, ok := value.(int); ok {
+				lgb.SubsampleFreq = v
+			}
+		case "FeatureFraction":
 			if v, ok := value.(float64); ok {
 				lgb.ColsampleBytree = v
 			}
-		case "reg_alpha":
+		case "Alpha":
 			if v, ok := value.(float64); ok {
 				lgb.RegAlpha = v
 			}
-		case "reg_lambda":
+		case "Lambda":
 			if v, ok := value.(float64); ok {
 				lgb.RegLambda = v
 			}
-		case "random_state":
+		case "Seed":
 			if v, ok := value.(int); ok {
 				lgb.RandomState = v
 			}
-		case "objective":
+		case "Objective":
 			if v, ok := value.(string); ok {
-				lgb.Objective = v
+				// Validate objective
+				if validated, err := mapper.ValidateObjective(v); err == nil {
+					lgb.Objective = validated
+				} else {
+					lgb.Objective = v // Use as-is if validation fails
+				}
 			}
-		case "metric":
+		case "Metric":
 			if v, ok := value.(string); ok {
 				lgb.Metric = v
 			}
-		case "n_jobs":
+		case "NumThreads":
 			if v, ok := value.(int); ok {
 				lgb.NumThreads = v
 			}
-		case "deterministic":
+		case "Deterministic":
 			if v, ok := value.(bool); ok {
 				lgb.Deterministic = v
 			}
-		case "alpha":
-			if v, ok := value.(float64); ok {
-				lgb.Alpha = v
+		case "Verbosity":
+			if v, ok := value.(int); ok {
+				lgb.Verbosity = v
 			}
-		case "lambda":
-			if v, ok := value.(float64); ok {
-				lgb.Lambda = v
+		case "EarlyStopping":
+			if v, ok := value.(int); ok {
+				lgb.EarlyStopping = v
+			}
+		case "Boosting":
+			if v, ok := value.(string); ok {
+				lgb.BoostingType = v
+			}
+		case "ImportanceType":
+			if v, ok := value.(string); ok {
+				lgb.ImportanceType = v
 			}
 		}
 	}
@@ -557,4 +600,22 @@ func (lgb *LGBMRegressor) GetRMSE(X, y mat.Matrix) (float64, error) {
 	}
 
 	return math.Sqrt(mse), nil
+}
+
+// SaveModel saves the model to a file
+func (lgb *LGBMRegressor) SaveModel(filepath string) error {
+	if !lgb.state.IsFitted() {
+		return scigoErrors.NewNotFittedError("LGBMRegressor", "SaveModel")
+	}
+	return lgb.Model.SaveToFile(filepath)
+}
+
+// IsFitted returns whether the model has been fitted
+func (lgb *LGBMRegressor) IsFitted() bool {
+	return lgb.state.IsFitted()
+}
+
+// FeatureImportance is an alias for GetFeatureImportance for compatibility
+func (lgb *LGBMRegressor) FeatureImportance(importanceType string) []float64 {
+	return lgb.GetFeatureImportance(importanceType)
 }

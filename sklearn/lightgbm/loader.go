@@ -325,6 +325,7 @@ type TreeStructureJSON struct {
 
 // NodeJSON represents a node in the JSON tree structure
 type NodeJSON struct {
+	SplitIndex     int       `json:"split_index,omitempty"`
 	SplitFeature   int       `json:"split_feature,omitempty"`
 	SplitGain      float64   `json:"split_gain,omitempty"`
 	Threshold      float64   `json:"threshold,omitempty"`
@@ -364,19 +365,38 @@ func (lgbJSON *LightGBMJSON) ToModel() (*Model, error) {
 		model.Objective = ObjectiveType(lgbJSON.Objective)
 	}
 
-	// Parse trees
-	for _, treeJSON := range lgbJSON.TreeStructure {
+	// Parse trees - combine TreeInfo and TreeStructure
+	for i, treeInfo := range lgbJSON.TreeInfo {
 		tree := Tree{
-			TreeIndex:     treeJSON.TreeIndex,
-			NumLeaves:     treeJSON.NumLeaves,
-			ShrinkageRate: treeJSON.Shrinkage,
+			TreeIndex:     treeInfo.TreeIndex,
+			NumLeaves:     treeInfo.NumLeaves,
+			ShrinkageRate: treeInfo.Shrinkage,
 			Nodes:         []Node{},
 		}
 
-		// Parse tree structure
-		if treeStruct, ok := treeJSON.TreeStructure.(map[string]interface{}); ok {
-			rootNode := parseNodeFromJSON(treeStruct)
-			flattenTree(&tree, rootNode, -1)
+		// Parse tree structure if available
+		if i < len(lgbJSON.TreeStructure) {
+			treeStruct := lgbJSON.TreeStructure[i]
+			if treeStructMap, ok := treeStruct.TreeStructure.(map[string]interface{}); ok {
+				rootNode := parseNodeFromJSON(treeStructMap)
+				flattenTree(&tree, rootNode, -1)
+			} else if nodeJSON, ok := treeStruct.TreeStructure.(*NodeJSON); ok {
+				// Direct NodeJSON structure
+				flattenTree(&tree, nodeJSON, -1)
+			}
+		}
+
+		// Update tree metadata
+		tree.NumNodes = len(tree.Nodes)
+		if tree.NumLeaves == 0 {
+			// Count leaf nodes
+			leafCount := 0
+			for _, node := range tree.Nodes {
+				if node.NodeType == LeafNode {
+					leafCount++
+				}
+			}
+			tree.NumLeaves = leafCount
 		}
 
 		model.Trees = append(model.Trees, tree)
@@ -405,6 +425,7 @@ func flattenTree(tree *Tree, nodeJSON *NodeJSON, parentID int) int {
 	if nodeJSON.LeftChild == nil && nodeJSON.RightChild == nil {
 		node.NodeType = LeafNode
 		node.LeafValue = nodeJSON.LeafValue
+		node.LeafCount = nodeJSON.LeafCount
 		node.LeftChild = -1
 		node.RightChild = -1
 		nodeID := len(tree.Nodes)
@@ -417,6 +438,10 @@ func flattenTree(tree *Tree, nodeJSON *NodeJSON, parentID int) int {
 	node.NodeType = NumericalNode
 	node.SplitFeature = nodeJSON.SplitFeature
 	node.Threshold = nodeJSON.Threshold
+	node.Gain = nodeJSON.SplitGain
+	node.DefaultLeft = nodeJSON.DefaultLeft
+	node.InternalValue = nodeJSON.InternalValue
+	node.InternalCount = nodeJSON.InternalCount
 
 	nodeID := len(tree.Nodes)
 	node.NodeID = nodeID
@@ -438,4 +463,105 @@ func flattenTree(tree *Tree, nodeJSON *NodeJSON, parentID int) int {
 	}
 
 	return nodeID
+}
+
+// SaveToJSON saves the model to a JSON file
+func (m *Model) SaveToJSON(filepath string) error {
+	jsonData, err := m.ToJSON()
+	if err != nil {
+		return err
+	}
+	return os.WriteFile(filepath, jsonData, 0644)
+}
+
+// SaveToJSONString returns the model as a JSON string
+func (m *Model) SaveToJSONString() (string, error) {
+	jsonData, err := m.ToJSON()
+	if err != nil {
+		return "", err
+	}
+	return string(jsonData), nil
+}
+
+// ToJSON converts the model to JSON format
+func (m *Model) ToJSON() ([]byte, error) {
+	jsonModel := m.toLightGBMJSON()
+	return json.MarshalIndent(jsonModel, "", "  ")
+}
+
+// toLightGBMJSON converts the model to LightGBMJSON structure
+func (m *Model) toLightGBMJSON() *LightGBMJSON {
+	jsonModel := &LightGBMJSON{
+		Name:                "tree",
+		Version:             "v3",
+		NumClass:            m.NumClass,
+		NumTreePerIteration: 1,
+		LabelIndex:          0,
+		MaxFeatureIdx:       m.NumFeatures - 1,
+		Objective:           string(m.Objective),
+		FeatureNames:        m.FeatureNames,
+		FeatureInfos:        make([]string, m.NumFeatures),
+		TreeInfo:            make([]TreeInfoJSON, len(m.Trees)),
+		TreeStructure:       make([]TreeStructureJSON, len(m.Trees)),
+	}
+
+	// Convert each tree
+	for i, tree := range m.Trees {
+		jsonModel.TreeInfo[i] = TreeInfoJSON{
+			TreeIndex: i,
+			NumLeaves: tree.NumLeaves,
+			NumCat:    0,
+			Shrinkage: tree.ShrinkageRate,
+		}
+
+		// Convert tree structure
+		if len(tree.Nodes) > 0 {
+			jsonModel.TreeStructure[i] = TreeStructureJSON{
+				TreeIndex:     i,
+				TreeStructure: treeToNodeJSON(&tree, 0),
+			}
+		}
+	}
+
+	return jsonModel
+}
+
+// treeToNodeJSON converts a tree node to NodeJSON recursively
+func treeToNodeJSON(tree *Tree, nodeID int) *NodeJSON {
+	if nodeID < 0 || nodeID >= len(tree.Nodes) {
+		return nil
+	}
+
+	node := &tree.Nodes[nodeID]
+
+	if node.NodeType == LeafNode {
+		return &NodeJSON{
+			LeafIndex: nodeID,
+			LeafValue: node.LeafValue,
+			LeafCount: node.LeafCount,
+		}
+	}
+
+	// Internal node
+	nodeJSON := &NodeJSON{
+		SplitIndex:    nodeID,
+		SplitFeature:  node.SplitFeature,
+		SplitGain:     node.Gain,
+		Threshold:     node.Threshold,
+		DecisionType:  "<=",
+		DefaultLeft:   node.DefaultLeft,
+		MissingType:   "None",
+		InternalValue: node.InternalValue,
+		InternalCount: node.InternalCount,
+	}
+
+	// Add children recursively
+	if node.LeftChild >= 0 {
+		nodeJSON.LeftChild = treeToNodeJSON(tree, node.LeftChild)
+	}
+	if node.RightChild >= 0 {
+		nodeJSON.RightChild = treeToNodeJSON(tree, node.RightChild)
+	}
+
+	return nodeJSON
 }
