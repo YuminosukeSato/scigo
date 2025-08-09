@@ -348,4 +348,3 @@ func toSnakeCase(s string) string {
 	}
 	return strings.ToLower(result.String())
 }
-
