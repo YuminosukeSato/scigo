@@ -200,7 +200,7 @@ func TestCrossValidate(t *testing.T) {
 		X := mat.NewDense(n, 2, nil)
 		y := mat.NewDense(n, 1, nil)
 
-		rand.Seed(42)
+		// Removed deprecated rand.Seed - using default random source
 		for i := 0; i < n; i++ {
 			x1 := rand.Float64() * 10
 			x2 := rand.Float64() * 5
@@ -249,7 +249,7 @@ func TestCrossValidate(t *testing.T) {
 		X := mat.NewDense(n, 2, nil)
 		y := mat.NewDense(n, 1, nil)
 
-		rand.Seed(42)
+		// Removed deprecated rand.Seed - using default random source
 		for i := 0; i < n; i++ {
 			x1 := rand.Float64() * 10
 			x2 := rand.Float64() * 5
@@ -325,7 +325,7 @@ func TestCrossValidateRegressor(t *testing.T) {
 	X := mat.NewDense(n, 2, nil)
 	y := mat.NewDense(n, 1, nil)
 
-	rand.Seed(42)
+	// Removed deprecated rand.Seed - using default random source
 	for i := 0; i < n; i++ {
 		x1 := rand.Float64() * 10
 		x2 := rand.Float64() * 5
@@ -362,7 +362,7 @@ func TestCrossValidateClassifier(t *testing.T) {
 	X := mat.NewDense(n, 2, nil)
 	y := mat.NewDense(n, 1, nil)
 
-	rand.Seed(42)
+	// Removed deprecated rand.Seed - using default random source
 	for i := 0; i < n; i++ {
 		x1 := rand.Float64() * 10
 		x2 := rand.Float64() * 5
@@ -476,11 +476,12 @@ func TestCVResult(t *testing.T) {
 		assert.Greater(t, std, 0.0)
 
 		// Calculate expected std
-		expectedVar := ((0.8-0.8)*(0.8-0.8) +
-			(0.85-0.8)*(0.85-0.8) +
-			(0.75-0.8)*(0.75-0.8) +
-			(0.9-0.8)*(0.9-0.8) +
-			(0.7-0.8)*(0.7-0.8)) / 4
+		expectedMean := 0.8
+		expectedVar := ((0.8-expectedMean)*(0.8-expectedMean) +
+			(0.85-expectedMean)*(0.85-expectedMean) +
+			(0.75-expectedMean)*(0.75-expectedMean) +
+			(0.9-expectedMean)*(0.9-expectedMean) +
+			(0.7-expectedMean)*(0.7-expectedMean)) / 4
 		expectedStd := math.Sqrt(expectedVar)
 
 		assert.InDelta(t, expectedStd, std, 0.001)

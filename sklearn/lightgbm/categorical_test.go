@@ -17,7 +17,7 @@ func TestCategoricalFeatures(t *testing.T) {
 	X := mat.NewDense(n, 4, nil)
 	y := mat.NewDense(n, 1, nil)
 
-	rand.Seed(42)
+	// Removed deprecated rand.Seed - using default random source
 
 	for i := 0; i < n; i++ {
 		// Continuous feature 0
@@ -286,7 +286,7 @@ func TestCategoricalWithLGBMRegressor(t *testing.T) {
 	X := mat.NewDense(n, 3, nil)
 	y := mat.NewDense(n, 1, nil)
 
-	rand.Seed(42)
+	// Removed deprecated rand.Seed - using default random source
 
 	for i := 0; i < n; i++ {
 		// Continuous

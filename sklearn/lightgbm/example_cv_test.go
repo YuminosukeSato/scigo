@@ -15,7 +15,7 @@ func ExampleCrossValidate() {
 	X := mat.NewDense(n, 3, nil)
 	y := mat.NewDense(n, 1, nil)
 
-	rand.Seed(42)
+	// Removed deprecated rand.Seed - using default random source
 	for i := 0; i < n; i++ {
 		x1 := rand.Float64() * 10
 		x2 := rand.Float64() * 5
@@ -65,7 +65,7 @@ func ExampleTrainer_WithCallbacks() {
 	X := mat.NewDense(n, 2, nil)
 	y := mat.NewDense(n, 1, nil)
 
-	rand.Seed(42)
+	// Removed deprecated rand.Seed - using default random source
 	for i := 0; i < n; i++ {
 		X.Set(i, 0, rand.Float64()*10)
 		X.Set(i, 1, rand.Float64()*5)

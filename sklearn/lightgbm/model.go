@@ -378,21 +378,21 @@ func (m *Model) SaveToFile(filepath string) error {
 
 	// Write header
 	sb.WriteString("tree\n")
-	sb.WriteString(fmt.Sprintf("version=v3\n"))
+	sb.WriteString("version=v3\n")
 	sb.WriteString(fmt.Sprintf("num_class=%d\n", m.NumClass))
 	sb.WriteString(fmt.Sprintf("num_tree_per_iteration=%d\n", 1))
-	sb.WriteString(fmt.Sprintf("label_index=0\n"))
+	sb.WriteString("label_index=0\n")
 	sb.WriteString(fmt.Sprintf("max_feature_idx=%d\n", m.NumFeatures-1))
 	sb.WriteString(fmt.Sprintf("objective=%s\n", m.Objective))
 	sb.WriteString(fmt.Sprintf("feature_names=%s\n", strings.Join(m.FeatureNames, " ")))
-	sb.WriteString(fmt.Sprintf("feature_infos=none\n"))
+	sb.WriteString("feature_infos=none\n")
 	sb.WriteString(fmt.Sprintf("tree_sizes=%d\n", len(m.Trees)))
 
 	// Write trees
 	for i, tree := range m.Trees {
 		sb.WriteString(fmt.Sprintf("\nTree=%d\n", i))
 		sb.WriteString(fmt.Sprintf("num_leaves=%d\n", tree.NumLeaves))
-		sb.WriteString(fmt.Sprintf("num_cat=0\n"))
+		sb.WriteString("num_cat=0\n")
 		sb.WriteString(fmt.Sprintf("shrinkage=%f\n", tree.ShrinkageRate))
 
 		// For simplified version, write minimal tree structure

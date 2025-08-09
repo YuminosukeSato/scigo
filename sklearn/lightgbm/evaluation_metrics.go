@@ -378,7 +378,7 @@ func EvaluateRegression(yTrue, yPred *mat.VecDense) (map[string]float64, error) 
 	if evs, err := ExplainedVarianceScore(yTrue, yPred); err == nil {
 		results["explained_variance"] = evs
 	} else {
-		return nil, fmt.Errorf("Explained variance calculation failed: %w", err)
+		return nil, fmt.Errorf("explained variance calculation failed: %w", err)
 	}
 
 	return results, nil
