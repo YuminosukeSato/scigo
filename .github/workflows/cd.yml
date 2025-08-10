@@ -1,0 +1,253 @@
+name: Continuous Delivery
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  packages: write
+  issues: write
+
+jobs:
+  check-and-release:
+    name: Auto Release on Main Push
+    runs-on: ubuntu-latest
+    if: "!contains(github.event.head_commit.message, '[skip ci]') && !contains(github.event.head_commit.message, '[skip release]')"
+    
+    outputs:
+      new_version: ${{ steps.version.outputs.version }}
+      new_tag: ${{ steps.version.outputs.tag }}
+      should_release: ${{ steps.check.outputs.should_release }}
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+        token: ${{ secrets.GITHUB_TOKEN }}
+        
+    - name: Check if release needed
+      id: check
+      run: |
+        # Check if there are any substantive changes since last tag
+        LAST_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "")
+        
+        if [ -z "$LAST_TAG" ]; then
+          echo "No previous tags found, will create first release"
+          echo "should_release=true" >> $GITHUB_OUTPUT
+          exit 0
+        fi
+        
+        # Check for changes in source code, excluding docs and CI files
+        CHANGES=$(git diff --name-only "$LAST_TAG"..HEAD | grep -v -E '(^\.github/|^docs/|\.md$|^\.gitignore$)' || true)
+        
+        if [ -n "$CHANGES" ]; then
+          echo "Found source code changes since $LAST_TAG"
+          echo "$CHANGES"
+          echo "should_release=true" >> $GITHUB_OUTPUT
+        else
+          echo "No source code changes since $LAST_TAG, skipping release"
+          echo "should_release=false" >> $GITHUB_OUTPUT
+        fi
+        
+    - name: Set up Go
+      if: steps.check.outputs.should_release == 'true'
+      uses: actions/setup-go@v5
+      with:
+        go-version: '1.24'
+        
+    - name: Run tests
+      if: steps.check.outputs.should_release == 'true'
+      run: |
+        go test -v -race -coverprofile=coverage.txt -covermode=atomic ./...
+        
+    - name: Check test coverage
+      if: steps.check.outputs.should_release == 'true'
+      run: |
+        go tool cover -func=coverage.txt
+        total=$(go tool cover -func=coverage.txt | grep total | awk '{print $3}' | sed 's/%//')
+        if (( $(echo "$total < 70" | bc -l) )); then
+          echo "Test coverage is below 70% ($total%)"
+          exit 1
+        fi
+        echo "Test coverage: $total%"
+        
+    - name: Auto increment version
+      if: steps.check.outputs.should_release == 'true'
+      id: version
+      run: |
+        ./scripts/auto-version.sh
+        
+    - name: Commit version changes
+      if: steps.check.outputs.should_release == 'true'
+      run: |
+        git config --local user.email "action@github.com"
+        git config --local user.name "GitHub Action"
+        git add VERSION CHANGELOG.md
+        git commit -m "chore: bump version to ${{ steps.version.outputs.version }} [skip ci]"
+        
+    - name: Build binaries
+      if: steps.check.outputs.should_release == 'true'
+      run: |
+        # Build for multiple platforms
+        GOOS=linux GOARCH=amd64 go build -o scigo-linux-amd64 ./cmd/scigo
+        GOOS=linux GOARCH=arm64 go build -o scigo-linux-arm64 ./cmd/scigo
+        GOOS=darwin GOARCH=amd64 go build -o scigo-darwin-amd64 ./cmd/scigo
+        GOOS=darwin GOARCH=arm64 go build -o scigo-darwin-arm64 ./cmd/scigo
+        GOOS=windows GOARCH=amd64 go build -o scigo-windows-amd64.exe ./cmd/scigo
+        
+    - name: Extract release notes
+      if: steps.check.outputs.should_release == 'true'
+      id: changelog
+      run: |
+        VERSION="${{ steps.version.outputs.version }}"
+        
+        # Extract changelog section for this version
+        sed -n "/## \[$VERSION\]/,/## \[/p" CHANGELOG.md | sed '$d' > release_notes.md
+        
+        # Add installation instructions
+        cat >> release_notes.md << 'EOF'
+        
+        ## Installation
+        
+        ### Go Install (Recommended)
+        ```bash
+        go install github.com/YuminosukeSato/scigo@latest
+        ```
+        
+        ### Go Module
+        ```bash
+        go get github.com/YuminosukeSato/scigo@VERSION
+        ```
+        
+        ### Docker
+        ```bash
+        docker pull ghcr.io/yuminosukesato/scigo:VERSION
+        ```
+        
+        ## Documentation
+        
+        - [API Documentation](https://pkg.go.dev/github.com/YuminosukeSato/scigo)
+        - [Examples](https://github.com/YuminosukeSato/scigo/tree/main/examples)
+        - [Migration Guide](https://github.com/YuminosukeSato/scigo#-scikit-learn-compatibility)
+        EOF
+        
+        # Replace VERSION placeholder
+        sed -i "s/@VERSION/@v$VERSION/g" release_notes.md
+        sed -i "s/:VERSION/:$VERSION/g" release_notes.md
+        
+    - name: Create and push tag
+      if: steps.check.outputs.should_release == 'true'
+      run: |
+        git tag -a "${{ steps.version.outputs.tag }}" -m "Release ${{ steps.version.outputs.tag }}"
+        git push origin HEAD:main --tags
+        
+    - name: Create Release
+      if: steps.check.outputs.should_release == 'true'
+      uses: softprops/action-gh-release@v2
+      with:
+        tag_name: ${{ steps.version.outputs.tag }}
+        name: Release ${{ steps.version.outputs.tag }}
+        body_path: release_notes.md
+        draft: false
+        prerelease: false
+        files: |
+          scigo-linux-amd64
+          scigo-linux-arm64
+          scigo-darwin-amd64
+          scigo-darwin-arm64
+          scigo-windows-amd64.exe
+        generate_release_notes: false
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        
+    - name: Update pkg.go.dev
+      if: steps.check.outputs.should_release == 'true'
+      run: |
+        # Trigger pkg.go.dev to update
+        curl "https://proxy.golang.org/github.com/YuminosukeSato/scigo/@v/${{ steps.version.outputs.tag }}.info"
+        
+  build-docker:
+    name: Build and Push Docker Image
+    needs: check-and-release
+    if: needs.check-and-release.outputs.should_release == 'true'
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      with:
+        ref: ${{ needs.check-and-release.outputs.new_tag }}
+        
+    - name: Set up QEMU
+      uses: docker/setup-qemu-action@v3
+      
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v3
+      
+    - name: Log in to GitHub Container Registry
+      uses: docker/login-action@v3
+      with:
+        registry: ghcr.io
+        username: ${{ github.repository_owner }}
+        password: ${{ secrets.GITHUB_TOKEN }}
+        
+    - name: Build and push Docker image
+      uses: docker/build-push-action@v5
+      with:
+        context: .
+        push: true
+        platforms: linux/amd64,linux/arm64
+        tags: |
+          ghcr.io/${{ github.repository }}:${{ needs.check-and-release.outputs.new_version }}
+          ghcr.io/${{ github.repository }}:latest
+        labels: |
+          org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
+          org.opencontainers.image.version=${{ needs.check-and-release.outputs.new_version }}
+          org.opencontainers.image.revision=${{ github.sha }}
+          org.opencontainers.image.created=${{ github.event.head_commit.timestamp }}
+        cache-from: type=gha
+        cache-to: type=gha,mode=max
+        
+  post-release:
+    name: Post Release Tasks
+    needs: [check-and-release, build-docker]
+    if: needs.check-and-release.outputs.should_release == 'true'
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Create post-release issue
+      uses: actions/github-script@v7
+      with:
+        script: |
+          const version = '${{ needs.check-and-release.outputs.new_tag }}';
+          const release_url = `https://github.com/${context.repo.owner}/${context.repo.repo}/releases/tag/${version}`;
+          const docker_url = `https://ghcr.io/${context.repo.owner}/${context.repo.repo}`;
+          
+          await github.rest.issues.create({
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            title: `Post-release tasks for ${version}`,
+            body: `## Post-release checklist for ${version}\n\n` +
+                  `### Automated Tasks (Completed)\n` +
+                  `- ✅ Version bumped to ${version}\n` +
+                  `- ✅ CHANGELOG.md updated\n` +
+                  `- ✅ Git tag created and pushed\n` +
+                  `- ✅ GitHub Release created with binaries\n` +
+                  `- ✅ Docker image pushed to ghcr.io\n` +
+                  `- ✅ pkg.go.dev update triggered\n\n` +
+                  `### Manual Verification\n` +
+                  `- [ ] Verify pkg.go.dev updated: https://pkg.go.dev/github.com/YuminosukeSato/scigo\n` +
+                  `- [ ] Verify Docker image: ${docker_url}\n` +
+                  `- [ ] Test installation with: \`go install github.com/YuminosukeSato/scigo@latest\`\n` +
+                  `- [ ] Test Docker image: \`docker pull ghcr.io/yuminosukesato/scigo:${version.substring(1)}\`\n\n` +
+                  `### Optional Tasks\n` +
+                  `- [ ] Update dependent projects\n` +
+                  `- [ ] Announce release on social media\n` +
+                  `- [ ] Update documentation if needed\n\n` +
+                  `Release URL: ${release_url}`,
+            labels: ['release', 'documentation']
+          });
