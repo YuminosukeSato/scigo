@@ -338,6 +338,38 @@ go test ./...
 golangci-lint run
 ```
 
+### 🚀 Continuous Delivery (CD)
+
+SciGo uses automated continuous delivery for releases:
+
+- **Automatic Release**: Every push to the `main` branch triggers an automatic patch version release
+- **Version Management**: Versions are automatically incremented (e.g., 0.4.0 → 0.4.1)
+- **Release Assets**: Binaries for Linux, macOS, and Windows are automatically built and attached
+- **Docker Images**: Docker images are automatically built and pushed to GitHub Container Registry (ghcr.io)
+- **Documentation**: pkg.go.dev is automatically updated with the latest version
+
+#### Release Process
+
+1. **Merge PR to main**: When a PR is merged to main branch
+2. **Automatic Tests**: CI runs all tests and coverage checks
+3. **Version Bump**: Patch version is automatically incremented
+4. **Create Release**: GitHub Release is created with:
+   - Multi-platform binaries (Linux, macOS, Windows)
+   - Release notes from CHANGELOG.md
+   - Docker image at `ghcr.io/yuminosukesato/scigo:VERSION`
+5. **Post-Release**: An issue is created to track post-release verification tasks
+
+#### Manual Release
+
+For major or minor version releases, create and push a tag manually:
+
+```bash
+git tag v0.5.0 -m "Release v0.5.0"
+git push origin v0.5.0
+```
+
+This will trigger the release workflow via the existing `release.yml` workflow.
+
 ## 🗺️ Roadmap
 
 ### Phase 1: Core ML (Current)
