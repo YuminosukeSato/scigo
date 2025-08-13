@@ -203,9 +203,7 @@ func TestHistogramSubtraction(t *testing.T) {
 	t.Skip("Skipping histogram subtraction tests until v0.7.0 implementation")
 
 	// Create test trainer
-	params := TrainingParams{
-		MaxBin: 10,
-	}
+	params := TrainingParams{MaxBin: 10}
 	trainer := NewTrainer(params)
 
 	// Create parent histogram

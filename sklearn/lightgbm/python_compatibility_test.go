@@ -94,7 +94,7 @@ func TestPythonLightGBMCompatibility(t *testing.T) {
 					}
 				}
 			}
-			comparePredictions(t, expectedPreds, predDense, tc.tolerance, tc.taskType)
+			comparePredictionsDense(t, expectedPreds, predDense, tc.tolerance, tc.taskType)
 		})
 	}
 }
@@ -184,7 +184,8 @@ func loadCSVPredictions(t *testing.T, filepath string) *mat.Dense {
 }
 
 // comparePredictions compares predictions with tolerance
-func comparePredictions(t *testing.T, expected, actual *mat.Dense, tolerance float64, taskType string) {
+// Local helper to compare predictions with tolerance
+func comparePredictionsDense(t *testing.T, expected, actual *mat.Dense, tolerance float64, taskType string) {
 	expRows, expCols := expected.Dims()
 	actRows, actCols := actual.Dims()
 
@@ -230,7 +231,8 @@ func comparePredictions(t *testing.T, expected, actual *mat.Dense, tolerance flo
 
 	case "multiclass":
 		// Multiclass predictions
-		if expCols == actCols {
+		switch expCols {
+		case actCols:
 			// Same number of classes
 			for i := 0; i < expRows; i++ {
 				for j := 0; j < expCols; j++ {
@@ -240,7 +242,7 @@ func comparePredictions(t *testing.T, expected, actual *mat.Dense, tolerance flo
 						"Multiclass prediction mismatch at row %d, class %d: expected %f, got %f", i, j, exp, act)
 				}
 			}
-		} else if expCols == 1 {
+		case 1:
 			// Expected is class labels, actual might be probabilities
 			// Find the argmax of actual
 			for i := 0; i < expRows; i++ {
@@ -259,7 +261,7 @@ func comparePredictions(t *testing.T, expected, actual *mat.Dense, tolerance flo
 				assert.Equal(t, expClass, maxClass,
 					"Multiclass prediction mismatch at row %d: expected class %d, got %d", i, expClass, maxClass)
 			}
-		} else {
+		default:
 			t.Errorf("Dimension mismatch for multiclass: expected %dx%d, got %dx%d",
 				expRows, expCols, actRows, actCols)
 		}

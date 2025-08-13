@@ -168,8 +168,13 @@ func (t *Trainer) FitWithValidation(X, y mat.Matrix, valData *ValidationData) er
 		// Calculate gradients and hessians
 		t.calculateGradients()
 
-		// Build one tree
-		tree, err := t.buildTree()
+		// Build one tree with all samples
+		rows, _ := t.X.Dims()
+		allIndices := make([]int, rows)
+		for i := 0; i < rows; i++ {
+			allIndices[i] = i
+		}
+		tree, err := t.buildTreeWithSamples(allIndices)
 		if err != nil {
 			return fmt.Errorf("tree building failed at iteration %d: %w", iter, err)
 		}

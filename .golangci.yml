@@ -1,6 +1,3 @@
-# .golangci.yml - Optimized configuration for CI performance
-version: 2
-
 run:
   timeout: 5m
   tests: true
@@ -9,23 +6,21 @@ run:
   go: "1.24"
 
 output:
-  format: line-number
   print-issued-lines: true
   print-linter-name: true
 
 linters:
   disable-all: true
   enable:
-    # Core linters for code quality
-    - errcheck       # Check for unchecked errors
-    - govet         # Go vet examines Go source code
-    - ineffassign   # Detects ineffectual assignments
-    - staticcheck   # State of the art linter
-    - unused        # Check for unused code
-    - gofmt         # Check whether code was gofmt-ed
-    - goimports     # Check import statements are formatted
-    - gosec         # Security problems
-    - typecheck     # Like the front-end of a Go compiler
+    - errcheck
+    - govet
+    - ineffassign
+    - staticcheck
+    - unused
+    - gofmt
+    - goimports
+    - gosec
+    - typecheck
 
 linters-settings:
   errcheck:
@@ -42,8 +37,8 @@ linters-settings:
     severity: medium
     confidence: medium
     excludes:
-      - G104  # Unhandled errors in defer statements
-      - G304  # File path provided as taint input
+      - G104
+      - G304
 
   staticcheck:
     checks: ["all", "-ST1000", "-ST1003"]
@@ -58,11 +53,6 @@ issues:
     - ".*_generated\\.go$"
     - ".*_test\\.go$"
   
-  # Maximum issues count per one linter
   max-issues-per-linter: 50
-  
-  # Maximum count of issues with the same text
   max-same-issues: 3
-  
-  # Fix found issues (if it's supported by the linter)
   fix: false

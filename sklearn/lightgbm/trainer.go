@@ -82,9 +82,9 @@ type TrainingParams struct {
 	MinDataInBin int `json:"min_data_in_bin"`
 
 	// Objective
-	Objective string `json:"objective"`
-	NumClass  int    `json:"num_class"`
-
+	Objective    string `json:"objective"`
+	NumClass     int    `json:"num_class"`
+	BoostingType string `json:"boosting_type"` // "gbdt", "goss", etc.
 
 	// Objective-specific parameters
 	HuberDelta    float64 `json:"huber_delta"`    // Delta for Huber loss
@@ -95,7 +95,6 @@ type TrainingParams struct {
 	CategoricalFeatures []int   `json:"categorical_features"` // Indices of categorical features
 	MaxCatToOnehot      int     `json:"max_cat_to_onehot"`    // Max categories to use one-hot encoding
 	CatSmooth           float64 `json:"cat_smooth"`           // Smoothing for categorical splits
-
 
 	// Other
 	Seed          int    `json:"seed"`
@@ -809,21 +808,10 @@ func (t *Trainer) findBestSplitWithHistogram(nodeHist *NodeHistogram, indices []
 	_, cols := t.X.Dims()
 	bestSplit := SplitInfo{Gain: -math.MaxFloat64}
 
-
-	// Try each feature
-	for j := 0; j < cols; j++ {
-		var split SplitInfo
-
-		// Check if feature is categorical
-		if t.isCategoricalFeature(j) {
-			split = t.findBestCategoricalSplit(indices, j)
-		} else {
-			split = t.findBestSplitForFeature(indices, j)
-		}
-
-		if split.Gain > bestSplit.Gain {
-			bestSplit = split
-		}
+	// Evaluate features using histogram-based method (parallelized below)
+	type featureResult struct {
+		feature int
+		split   SplitInfo
 	}
 
 	resultChan := make(chan featureResult, cols)
@@ -1003,6 +991,7 @@ func (t *Trainer) calculateLoss() float64 {
 
 	return loss / totalWeight
 }
+
 
 // countLeaves counts the number of leaf nodes in a tree
 func (t *Trainer) countLeaves(tree Tree) int {
