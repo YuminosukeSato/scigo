@@ -142,15 +142,12 @@ func (p *Predictor) predictParallel(X, predictions *mat.Dense) {
 
 // predictSingleSample makes a prediction for a single sample with numerical precision
 func (p *Predictor) predictSingleSample(features []float64) []float64 {
-	// Initialize predictions with proper precision
+	// Initialize predictions with 0 (InitScore is already in leaf values)
 	var predictions []float64
 	if p.model.NumClass > 2 {
 		predictions = make([]float64, p.model.NumClass)
-		for i := range predictions {
-			predictions[i] = p.ensurePrecision(p.model.InitScore)
-		}
 	} else {
-		predictions = []float64{p.ensurePrecision(p.model.InitScore)}
+		predictions = []float64{0.0}
 	}
 
 	// Use best iteration if available, otherwise all trees
@@ -183,11 +180,13 @@ func (p *Predictor) predictSingleSample(features []float64) []float64 {
 func (p *Predictor) predictTree(tree *Tree, features []float64) float64 {
 	nodeIdx := 0 // Start from root
 
+	// Continue until we reach a leaf
 	for nodeIdx >= 0 && nodeIdx < len(tree.Nodes) {
 		node := &tree.Nodes[nodeIdx]
 
+		// Check if this is a leaf node
 		if node.IsLeaf() {
-			// Apply shrinkage and ensure precision
+			// Return the leaf value with shrinkage applied
 			return p.ensurePrecision(node.LeafValue * tree.ShrinkageRate)
 		}
 
@@ -238,12 +237,17 @@ func (p *Predictor) predictTree(tree *Tree, features []float64) float64 {
 			} else {
 				nodeIdx = node.RightChild
 			}
+		case LeafNode:
+			// This is a leaf node
+			return p.ensurePrecision(node.LeafValue * tree.ShrinkageRate)
 		default:
 			// Unknown node type, return 0
 			return 0.0
 		}
 	}
 
+	// If we've reached here and nodeIdx is negative (leaf reference in another format)
+	// or we couldn't find a leaf, return 0
 	return 0.0
 }
 
@@ -398,6 +402,10 @@ func (p *Predictor) PredictProba(X mat.Matrix) (mat.Matrix, error) {
 		// Already returns probabilities
 		return predictions, nil
 
+	case MulticlassLogLoss:
+		// Apply Softmax transformation to convert logits to probabilities
+		return p.applySoftmax(predictions), nil
+
 	default:
 		// For regression, just return raw predictions
 		return predictions, nil
@@ -420,6 +428,45 @@ func (p *Predictor) PredictLeafIndex(X mat.Matrix) ([][]int, error) {
 	}
 
 	return leafIndices, nil
+}
+
+// applySoftmax applies the Softmax transformation to convert logits to probabilities
+// This is numerically stable implementation
+func (p *Predictor) applySoftmax(logits mat.Matrix) mat.Matrix {
+	rows, cols := logits.Dims()
+	probabilities := mat.NewDense(rows, cols, nil)
+
+	for i := 0; i < rows; i++ {
+		// Extract logits for this sample
+		sampleLogits := make([]float64, cols)
+		for j := 0; j < cols; j++ {
+			sampleLogits[j] = logits.At(i, j)
+		}
+
+		// Find max for numerical stability
+		maxLogit := sampleLogits[0]
+		for _, logit := range sampleLogits[1:] {
+			if logit > maxLogit {
+				maxLogit = logit
+			}
+		}
+
+		// Compute exp(x - max) and sum
+		expSum := 0.0
+		expValues := make([]float64, cols)
+		for j, logit := range sampleLogits {
+			expValues[j] = math.Exp(logit - maxLogit)
+			expSum += expValues[j]
+		}
+
+		// Normalize to get probabilities
+		for j, expVal := range expValues {
+			probability := expVal / expSum
+			probabilities.Set(i, j, p.ensurePrecision(probability))
+		}
+	}
+
+	return probabilities
 }
 
 // getLeafIndices returns the leaf index for each tree

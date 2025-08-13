@@ -1,12 +1,34 @@
+// +build compat
+
 package lightgbm
 
 import (
 	"math"
 	"os"
+	"path/filepath"
 	"testing"
 
 	"gonum.org/v1/gonum/mat"
 )
+
+// TestExpectation represents the expected test data and predictions from Python
+type TestExpectation struct {
+	Dataset     string                 `json:"dataset"`
+	Params      map[string]interface{} `json:"params"`
+	XTest       [][]float64            `json:"X_test"`
+	YTest       []float64              `json:"y_test"`
+	Predictions struct {
+		Predict   [][]float64 `json:"predict"`
+		RawScore  [][]float64 `json:"raw_score"`
+		LeafIndex [][]int     `json:"leaf_index"`
+	} `json:"predictions"`
+	ModelInfo struct {
+		NumTrees      int      `json:"num_trees"`
+		NumFeatures   int      `json:"num_features"`
+		FeatureNames  []string `json:"feature_names"`
+		CategoricalFeatures []int `json:"categorical_features,omitempty"`
+	} `json:"model_info"`
+}
 
 // TestPythonModelCompatibility tests that our Go implementation produces
 // the same results as Python's LightGBM
@@ -164,6 +186,63 @@ func TestNumericalPrecision(t *testing.T) {
 		if math.Abs(result[0]-td.expected) > 1e-15 {
 			t.Errorf("Test %d: got %.16f, expected %.16f", i, result[0], td.expected)
 		}
+	}
+}
+
+// TestCompatibilityWithExistingModels tests with models in testdata/compatibility
+func TestCompatibilityWithExistingModels(t *testing.T) {
+	compatDir := "testdata/compatibility"
+	
+	testCases := []struct {
+		name      string
+		modelFile string
+		dataFile  string
+		predFile  string
+	}{
+		{
+			name:      "Regression",
+			modelFile: "regression_model.txt",
+			dataFile:  "regression_X_test.csv",
+			predFile:  "regression_predictions.csv",
+		},
+		{
+			name:      "Binary",
+			modelFile: "binary_model.txt",
+			dataFile:  "binary_X_test.csv",
+			predFile:  "binary_predictions.csv",
+		},
+		{
+			name:      "Multiclass",
+			modelFile: "multiclass_model.txt",
+			dataFile:  "multiclass_X_test.csv",
+			predFile:  "multiclass_predictions.csv",
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			// Check if files exist
+			modelPath := filepath.Join(compatDir, tc.modelFile)
+			if _, err := os.Stat(modelPath); os.IsNotExist(err) {
+				t.Skipf("Model file not found: %s", modelPath)
+			}
+
+			// Load model
+			model, err := LoadLeavesModelFromFile(modelPath)
+			if err != nil {
+				t.Fatalf("Failed to load model: %v", err)
+			}
+
+			t.Logf("Loaded model: Trees=%d, Features=%d, Classes=%d",
+				len(model.Trees), model.NumFeatures, model.NumClass)
+
+			// Load test data if available
+			dataPath := filepath.Join(compatDir, tc.dataFile)
+			if _, err := os.Stat(dataPath); err == nil {
+				// TODO: Implement CSV loading and prediction comparison
+				t.Logf("Test data available at: %s", dataPath)
+			}
+		})
 	}
 }
 

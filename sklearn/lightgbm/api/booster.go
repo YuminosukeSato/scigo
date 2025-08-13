@@ -100,6 +100,86 @@ func (b *Booster) Predict(data mat.Matrix, options ...PredictOption) (mat.Matrix
 	return predictions, nil
 }
 
+// PredictProba makes probability predictions for classification tasks
+// Similar to Python's booster.predict(data, num_iteration=num_iteration)
+// For binary classification, returns probabilities for both classes
+// For multiclass, returns probabilities for all classes
+func (b *Booster) PredictProba(data mat.Matrix, options ...PredictOption) (mat.Matrix, error) {
+	if b.predictor == nil {
+		return nil, fmt.Errorf("model not initialized")
+	}
+
+	// Apply prediction options
+	opts := &predictOptions{
+		numIteration:   -1, // Use all trees by default
+		predictType:    "response",
+		startIteration: 0,
+	}
+	for _, opt := range options {
+		opt(opts)
+	}
+
+	// Make probability predictions using the predictor's PredictProba method
+	probabilities, err := b.predictor.PredictProba(data)
+	if err != nil {
+		return nil, err
+	}
+
+	return probabilities, nil
+}
+
+// PredictRawScore returns raw prediction scores without transformation
+// Similar to Python's booster.predict(data, raw_score=True)
+func (b *Booster) PredictRawScore(data mat.Matrix, options ...PredictOption) (mat.Matrix, error) {
+	if b.predictor == nil {
+		return nil, fmt.Errorf("model not initialized")
+	}
+
+	// Apply prediction options
+	opts := &predictOptions{
+		numIteration:   -1, // Use all trees by default
+		predictType:    "raw",
+		startIteration: 0,
+	}
+	for _, opt := range options {
+		opt(opts)
+	}
+
+	// Make raw score predictions
+	rawScores, err := b.predictor.PredictRawScore(data)
+	if err != nil {
+		return nil, err
+	}
+
+	return rawScores, nil
+}
+
+// PredictLeaf returns leaf indices for each sample
+// Similar to Python's booster.predict(data, pred_leaf=True)
+func (b *Booster) PredictLeaf(data mat.Matrix, options ...PredictOption) (mat.Matrix, error) {
+	if b.predictor == nil {
+		return nil, fmt.Errorf("model not initialized")
+	}
+
+	// Apply prediction options
+	opts := &predictOptions{
+		numIteration:   -1, // Use all trees by default
+		predictType:    "leaf",
+		startIteration: 0,
+	}
+	for _, opt := range options {
+		opt(opts)
+	}
+
+	// Get leaf indices
+	leafIndices, err := b.predictor.PredictLeaf(data)
+	if err != nil {
+		return nil, err
+	}
+
+	return leafIndices, nil
+}
+
 // PredictOption is a functional option for prediction
 type PredictOption func(*predictOptions)
 
@@ -180,9 +260,12 @@ func (b *Booster) saveJSON(filename string) error {
 
 // saveText saves the model in text format
 func (b *Booster) saveText(filename string) error {
-	// This would use the existing model saving functionality
-	// For now, delegate to JSON format
-	return b.saveJSON(filename)
+	if b.model == nil {
+		return fmt.Errorf("no model to save")
+	}
+	
+	// Use the Model's SaveToText method to save in LightGBM text format
+	return b.model.SaveToText(filename)
 }
 
 // LoadModel loads a model from file
