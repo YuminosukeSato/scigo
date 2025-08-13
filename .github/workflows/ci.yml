@@ -103,7 +103,7 @@ jobs:
           cache: true
 
       - name: Cache security tools
-        uses: actions/cache@v3
+        uses: actions/cache@v4
         with:
           path: ~/go/bin
           key: ${{ runner.os }}-security-tools-${{ hashFiles('**/go.mod') }}-v2
