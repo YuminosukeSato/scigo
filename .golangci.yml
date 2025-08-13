@@ -1,10 +1,12 @@
-# .golangci.yml - Relaxed configuration for development
+# .golangci.yml - Optimized configuration for CI performance
 version: 2
 
 run:
   timeout: 5m
   tests: true
   modules-download-mode: readonly
+  concurrency: 4
+  go: "1.24"
 
 output:
   format: line-number
@@ -14,22 +16,53 @@ output:
 linters:
   disable-all: true
   enable:
-    # Essential linters only
-    - errcheck
-    - govet
-    - ineffassign
-    - staticcheck
-    - unused
+    # Core linters for code quality
+    - errcheck       # Check for unchecked errors
+    - govet         # Go vet examines Go source code
+    - ineffassign   # Detects ineffectual assignments
+    - staticcheck   # State of the art linter
+    - unused        # Check for unused code
+    - gofmt         # Check whether code was gofmt-ed
+    - goimports     # Check import statements are formatted
+    - gosec         # Security problems
+    - typecheck     # Like the front-end of a Go compiler
 
 linters-settings:
   errcheck:
     check-type-assertions: false
     check-blank: false
+  
+  gofmt:
+    simplify: true
+  
+  goimports:
+    local-prefixes: github.com/YuminosukeSato/scigo
+  
+  gosec:
+    severity: medium
+    confidence: medium
+    excludes:
+      - G104  # Unhandled errors in defer statements
+      - G304  # File path provided as taint input
+
+  staticcheck:
+    checks: ["all", "-ST1000", "-ST1003"]
 
 issues:
   exclude-dirs:
     - vendor
     - testdata
+    - .git
   exclude-files:
     - ".*\\.pb\\.go$"
     - ".*_generated\\.go$"
+    - ".*_test\\.go$"
+  
+  # Maximum issues count per one linter
+  max-issues-per-linter: 50
+  
+  # Maximum count of issues with the same text
+  max-same-issues: 3
+  
+  # Fix found issues (if it's supported by the linter)
+  fix: false

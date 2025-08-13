@@ -21,12 +21,14 @@ env:
   GOPROXY: https://proxy.golang.org,direct
 
 jobs:
-  # Fast path - basic checks that must pass
-  quick-check:
+  # Fast path - lint and basic checks
+  lint:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
 
       - name: Set up Go with cache
         uses: actions/setup-go@v5
@@ -37,36 +39,12 @@ jobs:
             go.sum
             **/go.sum
 
-      - name: Cache Go tools
-        uses: actions/cache@v3
-        id: tool-cache
+      - name: Run golangci-lint
+        uses: golangci/golangci-lint-action@v6
         with:
-          path: ~/go/bin
-          key: ${{ runner.os }}-go-tools-${{ hashFiles('**/go.mod') }}-v2
-          restore-keys: |
-            ${{ runner.os }}-go-tools-
-
-      - name: Install cached tools
-        if: steps.tool-cache.outputs.cache-hit != 'true'
-        run: |
-          go install honnef.co/go/tools/cmd/staticcheck@latest
-          go install golang.org/x/vuln/cmd/govulncheck@latest
-          go install github.com/securego/gosec/v2/cmd/gosec@latest
-          echo "Tools installed and cached"
-
-      - name: Check formatting
-        run: |
-          if [ -n "$(gofmt -l .)" ]; then
-            echo "The following files need formatting:"
-            gofmt -l .
-            exit 1
-          fi
-
-      - name: Run go vet
-        run: go vet ./...
-
-      - name: Run staticcheck
-        run: ~/go/bin/staticcheck ./... || go run honnef.co/go/tools/cmd/staticcheck@latest ./...
+          version: latest
+          args: --timeout=5m
+          skip-cache: false
 
       - name: Check go mod tidy
         run: |
@@ -75,7 +53,6 @@ jobs:
 
   # Parallel test runs for speed
   test:
-    needs: quick-check
     runs-on: ubuntu-latest
     strategy:
       matrix:
@@ -85,6 +62,8 @@ jobs:
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
 
       - name: Set up Go with cache
         uses: actions/setup-go@v5
@@ -110,11 +89,12 @@ jobs:
 
   # Security scanning (lighter version for PRs)
   security:
-    needs: quick-check
     runs-on: ubuntu-latest
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
 
       - name: Set up Go with cache
         uses: actions/setup-go@v5
@@ -151,6 +131,8 @@ jobs:
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
 
       - name: Set up Go
         uses: actions/setup-go@v5
@@ -188,13 +170,13 @@ jobs:
 
   # Final status check
   ci-status:
-    needs: [quick-check, test, security]
+    needs: [lint, test, security]
     runs-on: ubuntu-latest
     if: always()
     steps:
       - name: Check CI Status
         run: |
-          if [ "${{ needs.quick-check.result }}" != "success" ] || \
+          if [ "${{ needs.lint.result }}" != "success" ] || \
              [ "${{ needs.test.result }}" != "success" ] || \
              [ "${{ needs.security.result }}" != "success" ]; then
             echo "CI failed"
