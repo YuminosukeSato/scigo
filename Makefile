@@ -411,3 +411,15 @@ docs: ## Start documentation server
 	godoc -http=:6060
 
 .DEFAULT_GOAL := help
+## Parity test: generate sklearn golden and run Go tests with parity tag
+.PHONY: parity-linear
+parity-linear:
+	uv run --with scikit-learn --with numpy --with scipy python scripts/golden/gen_logreg.py
+	go test ./sklearn/linear_model -tags=parity -run Parity -v
+
+.PHONY: parity-lightgbm
+parity-lightgbm:
+	# 1) Generate compatibility data via Python (use uv only)
+	uv run --with lightgbm --with scikit-learn --with numpy --with scipy python sklearn/lightgbm/generate_compatibility_data.py
+	# 2) Run Go-side parity tests (limited selection)
+	go test ./sklearn/lightgbm -count=1 -run 'TestPythonLightGBMCompatibility|TestPythonParity_Leaves|TestCAPIModelStructureEquality' -v

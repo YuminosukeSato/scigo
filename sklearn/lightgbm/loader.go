@@ -132,10 +132,8 @@ func LoadFromReader(reader io.Reader) (*Model, error) {
 		model.NumClass = 1
 	}
 
-	// Extract InitScore from first tree's root internal value
-	if len(model.Trees) > 0 && model.Trees[0].InternalValue != 0 {
-		model.InitScore = model.Trees[0].InternalValue
-	}
+	// LightGBM models don't use InitScore separately - it's already in leaf values
+	model.InitScore = 0.0
 
 	return model, nil
 }
@@ -176,9 +174,11 @@ func finalizeTree(tree *Tree, params map[string]string) error {
 	// Parse internal_value for init score (first value is root node's internal value)
 	internalValues := parseFloatArray(params["internal_value"])
 
-	// Build nodes - only internal nodes first
+	// Build nodes - internal nodes and leaf nodes
 	numInternalNodes := len(splitFeatures)
-	tree.Nodes = make([]Node, 0, numInternalNodes)
+	numLeaves := len(leafValues)
+	totalNodes := numInternalNodes + numLeaves
+	tree.Nodes = make([]Node, 0, totalNodes)
 
 	// Store root internal value if this is the first tree (as InitScore)
 	if tree.TreeIndex == 0 && len(internalValues) > 0 {
@@ -187,13 +187,13 @@ func finalizeTree(tree *Tree, params map[string]string) error {
 		tree.InternalValue = internalValues[0]
 	}
 
-	// Create internal nodes
+	// Create internal nodes - these use indices to reference children
 	for i := 0; i < numInternalNodes; i++ {
 		node := Node{
 			NodeID:       i,
-			ParentID:     -1, // Will be set later if needed
-			LeftChild:    leftChildren[i],
-			RightChild:   rightChildren[i],
+			ParentID:     -1,
+			LeftChild:    leftChildren[i],  // Can be positive (internal) or negative (leaf)
+			RightChild:   rightChildren[i], // Can be positive (internal) or negative (leaf)
 			SplitFeature: splitFeatures[i],
 			Threshold:    thresholds[i],
 			NodeType:     NumericalNode,
@@ -201,18 +201,7 @@ func finalizeTree(tree *Tree, params map[string]string) error {
 
 		// Parse default direction from decision_type
 		if i < len(decisionTypes) {
-			// Bit 1 indicates default_left
 			node.DefaultLeft = (decisionTypes[i] & (1 << 1)) != 0
-		}
-
-		// Check if it's actually a leaf (-1 or negative means leaf)
-		if leftChildren[i] < 0 && rightChildren[i] < 0 {
-			// This is actually a leaf node
-			leafIdx := -(leftChildren[i] + 1)
-			if leafIdx >= 0 && leafIdx < len(leafValues) {
-				node.LeafValue = leafValues[leafIdx]
-				node.NodeType = LeafNode
-			}
 		}
 
 		tree.Nodes = append(tree.Nodes, node)

@@ -77,3 +77,6 @@ pip-delete-this-directory.txt
 *.txt
 !LICENSE
 !README.md
+
+# Git worktrees directory
+worktrees/

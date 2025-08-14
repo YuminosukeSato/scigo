@@ -40,15 +40,17 @@ func TestCategoricalFeatures(t *testing.T) {
 		target := x0*0.5 + x2*0.3
 
 		// Add categorical effects
-		if cat1 == 0 {
+		switch cat1 {
+		case 0:
 			target += 2.0
-		} else if cat1 == 1 {
+		case 1:
 			target -= 1.0
 		}
 
-		if cat3 == 0 || cat3 == 1 {
+		switch cat3 {
+		case 0, 1:
 			target += 1.5
-		} else if cat3 == 4 {
+		case 4:
 			target -= 2.0
 		}
 

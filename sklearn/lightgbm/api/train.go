@@ -273,53 +273,54 @@ func parseParams(params map[string]interface{}) lgb.TrainingParams {
 		tp.NumClass = val
 	}
 
+	// GOSS (Gradient-based One-Side Sampling) parameters
+	if val, ok := params["top_rate"].(float64); ok {
+		tp.TopRate = val
+	}
+	if val, ok := params["other_rate"].(float64); ok {
+		tp.OtherRate = val
+	}
+
+	// Categorical features support
+	if val, ok := params["categorical_feature"].([]int); ok {
+		tp.CategoricalFeatures = val
+	}
+
 	return tp
 }
 
-// trainOneIteration performs one boosting iteration
+// trainOneIteration performs one boosting iteration using actual Trainer
 func trainOneIteration(trainer *lgb.Trainer, trainSet *Dataset, booster *Booster) error {
-	// This is a simplified version - actual implementation would:
-	// 1. Use the trainer to build one tree
-	// 2. Add the tree to the model
-	// 3. Update the booster
-
-	// For now, we just simulate the training
+	// Initialize model on first iteration
 	if booster.model == nil {
-		// Initialize model on first iteration
 		rows, cols := trainSet.Data.Dims()
-		booster.model = lgb.NewModel()
-		booster.model.NumFeatures = cols
 
-		// Detect task type
-		if trainSet.isBinary {
-			booster.model.Objective = lgb.BinaryLogistic
-			booster.model.NumClass = 2
-		} else if trainSet.nClasses > 2 {
-			booster.model.Objective = lgb.MulticlassSoftmax
-			booster.model.NumClass = trainSet.nClasses
-		} else {
-			booster.model.Objective = lgb.RegressionL2
+		// Perform initial training to get the model structure
+		err := trainer.Fit(trainSet.Data, trainSet.Label)
+		if err != nil {
+			return fmt.Errorf("failed to initialize training: %w", err)
 		}
 
+		// Get the trained model from trainer
+		booster.model = trainer.GetModel()
 		booster.predictor = lgb.NewPredictor(booster.model)
 
-		// Set feature names
+		// Set feature names if provided
 		if len(trainSet.FeatureNames) > 0 {
 			booster.SetFeatureNames(trainSet.FeatureNames)
 		}
 
+		// Update booster iteration count to match model
+		booster.currentIteration = booster.model.NumIteration
+
 		_ = rows // Use rows to avoid unused variable
+		_ = cols // Use cols to avoid unused variable
+		return nil
 	}
 
-	// Simulate adding a tree (actual implementation would use trainer.Fit)
-	tree := lgb.Tree{
-		TreeIndex:     booster.currentIteration,
-		NumLeaves:     31,
-		NumNodes:      61,
-		ShrinkageRate: 0.1,
-	}
-	booster.model.Trees = append(booster.model.Trees, tree)
-
+	// For subsequent iterations, the trainer has already built all trees
+	// during the initial Fit() call, so we just return
+	// (LightGBM trains all iterations at once, not incrementally in the API layer)
 	return nil
 }
 
@@ -352,6 +353,10 @@ func evaluateDataset(booster *Booster, dataset *Dataset, objective string) float
 	case "multiclass", "softmax":
 		// For multiclass, return accuracy
 		score = calculateAccuracy(dataset.Label, predictions)
+	case "multiclass_logloss":
+		// For multiclass logloss, return accuracy for now
+		// TODO: Implement proper log loss calculation
+		score = calculateAccuracy(dataset.Label, predictions)
 	default:
 		score = 0.0
 	}
@@ -369,6 +374,8 @@ func getMetricName(objective string) string {
 	case "binary":
 		return "binary_logloss"
 	case "multiclass", "softmax":
+		return "multi_logloss"
+	case "multiclass_logloss":
 		return "multi_logloss"
 	default:
 		return objective

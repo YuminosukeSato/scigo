@@ -2,6 +2,7 @@ package model
 
 import (
 	"context"
+
 	"gonum.org/v1/gonum/mat"
 )
 

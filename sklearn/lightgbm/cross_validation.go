@@ -255,11 +255,12 @@ func CrossValidate(params TrainingParams, X, y mat.Matrix, splitter KFoldSplitte
 
 	// Set metric if not specified
 	if metric == "" {
-		if params.Objective == "regression" || params.Objective == "regression_l2" {
+		switch params.Objective {
+		case "regression", "regression_l2":
 			metric = "l2"
-		} else if params.Objective == "binary" {
+		case "binary":
 			metric = "binary_logloss"
-		} else {
+		default:
 			metric = "l2"
 		}
 	}

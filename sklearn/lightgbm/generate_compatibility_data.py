@@ -18,7 +18,7 @@ warnings.filterwarnings('ignore')
 OUTPUT_DIR = "testdata/compatibility"
 os.makedirs(OUTPUT_DIR, exist_ok=True)
 
-def save_data(X, y, predictions, prefix):
+def save_data(X, y, predictions, prefix, extra_meta=None):
     """Save test data and predictions to CSV files."""
     # Save test features
     pd.DataFrame(X).to_csv(
@@ -42,6 +42,43 @@ def save_data(X, y, predictions, prefix):
         index=False,
         header=False
     )
+
+    # Save minimal JSON metadata for compatibility validation
+    meta = {
+        "task": prefix,
+        "X_test_shape": list(np.shape(X)),
+        "y_test_shape": list(np.shape(y)),
+        "predictions_shape": list(np.shape(predictions)),
+    }
+    if isinstance(extra_meta, dict):
+        meta.update(extra_meta)
+    try:
+        import json
+        with open(os.path.join(OUTPUT_DIR, f"{prefix}_metadata.json"), "w") as f:
+            json.dump(meta, f, indent=2)
+    except Exception:
+        pass
+
+def save_dump_model(booster: lgb.Booster, prefix: str) -> None:
+    """Save dump_model() output to JSON and a minimal per-tree structure for C-API parity tests."""
+    import json
+    dump = booster.dump_model()
+    # Full dump model
+    with open(os.path.join(OUTPUT_DIR, f"{prefix}_model.json"), "w") as f:
+        json.dump(dump, f, indent=2)
+
+    # Minimal JSON for C-API structure comparison (tree meta only)
+    trees_min = []
+    for ti, info in enumerate(dump.get("tree_info", [])):
+        meta = {
+            "tree_index": int(info.get("tree_index", ti)),
+            "num_leaves": int(info.get("num_leaves", 0)),
+            "num_nodes": int(info.get("num_leaves", 0)) - 1 if int(info.get("num_leaves", 0)) > 0 else 0,
+            "shrinkage": float(info.get("shrinkage", 0.0)),
+        }
+        trees_min.append(meta)
+    with open(os.path.join(OUTPUT_DIR, f"{prefix}_tree_structure.json"), "w") as f:
+        json.dump(trees_min, f, indent=2)
 
 def generate_regression_data():
     """Generate regression test case."""
@@ -87,12 +124,24 @@ def generate_regression_data():
         os.path.join(OUTPUT_DIR, "regression_model.txt"),
         num_iteration=model.best_iteration
     )
+    save_dump_model(model, "regression")
     
     # Make predictions
     predictions = model.predict(X_test, num_iteration=model.best_iteration)
     
     # Save data
-    save_data(X_test, y_test, predictions, "regression")
+    save_data(
+        X_test,
+        y_test,
+        predictions,
+        "regression",
+        extra_meta={
+            "objective": "regression",
+            "num_trees": int(model.num_trees()),
+            "best_iteration": int(model.best_iteration or 0),
+            "params": params,
+        },
+    )
     
     print(f"  Regression model saved with {model.num_trees()} trees")
     print(f"  Test RMSE: {np.sqrt(np.mean((predictions - y_test)**2)):.4f}")
@@ -136,12 +185,24 @@ def generate_binary_classification_data():
         os.path.join(OUTPUT_DIR, "binary_model.txt"),
         num_iteration=model.best_iteration
     )
+    save_dump_model(model, "binary")
     
     # Make predictions (probabilities)
     predictions = model.predict(X_test, num_iteration=model.best_iteration)
     
     # Save data
-    save_data(X_test, y_test, predictions, "binary")
+    save_data(
+        X_test,
+        y_test,
+        predictions,
+        "binary",
+        extra_meta={
+            "objective": "binary",
+            "num_trees": int(model.num_trees()),
+            "best_iteration": int(model.best_iteration or 0),
+            "params": params,
+        },
+    )
     
     # Also save probability predictions for both classes
     proba_both = np.column_stack([1 - predictions, predictions])
@@ -194,12 +255,25 @@ def generate_multiclass_classification_data():
         os.path.join(OUTPUT_DIR, "multiclass_model.txt"),
         num_iteration=model.best_iteration
     )
+    save_dump_model(model, "multiclass")
     
     # Make predictions (probabilities for each class)
     predictions = model.predict(X_test, num_iteration=model.best_iteration)
     
     # Save data
-    save_data(X_test, y_test, predictions, "multiclass")
+    save_data(
+        X_test,
+        y_test,
+        predictions,
+        "multiclass",
+        extra_meta={
+            "objective": "multiclass",
+            "num_class": 3,
+            "num_trees": int(model.num_trees()),
+            "best_iteration": int(model.best_iteration or 0),
+            "params": params,
+        },
+    )
     
     # Also save class predictions
     class_predictions = np.argmax(predictions, axis=1)
@@ -239,6 +313,7 @@ def generate_special_cases():
     model = lgb.train(params, train_data, num_boost_round=50)
     
     model.save_model(os.path.join(OUTPUT_DIR, "nan_handling_model.txt"))
+    save_dump_model(model, "nan_handling")
     predictions = model.predict(X_test)
     save_data(X_test, y_test, predictions, "nan_handling")
     
@@ -261,6 +336,7 @@ def generate_special_cases():
     model = lgb.train(params, train_data, num_boost_round=20)
     
     model.save_model(os.path.join(OUTPUT_DIR, "deep_tree_model.txt"))
+    save_dump_model(model, "deep_tree")
     predictions = model.predict(X_test)
     save_data(X_test, y_test, predictions, "deep_tree")
     
@@ -304,6 +380,7 @@ def generate_feature_importance_test():
     model = lgb.train(params, train_data, num_boost_round=50)
     
     model.save_model(os.path.join(OUTPUT_DIR, "feature_importance_model.txt"))
+    save_dump_model(model, "feature_importance")
     
     # Get feature importance
     importance_gain = model.feature_importance(importance_type='gain')

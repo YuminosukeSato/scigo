@@ -268,8 +268,12 @@ func readLeavesTree(reader *bufio.Reader, treeIndex int) (LeavesTree, error) {
 
 		// First, try to add right child (this ensures right child is at next index)
 		if t.Nodes[convIdx].Flags&rightLeaf == 0 {
+			// Check bounds before accessing rightChilds
+			if int(origCurrentIdx) >= len(rightChilds) {
+				return t, fmt.Errorf("invalid node index %d, rightChilds length is %d", origCurrentIdx, len(rightChilds))
+			}
 			origRightIdx := rightChilds[origCurrentIdx]
-			if !visited[origRightIdx] {
+			if origRightIdx >= 0 && int(origRightIdx) < len(visited) && !visited[origRightIdx] {
 				node, err := createNode(origRightIdx)
 				if err != nil {
 					return t, err
@@ -296,8 +300,12 @@ func readLeavesTree(reader *bufio.Reader, treeIndex int) (LeavesTree, error) {
 
 		// Then, try to add left child
 		if t.Nodes[convIdx].Flags&leftLeaf == 0 {
+			// Check bounds before accessing leftChilds
+			if int(origCurrentIdx) >= len(leftChilds) {
+				return t, fmt.Errorf("invalid node index %d, leftChilds length is %d", origCurrentIdx, len(leftChilds))
+			}
 			origLeftIdx := leftChilds[origCurrentIdx]
-			if !visited[origLeftIdx] {
+			if origLeftIdx >= 0 && int(origLeftIdx) < len(visited) && !visited[origLeftIdx] {
 				node, err := createNode(origLeftIdx)
 				if err != nil {
 					return t, err

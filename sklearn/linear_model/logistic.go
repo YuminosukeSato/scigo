@@ -1,12 +1,14 @@
 package linear_model
 
 import (
-	"fmt"
-	"math"
-	"math/rand"
+    "crypto/rand"
+    "fmt"
+    "math"
+    "math/big"
 
-	"github.com/YuminosukeSato/scigo/core/model"
-	"gonum.org/v1/gonum/mat"
+    "github.com/YuminosukeSato/scigo/core/model"
+    "gonum.org/v1/gonum/mat"
+    "gonum.org/v1/gonum/optimize"
 )
 
 // LogisticRegression implements logistic regression for classification
@@ -38,7 +40,7 @@ type LogisticRegression struct {
 	nIter_     []int       // Actual iterations per class
 
 	// Internal state
-	rand *rand.Rand
+	randomSeed int64
 }
 
 // LogisticRegressionOption is a functional option for LogisticRegression
@@ -68,11 +70,13 @@ func NewLogisticRegression(opts ...LogisticRegressionOption) *LogisticRegression
 		opt(lr)
 	}
 
-	// Initialize random generator if seed is set
+	// Set random seed
 	if lr.randomState >= 0 {
-		lr.rand = rand.New(rand.NewSource(lr.randomState))
+		lr.randomSeed = lr.randomState
 	} else {
-		lr.rand = rand.New(rand.NewSource(rand.Int63()))
+		// Generate cryptographically secure random seed
+		seedBig, _ := rand.Int(rand.Reader, big.NewInt(9223372036854775807))
+		lr.randomSeed = seedBig.Int64()
 	}
 
 	return lr
@@ -126,9 +130,7 @@ func WithLRTol(tol float64) LogisticRegressionOption {
 func WithLRRandomState(seed int64) LogisticRegressionOption {
 	return func(lr *LogisticRegression) {
 		lr.randomState = seed
-		if seed >= 0 {
-			lr.rand = rand.New(rand.NewSource(seed))
-		}
+		lr.randomSeed = seed
 	}
 }
 
@@ -155,28 +157,46 @@ func (lr *LogisticRegression) Fit(X, y mat.Matrix) error {
 		lr.initializeWeights(nFeatures)
 	}
 
-	// Binary or multiclass classification
-	if lr.nClasses_ == 2 {
-		// Binary classification
-		err := lr.fitBinary(X, y)
-		if err != nil {
-			return err
-		}
-	} else {
-		// Multiclass classification
-		if lr.multiClass == "multinomial" && lr.solver == "lbfgs" {
-			err := lr.fitMultinomial(X, y)
-			if err != nil {
-				return err
-			}
-		} else {
-			// One-vs-rest
-			err := lr.fitOVR(X, y)
-			if err != nil {
-				return err
-			}
-		}
-	}
+    // Binary or multiclass classification
+    if lr.nClasses_ == 2 {
+        // Binary classification
+        var err error
+        switch lr.solver {
+        case "lbfgs":
+            if lr.penalty != "l2" && lr.penalty != "none" {
+                return fmt.Errorf("lbfgs supports only l2 or none penalty")
+            }
+            err = lr.fitBinaryLBFGS(X, y)
+        default:
+            err = lr.fitBinary(X, y)
+        }
+        if err != nil {
+            return err
+        }
+    } else {
+        // Multiclass classification
+        if lr.multiClass == "multinomial" && lr.solver == "lbfgs" {
+            err := lr.fitMultinomial(X, y)
+            if err != nil {
+                return err
+            }
+        } else {
+            // One-vs-rest
+            var err error
+            switch lr.solver {
+            case "lbfgs":
+                if lr.penalty != "l2" && lr.penalty != "none" {
+                    return fmt.Errorf("lbfgs supports only l2 or none penalty")
+                }
+                err = lr.fitOVRLBFGS(X, y)
+            default:
+                err = lr.fitOVR(X, y)
+            }
+            if err != nil {
+                return err
+            }
+        }
+    }
 
 	lr.state.SetFitted()
 	return nil
@@ -227,10 +247,10 @@ func (lr *LogisticRegression) initializeWeights(nFeatures int) {
 
 	lr.nIter_ = make([]int, len(lr.coef_))
 
-	// Initialize with small random values
+	// Initialize with small random values using crypto/rand
 	for i := range lr.coef_ {
 		for j := range lr.coef_[i] {
-			lr.coef_[i][j] = lr.rand.NormFloat64() * 0.01
+			lr.coef_[i][j] = lr.cryptoNormalFloat64() * 0.01
 		}
 	}
 }
@@ -321,6 +341,173 @@ func (lr *LogisticRegression) fitBinary(X, y mat.Matrix) error {
 	return nil
 }
 
+// fitBinaryLBFGS fits binary logistic regression using L-BFGS optimizer.
+func (lr *LogisticRegression) fitBinaryLBFGS(X, y mat.Matrix) error {
+    nSamples, nFeatures := X.Dims()
+
+    // Convert labels to 0 or 1 according to classes_[1]
+    yBinary := make([]float64, nSamples)
+    posClass := lr.classes_[1]
+    for i := 0; i < nSamples; i++ {
+        if int(y.At(i, 0)) == posClass {
+            yBinary[i] = 1.0
+        } else {
+            yBinary[i] = 0.0
+        }
+    }
+
+    // Parameter vector: [w0..w_{d-1}, b] if fitIntercept else only weights
+    pDim := nFeatures
+    hasB := 0
+    if lr.fitIntercept {
+        pDim++
+        hasB = 1
+    }
+    x0 := make([]float64, pDim)
+    // warm start or existing coef if present
+    if lr.warmStart && lr.coef_ != nil && len(lr.coef_[0]) == nFeatures {
+        copy(x0[:nFeatures], lr.coef_[0])
+        if lr.fitIntercept && len(lr.intercept_) > 0 {
+            x0[nFeatures] = lr.intercept_[0]
+        }
+    }
+
+    // Preload X into a dense representation for speed
+    Xd := mat.DenseCopyOf(X)
+    // Settings
+    lambda := 0.0
+    if lr.penalty == "l2" {
+        if lr.C == 0 {
+            return fmt.Errorf("C must be > 0 for l2 penalty")
+        }
+        lambda = 1.0 / lr.C
+    }
+
+    // Objective and gradient
+    prob := optimize.Problem{
+        Func: func(theta []float64) float64 {
+            // Compute loss = mean NLL + 0.5*lambda*||w||^2
+            w := theta[:nFeatures]
+            var b float64
+            if hasB == 1 {
+                b = theta[nFeatures]
+            }
+            loss := 0.0
+            for i := 0; i < nSamples; i++ {
+                // z = w·x + b
+                z := b
+                for j := 0; j < nFeatures; j++ {
+                    z += w[j] * Xd.At(i, j)
+                }
+                // p = sigmoid(z)
+                if z >= 0 {
+                    ez := math.Exp(-z)
+                    p := 1.0 / (1.0 + ez)
+                    // NLL
+                    // Clamp to avoid log(0)
+                    if p < 1e-15 {
+                        p = 1e-15
+                    } else if p > 1-1e-15 {
+                        p = 1 - 1e-15
+                    }
+                    loss += -yBinary[i]*math.Log(p) - (1.0-yBinary[i])*math.Log(1.0-p)
+                } else {
+                    ez := math.Exp(z)
+                    p := ez / (1.0 + ez)
+                    if p < 1e-15 {
+                        p = 1e-15
+                    } else if p > 1-1e-15 {
+                        p = 1 - 1e-15
+                    }
+                    loss += -yBinary[i]*math.Log(p) - (1.0-yBinary[i])*math.Log(1.0-p)
+                }
+            }
+            loss /= float64(nSamples)
+            // L2 regularization on weights only
+            if lambda > 0 {
+                reg := 0.0
+                for j := 0; j < nFeatures; j++ {
+                    reg += w[j] * w[j]
+                }
+                loss += 0.5 * lambda * reg
+            }
+            return loss
+        },
+        Grad: func(grad, theta []float64) {
+            // grad = [dL/dw, dL/db]
+            w := theta[:nFeatures]
+            var b float64
+            if hasB == 1 {
+                b = theta[nFeatures]
+            }
+            // zero grad
+            for j := 0; j < len(grad); j++ {
+                grad[j] = 0
+            }
+            // accumulate
+            for i := 0; i < nSamples; i++ {
+                // z = w·x + b
+                z := b
+                for j := 0; j < nFeatures; j++ {
+                    z += w[j] * Xd.At(i, j)
+                }
+                // p - y
+                var diff float64
+                if z >= 0 {
+                    ez := math.Exp(-z)
+                    p := 1.0 / (1.0 + ez)
+                    diff = p - yBinary[i]
+                } else {
+                    ez := math.Exp(z)
+                    p := ez / (1.0 + ez)
+                    diff = p - yBinary[i]
+                }
+                for j := 0; j < nFeatures; j++ {
+                    grad[j] += diff * Xd.At(i, j)
+                }
+                if hasB == 1 {
+                    grad[nFeatures] += diff
+                }
+            }
+            // average
+            invN := 1.0 / float64(nSamples)
+            for j := 0; j < nFeatures; j++ {
+                grad[j] *= invN
+            }
+            if hasB == 1 {
+                grad[nFeatures] *= invN
+            }
+            // L2 grad on weights
+            if lambda > 0 {
+                for j := 0; j < nFeatures; j++ {
+                    grad[j] += lambda * w[j]
+                }
+            }
+            _ = b // quiet linters
+        },
+    }
+
+    settings := optimize.Settings{
+        GradientThreshold: lr.tol,
+        FuncEvaluations:   0,
+        MajorIterations:   lr.maxIter,
+        Converger:         nil,
+    }
+    method := &optimize.LBFGS{}
+    result, err := optimize.Minimize(prob, x0, &settings, method)
+    if err != nil {
+        return fmt.Errorf("lbfgs optimization failed: %v", err)
+    }
+    // Update parameters
+    theta := result.X
+    copy(lr.coef_[0], theta[:nFeatures])
+    if lr.fitIntercept {
+        lr.intercept_[0] = theta[nFeatures]
+    }
+    lr.nIter_[0] = result.Stats.MajorIterations
+    return nil
+}
+
 // fitOVR fits one-vs-rest multiclass classification
 func (lr *LogisticRegression) fitOVR(X, y mat.Matrix) error {
 	nSamples, _ := X.Dims()
@@ -344,6 +531,154 @@ func (lr *LogisticRegression) fitOVR(X, y mat.Matrix) error {
 	}
 
 	return nil
+}
+
+// fitOVRLBFGS fits one-vs-rest classifiers using L-BFGS for each class.
+func (lr *LogisticRegression) fitOVRLBFGS(X, y mat.Matrix) error {
+    nSamples, _ := X.Dims()
+    for classIdx, class := range lr.classes_ {
+        // Build binary labels for this class
+        yBinary := mat.NewDense(nSamples, 1, nil)
+        for i := 0; i < nSamples; i++ {
+            if int(y.At(i, 0)) == class {
+                yBinary.Set(i, 0, 1.0)
+            } else {
+                yBinary.Set(i, 0, 0.0)
+            }
+        }
+        if err := lr.fitBinaryForClassLBFGS(X, yBinary, classIdx); err != nil {
+            return fmt.Errorf("failed to fit class %d: %v", class, err)
+        }
+    }
+    return nil
+}
+
+// fitBinaryForClassLBFGS fits a binary classifier for a specific class using L-BFGS.
+func (lr *LogisticRegression) fitBinaryForClassLBFGS(X, yBinary mat.Matrix, classIdx int) error {
+    nSamples, nFeatures := X.Dims()
+
+    // Parameter vector
+    pDim := nFeatures
+    if lr.fitIntercept {
+        pDim++
+    }
+    x0 := make([]float64, pDim)
+    // warm start from existing weights for this class
+    copy(x0[:nFeatures], lr.coef_[classIdx])
+    if lr.fitIntercept {
+        x0[nFeatures] = lr.intercept_[classIdx]
+    }
+
+    Xd := mat.DenseCopyOf(X)
+    lambda := 0.0
+    if lr.penalty == "l2" {
+        if lr.C == 0 {
+            return fmt.Errorf("C must be > 0 for l2 penalty")
+        }
+        lambda = 1.0 / lr.C
+    }
+
+    prob := optimize.Problem{
+        Func: func(theta []float64) float64 {
+            w := theta[:nFeatures]
+            b := 0.0
+            if lr.fitIntercept {
+                b = theta[nFeatures]
+            }
+            loss := 0.0
+            for i := 0; i < nSamples; i++ {
+                z := b
+                for j := 0; j < nFeatures; j++ {
+                    z += w[j] * Xd.At(i, j)
+                }
+                // p in (0,1)
+                var p float64
+                if z >= 0 {
+                    ez := math.Exp(-z)
+                    p = 1.0 / (1.0 + ez)
+                } else {
+                    ez := math.Exp(z)
+                    p = ez / (1.0 + ez)
+                }
+                if p < 1e-15 {
+                    p = 1e-15
+                } else if p > 1-1e-15 {
+                    p = 1 - 1e-15
+                }
+                yv := yBinary.At(i, 0)
+                loss += -yv*math.Log(p) - (1.0-yv)*math.Log(1.0-p)
+            }
+            loss /= float64(nSamples)
+            if lambda > 0 {
+                reg := 0.0
+                for j := 0; j < nFeatures; j++ {
+                    reg += w[j] * w[j]
+                }
+                loss += 0.5 * lambda * reg
+            }
+            return loss
+        },
+        Grad: func(grad, theta []float64) {
+            w := theta[:nFeatures]
+            b := 0.0
+            if lr.fitIntercept {
+                b = theta[nFeatures]
+            }
+            for j := 0; j < len(grad); j++ {
+                grad[j] = 0
+            }
+            for i := 0; i < nSamples; i++ {
+                z := b
+                for j := 0; j < nFeatures; j++ {
+                    z += w[j] * Xd.At(i, j)
+                }
+                var diff float64
+                if z >= 0 {
+                    ez := math.Exp(-z)
+                    p := 1.0 / (1.0 + ez)
+                    diff = p - yBinary.At(i, 0)
+                } else {
+                    ez := math.Exp(z)
+                    p := ez / (1.0 + ez)
+                    diff = p - yBinary.At(i, 0)
+                }
+                for j := 0; j < nFeatures; j++ {
+                    grad[j] += diff * Xd.At(i, j)
+                }
+                if lr.fitIntercept {
+                    grad[nFeatures] += diff
+                }
+            }
+            invN := 1.0 / float64(nSamples)
+            for j := 0; j < nFeatures; j++ {
+                grad[j] *= invN
+            }
+            if lr.fitIntercept {
+                grad[nFeatures] *= invN
+            }
+            if lambda > 0 {
+                for j := 0; j < nFeatures; j++ {
+                    grad[j] += lambda * w[j]
+                }
+            }
+        },
+    }
+    settings := optimize.Settings{
+        GradientThreshold: lr.tol,
+        MajorIterations:   lr.maxIter,
+    }
+    method := &optimize.LBFGS{}
+    result, err := optimize.Minimize(prob, x0, &settings, method)
+    if err != nil {
+        return fmt.Errorf("lbfgs optimization failed: %v", err)
+    }
+    theta := result.X
+    copy(lr.coef_[classIdx], theta[:nFeatures])
+    if lr.fitIntercept {
+        lr.intercept_[classIdx] = theta[nFeatures]
+    }
+    lr.nIter_[classIdx] = result.Stats.MajorIterations
+    return nil
 }
 
 // fitBinaryForClass fits a binary classifier for a specific class in OVR
@@ -580,9 +915,7 @@ func (lr *LogisticRegression) SetParams(params map[string]interface{}) error {
 			lr.classWeight = value.(string)
 		case "random_state":
 			lr.randomState = value.(int64)
-			if lr.randomState >= 0 {
-				lr.rand = rand.New(rand.NewSource(lr.randomState))
-			}
+			lr.randomSeed = lr.randomState
 		case "solver":
 			lr.solver = value.(string)
 		case "max_iter":
@@ -602,6 +935,23 @@ func (lr *LogisticRegression) SetParams(params map[string]interface{}) error {
 		}
 	}
 	return nil
+}
+
+// cryptoNormalFloat64 generates a normal distributed float64 using crypto/rand
+func (lr *LogisticRegression) cryptoNormalFloat64() float64 {
+	// Box-Muller transform for normal distribution
+	u1Big, _ := rand.Int(rand.Reader, big.NewInt(1<<53))
+	u2Big, _ := rand.Int(rand.Reader, big.NewInt(1<<53))
+
+	u1 := float64(u1Big.Int64()) / float64(1<<53)
+	u2 := float64(u2Big.Int64()) / float64(1<<53)
+
+	// Avoid log(0)
+	if u1 == 0 {
+		u1 = 1e-10
+	}
+
+	return math.Sqrt(-2.0*math.Log(u1)) * math.Cos(2.0*math.Pi*u2)
 }
 
 // sigmoid computes the sigmoid function
