@@ -253,12 +253,12 @@ func TestCategoricalSplitConversion(t *testing.T) {
 		NumCat:    1,
 		Shrinkage: 1.0,
 		TreeStructure: JSONTreeNode{
-			SplitIndex:    0,
-			SplitFeature:  0,
-			DecisionType:  "==",
-			SplitIndices:  []int{1, 3, 5},
-			DefaultLeft:   true,
-			MissingType:   "None",
+			SplitIndex:   0,
+			SplitFeature: 0,
+			DecisionType: "==",
+			SplitIndices: []int{1, 3, 5},
+			DefaultLeft:  true,
+			MissingType:  "None",
 			LeftChild: &JSONTreeNode{
 				LeafIndex: 0,
 				LeafValue: -1.0,
@@ -324,7 +324,7 @@ func TestJSONModelEndToEnd(t *testing.T) {
 	// Make predictions for first few samples
 	for i := 0; i < len(expectations.XTest) && i < 3; i++ {
 		features := expectations.XTest[i]
-		
+
 		// Simple prediction logic (would need proper predictor)
 		// This is just to verify the model structure is correct
 		t.Logf("Sample %d features: %v", i, features)
@@ -337,7 +337,7 @@ func TestJSONModelEndToEnd(t *testing.T) {
 func TestJSONModelCompatibilityWithTextFormat(t *testing.T) {
 	// This test would compare models loaded from JSON and text formats
 	// to ensure they produce similar predictions
-	
+
 	testCases := []struct {
 		name     string
 		jsonFile string
@@ -385,7 +385,7 @@ func TestJSONModelCompatibilityWithTextFormat(t *testing.T) {
 // BenchmarkJSONModelLoading benchmarks JSON model loading performance
 func BenchmarkJSONModelLoading(b *testing.B) {
 	modelFile := "testdata/expectations/iris_model_dump.json"
-	
+
 	// Check if file exists
 	if _, err := os.Stat(modelFile); os.IsNotExist(err) {
 		b.Skipf("Model file not found: %s", modelFile)
@@ -403,12 +403,12 @@ func BenchmarkJSONModelLoading(b *testing.B) {
 // TestPathTraversalSecurity tests that path traversal attacks are prevented
 func TestPathTraversalSecurity(t *testing.T) {
 	maliciousPath := "../../../etc/passwd"
-	
+
 	_, err := LoadJSONModelFromFile(maliciousPath)
 	if err == nil {
 		t.Error("Expected error for path traversal, got none")
 	}
-	
+
 	if err != nil && !filepath.IsAbs(err.Error()) {
 		t.Logf("Successfully blocked path traversal: %v", err)
 	}

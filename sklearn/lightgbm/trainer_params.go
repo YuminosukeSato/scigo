@@ -21,7 +21,7 @@ func NewSamplingStrategy(params TrainingParams) *SamplingStrategy {
 	if seed == 0 && !params.Deterministic {
 		seed = int(rand.Int31())
 	}
-	
+
 	return &SamplingStrategy{
 		rng:             rand.New(rand.NewSource(int64(seed))),
 		featureFraction: params.FeatureFraction,
@@ -41,7 +41,7 @@ func (s *SamplingStrategy) SampleFeatures(numFeatures int, iteration int) []int 
 		}
 		return features
 	}
-	
+
 	// Calculate number of features to sample
 	numSample := int(float64(numFeatures) * s.featureFraction)
 	if numSample < 1 {
@@ -50,24 +50,24 @@ func (s *SamplingStrategy) SampleFeatures(numFeatures int, iteration int) []int 
 	if numSample > numFeatures {
 		numSample = numFeatures
 	}
-	
+
 	// Create permutation with deterministic seed if needed
 	if s.deterministic {
 		// Use iteration as additional seed component for deterministic behavior
 		s.rng.Seed(int64(s.rng.Int31() + int32(iteration)))
 	}
-	
+
 	// Fisher-Yates shuffle to sample features
 	perm := make([]int, numFeatures)
 	for i := 0; i < numFeatures; i++ {
 		perm[i] = i
 	}
-	
+
 	for i := 0; i < numSample; i++ {
 		j := i + s.rng.Intn(numFeatures-i)
 		perm[i], perm[j] = perm[j], perm[i]
 	}
-	
+
 	return perm[:numSample]
 }
 
@@ -82,7 +82,7 @@ func (s *SamplingStrategy) SampleInstances(numInstances int, iteration int) []in
 		}
 		return instances
 	}
-	
+
 	// If bagging fraction is 1.0, use all instances
 	if s.baggingFraction >= 1.0 || s.baggingFraction <= 0 {
 		instances := make([]int, numInstances)
@@ -91,7 +91,7 @@ func (s *SamplingStrategy) SampleInstances(numInstances int, iteration int) []in
 		}
 		return instances
 	}
-	
+
 	// Calculate number of instances to sample
 	numSample := int(float64(numInstances) * s.baggingFraction)
 	if numSample < 1 {
@@ -100,24 +100,24 @@ func (s *SamplingStrategy) SampleInstances(numInstances int, iteration int) []in
 	if numSample > numInstances {
 		numSample = numInstances
 	}
-	
+
 	// Create permutation with deterministic seed if needed
 	if s.deterministic {
 		// Use iteration as additional seed component for deterministic behavior
 		s.rng.Seed(int64(s.rng.Int31() + int32(iteration)))
 	}
-	
+
 	// Sample without replacement
 	perm := make([]int, numInstances)
 	for i := 0; i < numInstances; i++ {
 		perm[i] = i
 	}
-	
+
 	for i := 0; i < numSample; i++ {
 		j := i + s.rng.Intn(numInstances-i)
 		perm[i], perm[j] = perm[j], perm[i]
 	}
-	
+
 	return perm[:numSample]
 }
 
@@ -138,10 +138,10 @@ func NewRegularizationStrategy(params TrainingParams) *RegularizationStrategy {
 // ApplyLeafRegularization applies L1/L2 regularization to leaf value calculation
 func (r *RegularizationStrategy) ApplyLeafRegularization(sumGrad, sumHess float64) float64 {
 	const epsilon = 1e-10
-	
+
 	// Apply L2 regularization
 	denominator := sumHess + r.lambdaL2 + epsilon
-	
+
 	// Apply L1 regularization (soft thresholding)
 	if r.lambdaL1 > 0 {
 		if sumGrad > r.lambdaL1 {
@@ -152,21 +152,21 @@ func (r *RegularizationStrategy) ApplyLeafRegularization(sumGrad, sumHess float6
 			return 0.0
 		}
 	}
-	
+
 	return -sumGrad / denominator
 }
 
 // CalculateSplitGain calculates the gain for a split with regularization
 func (r *RegularizationStrategy) CalculateSplitGain(
 	leftGrad, leftHess, rightGrad, rightHess, parentGrad, parentHess float64) float64 {
-	
+
 	const epsilon = 1e-10
-	
+
 	// Calculate scores with L2 regularization
 	leftScore := r.calculateScore(leftGrad, leftHess)
 	rightScore := r.calculateScore(rightGrad, rightHess)
 	parentScore := r.calculateScore(parentGrad, parentHess)
-	
+
 	// Gain = left_score + right_score - parent_score
 	return leftScore + rightScore - parentScore
 }
@@ -174,10 +174,10 @@ func (r *RegularizationStrategy) CalculateSplitGain(
 // calculateScore calculates the score for a node with regularization
 func (r *RegularizationStrategy) calculateScore(sumGrad, sumHess float64) float64 {
 	const epsilon = 1e-10
-	
+
 	// Apply L2 regularization
 	denominator := sumHess + r.lambdaL2 + epsilon
-	
+
 	// Apply L1 regularization
 	var numerator float64
 	if r.lambdaL1 > 0 {
@@ -191,7 +191,7 @@ func (r *RegularizationStrategy) calculateScore(sumGrad, sumHess float64) float6
 	} else {
 		numerator = sumGrad
 	}
-	
+
 	// Score = -0.5 * G^2 / (H + lambda)
 	return 0.5 * numerator * numerator / denominator
 }

@@ -84,7 +84,7 @@ func (p *Predictor) PredictLeaf(X mat.Matrix) (mat.Matrix, error) {
 	for i := 0; i < rows; i++ {
 		features := mat.Row(nil, i, xDense)
 		leaves := p.predictSingleSampleLeaves(features)
-		
+
 		for j, leafIdx := range leaves {
 			leafIndices.Set(i, j, float64(leafIdx))
 		}
@@ -127,12 +127,12 @@ func (p *Predictor) predictSingleSampleRaw(features []float64) []float64 {
 // predictSingleSampleLeaves returns the leaf index for each tree for a single sample
 func (p *Predictor) predictSingleSampleLeaves(features []float64) []int {
 	leafIndices := make([]int, len(p.model.Trees))
-	
+
 	for i, tree := range p.model.Trees {
 		leafIdx := predictTreeLeaf(&tree, features)
 		leafIndices[i] = leafIdx
 	}
-	
+
 	return leafIndices
 }
 
@@ -148,14 +148,14 @@ func predictTreeLeaf(tree *Tree, features []float64) int {
 		if nodeID < 0 || nodeID >= len(tree.Nodes) {
 			return leafCounter
 		}
-		
+
 		node := &tree.Nodes[nodeID]
 		if node.IsLeaf() {
 			leafMap[nodeID] = leafCounter
 			leafCounter++
 			return leafCounter
 		}
-		
+
 		// Traverse left subtree
 		if node.LeftChild >= 0 {
 			buildLeafMap(node.LeftChild)
@@ -164,7 +164,7 @@ func predictTreeLeaf(tree *Tree, features []float64) int {
 			leafMap[node.LeftChild] = leafCounter
 			leafCounter++
 		}
-		
+
 		// Traverse right subtree
 		if node.RightChild >= 0 {
 			buildLeafMap(node.RightChild)
@@ -173,12 +173,12 @@ func predictTreeLeaf(tree *Tree, features []float64) int {
 			leafMap[node.RightChild] = leafCounter
 			leafCounter++
 		}
-		
+
 		return leafCounter
 	}
-	
+
 	buildLeafMap(0)
-	
+
 	// Now traverse to find which leaf this sample lands in
 	nodeID = 0
 	for nodeID >= 0 && nodeID < len(tree.Nodes) {
@@ -190,7 +190,7 @@ func predictTreeLeaf(tree *Tree, features []float64) int {
 
 		// Get feature value
 		featureValue := features[node.SplitFeature]
-		
+
 		// Handle missing values
 		if isNaN(featureValue) {
 			if node.DefaultLeft {
@@ -233,7 +233,7 @@ func predictTreeLeaf(tree *Tree, features []float64) int {
 	if nodeID < 0 {
 		return leafMap[nodeID]
 	}
-	
+
 	return 0
 }
 
@@ -260,12 +260,12 @@ func (m *LeavesModel) PredictRawScore(features []float64) []float64 {
 // PredictLeafForLeavesModel returns leaf indices for LeavesModel
 func (m *LeavesModel) PredictLeaf(features []float64) []int {
 	leafIndices := make([]int, len(m.Trees))
-	
+
 	for i, tree := range m.Trees {
 		leafIdx := predictLeavesTreeLeaf(&tree, features)
 		leafIndices[i] = leafIdx
 	}
-	
+
 	return leafIndices
 }
 
@@ -279,11 +279,11 @@ func predictLeavesTreeLeaf(tree *LeavesTree, features []float64) int {
 	idx := uint32(0)
 	leafCounter := 0
 	visitedLeaves := make(map[uint32]int)
-	
+
 	// Traverse the tree
 	for {
 		node := &tree.Nodes[idx]
-		
+
 		// Check if this is a leaf
 		if node.Flags&leftLeaf != 0 {
 			// Left child is a leaf
@@ -299,10 +299,10 @@ func predictLeavesTreeLeaf(tree *LeavesTree, features []float64) int {
 				leafCounter++
 			}
 		}
-		
+
 		// Make decision
 		featureVal := features[node.Feature]
-		
+
 		// Handle missing values
 		missingType := node.Flags & (missingZero | missingNan)
 		if (missingType == missingNan && isNaN(featureVal)) ||
@@ -321,7 +321,7 @@ func predictLeavesTreeLeaf(tree *LeavesTree, features []float64) int {
 			}
 			continue
 		}
-		
+
 		// Check for categorical split
 		if node.Flags&categorical != 0 {
 			// For categorical, check if value matches

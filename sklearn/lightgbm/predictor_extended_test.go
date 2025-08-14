@@ -77,12 +77,12 @@ func TestPredictRawScore(t *testing.T) {
 	}
 
 	predictor := NewPredictor(model)
-	
+
 	// Test data
 	X := mat.NewDense(3, 2, []float64{
-		0.3, 0.3,  // Both features < 0.5
-		0.7, 0.3,  // First > 0.5, second < 0.5
-		0.7, 0.7,  // Both features > 0.5
+		0.3, 0.3, // Both features < 0.5
+		0.7, 0.3, // First > 0.5, second < 0.5
+		0.7, 0.7, // Both features > 0.5
 	})
 
 	// Get raw scores
@@ -101,7 +101,7 @@ func TestPredictRawScore(t *testing.T) {
 	// Sample 1: Tree1(1.0*0.1) + Tree2(-0.5*0.1) = 0.1 - 0.05 = 0.05
 	// Sample 2: Tree1(1.0*0.1) + Tree2(0.5*0.1) = 0.1 + 0.05 = 0.15
 	expectedRaw := []float64{-0.15, 0.05, 0.15}
-	
+
 	for i := 0; i < rows; i++ {
 		raw := rawScores.At(i, 0)
 		if math.Abs(raw-expectedRaw[i]) > 1e-10 {
@@ -119,9 +119,9 @@ func TestPredictRawScore(t *testing.T) {
 		raw := rawScores.At(i, 0)
 		pred := predictions.At(i, 0)
 		expectedPred := 1.0 / (1.0 + math.Exp(-raw))
-		
+
 		t.Logf("Sample %d: raw=%f, pred=%f, expected=%f", i, raw, pred, expectedPred)
-		
+
 		if math.Abs(pred-expectedPred) > 1e-10 {
 			t.Errorf("Sample %d: prediction %f doesn't match sigmoid of raw %f (expected %f)",
 				i, pred, raw, expectedPred)
@@ -196,13 +196,13 @@ func TestPredictLeaf(t *testing.T) {
 	}
 
 	predictor := NewPredictor(model)
-	
+
 	// Test data
 	X := mat.NewDense(4, 2, []float64{
-		0.3, 0.3,  // Tree1: left (0), Tree2: left (0)
-		0.3, 0.7,  // Tree1: left (0), Tree2: right (1)
-		0.7, 0.3,  // Tree1: right (1), Tree2: left (0)
-		0.7, 0.7,  // Tree1: right (1), Tree2: right (1)
+		0.3, 0.3, // Tree1: left (0), Tree2: left (0)
+		0.3, 0.7, // Tree1: left (0), Tree2: right (1)
+		0.7, 0.3, // Tree1: right (1), Tree2: left (0)
+		0.7, 0.7, // Tree1: right (1), Tree2: right (1)
 	})
 
 	// Get leaf indices
@@ -218,10 +218,10 @@ func TestPredictLeaf(t *testing.T) {
 
 	// Expected leaf indices
 	expectedLeaves := [][]float64{
-		{0, 0},  // Sample 0
-		{0, 1},  // Sample 1
-		{1, 0},  // Sample 2
-		{1, 1},  // Sample 3
+		{0, 0}, // Sample 0
+		{0, 1}, // Sample 1
+		{1, 0}, // Sample 2
+		{1, 1}, // Sample 3
 	}
 
 	for i := 0; i < rows; i++ {
@@ -274,7 +274,7 @@ func TestMulticlassRawScore(t *testing.T) {
 	}
 
 	predictor := NewPredictor(model)
-	
+
 	// Test data
 	X := mat.NewDense(2, 2, []float64{
 		0.5, 0.5,
@@ -294,7 +294,7 @@ func TestMulticlassRawScore(t *testing.T) {
 
 	// Raw scores should be: [0.1, 0.2, 0.3] for each sample
 	expectedRaw := []float64{0.1, 0.2, 0.3}
-	
+
 	for i := 0; i < rows; i++ {
 		for j := 0; j < cols; j++ {
 			raw := rawScores.At(i, j)
@@ -345,8 +345,8 @@ func TestLeavesModelRawScore(t *testing.T) {
 					{
 						Feature:   0,
 						Threshold: 0.5,
-						Left:      0,     // Leaf index 0
-						Right:     1,     // Will use implicit right child
+						Left:      0, // Leaf index 0
+						Right:     1, // Will use implicit right child
 						Flags:     leftLeaf,
 					},
 				},
@@ -355,13 +355,13 @@ func TestLeavesModelRawScore(t *testing.T) {
 	}
 
 	// Test single sample
-	features := []float64{0.3, 0.7}  // First feature < 0.5
+	features := []float64{0.3, 0.7} // First feature < 0.5
 	rawScore := model.PredictRawScore(features)
-	
+
 	if len(rawScore) != 1 {
 		t.Errorf("Expected 1 raw score, got %d", len(rawScore))
 	}
-	
+
 	// Should predict left leaf value
 	expected := -1.0
 	if math.Abs(rawScore[0]-expected) > 1e-10 {
@@ -419,13 +419,13 @@ func TestLeavesModelPredictLeaf(t *testing.T) {
 
 	for _, tc := range testCases {
 		leafIndices := model.PredictLeaf(tc.features)
-		
+
 		if len(leafIndices) != len(tc.expected) {
 			t.Errorf("%s: Expected %d leaf indices, got %d",
 				tc.desc, len(tc.expected), len(leafIndices))
 			continue
 		}
-		
+
 		for i, idx := range leafIndices {
 			if idx != tc.expected[i] {
 				t.Errorf("%s: Tree %d expected leaf %d, got %d",

@@ -24,15 +24,15 @@ type PrecisionTestCase struct {
 
 // PredictionTrace represents the detailed trace of prediction process
 type PredictionTrace struct {
-	Input            []float64         `json:"input"`
-	NumTrees         int               `json:"num_trees"`
-	NumClasses       int               `json:"num_classes"`
-	Objective        string            `json:"objective"`
-	Trees            []TreeTrace       `json:"trees"`
-	CumulativeScores []interface{}     `json:"cumulative_scores"`
-	FinalRawScore    interface{}       `json:"final_raw_score"`
-	FinalPrediction  interface{}       `json:"final_prediction"`
-	ExpectedPred     interface{}       `json:"expected_prediction"`
+	Input            []float64     `json:"input"`
+	NumTrees         int           `json:"num_trees"`
+	NumClasses       int           `json:"num_classes"`
+	Objective        string        `json:"objective"`
+	Trees            []TreeTrace   `json:"trees"`
+	CumulativeScores []interface{} `json:"cumulative_scores"`
+	FinalRawScore    interface{}   `json:"final_raw_score"`
+	FinalPrediction  interface{}   `json:"final_prediction"`
+	ExpectedPred     interface{}   `json:"expected_prediction"`
 }
 
 // TreeTrace represents the trace of a single tree
@@ -110,7 +110,7 @@ func testPrecisionCase(t *testing.T, tc *PrecisionTestCase) {
 		// Compare leaf values with tolerance
 		if !almostEqual(treeTrace.LeafValue, expected.LeafValue, 1e-10) {
 			t.Errorf("Tree %d: Leaf value mismatch: got %.15f, expected %.15f (diff: %.15e)",
-				i, treeTrace.LeafValue, expected.LeafValue, 
+				i, treeTrace.LeafValue, expected.LeafValue,
 				math.Abs(treeTrace.LeafValue-expected.LeafValue))
 		}
 
@@ -126,7 +126,7 @@ func testPrecisionCase(t *testing.T, tc *PrecisionTestCase) {
 			// For multiclass, compare array of scores
 			gotScores, ok1 := treeTrace.CumulativeScore.([]float64)
 			expectedScores, ok2 := expected.CumulativeScore.([]interface{})
-			
+
 			if ok1 && ok2 {
 				for classIdx := 0; classIdx < tc.Trace.NumClasses && classIdx < len(gotScores) && classIdx < len(expectedScores); classIdx++ {
 					gotVal := gotScores[classIdx]
@@ -152,7 +152,7 @@ func testPrecisionCase(t *testing.T, tc *PrecisionTestCase) {
 	// Compare final predictions
 	var finalGot float64
 	var finalExpected float64
-	
+
 	if tc.Trace.NumClasses > 2 {
 		// For multiclass, compare first class probability
 		finalGot = predictions.At(0, 0)
@@ -166,7 +166,7 @@ func testPrecisionCase(t *testing.T, tc *PrecisionTestCase) {
 		finalGot = predictions.At(0, 0)
 		finalExpected = extractFloat(tc.Trace.FinalPrediction)
 	}
-	
+
 	if !almostEqual(finalGot, finalExpected, 1e-9) {
 		t.Errorf("Final prediction mismatch: got %.15f, expected %.15f (diff: %.15e)",
 			finalGot, finalExpected, math.Abs(finalGot-finalExpected))
@@ -189,19 +189,19 @@ type PrecisionTracker struct {
 // PredictWithTrace performs prediction while recording intermediate values
 func (pt *PrecisionTracker) PredictWithTrace(X mat.Matrix) mat.Matrix {
 	rows, _ := X.Dims()
-	
+
 	// Determine output dimensions
 	outputCols := 1
 	if pt.Model.NumClass > 2 {
 		outputCols = pt.Model.NumClass
 	}
-	
+
 	predictions := mat.NewDense(rows, outputCols, nil)
 
 	for i := 0; i < rows; i++ {
 		features := mat.Row(nil, i, X)
 		preds := pt.predictSingleWithTrace(features)
-		
+
 		if pt.Model.NumClass > 2 {
 			for j := 0; j < outputCols; j++ {
 				predictions.Set(i, j, preds[j])
@@ -216,7 +216,7 @@ func (pt *PrecisionTracker) PredictWithTrace(X mat.Matrix) mat.Matrix {
 
 func (pt *PrecisionTracker) predictSingleWithTrace(features []float64) []float64 {
 	pt.TreeTrace = make([]TreeTrace, 0)
-	
+
 	// Initialize cumulative scores
 	var cumulativeScores []float64
 	if pt.Model.NumClass > 2 {
@@ -227,15 +227,15 @@ func (pt *PrecisionTracker) predictSingleWithTrace(features []float64) []float64
 	} else {
 		cumulativeScores = []float64{pt.Model.InitScore}
 	}
-	
+
 	// Process each tree
 	for treeIdx, tree := range pt.Model.Trees {
 		// Get leaf index and value
 		leafIdx, leafValue := pt.getLeafDetails(&tree, features)
-		
+
 		// Apply shrinkage
 		treeOutput := leafValue * tree.ShrinkageRate
-		
+
 		// Update cumulative score for appropriate class
 		var currentCumulative interface{}
 		if pt.Model.NumClass > 2 {
@@ -249,7 +249,7 @@ func (pt *PrecisionTracker) predictSingleWithTrace(features []float64) []float64
 			cumulativeScores[0] += treeOutput
 			currentCumulative = cumulativeScores[0]
 		}
-		
+
 		// Record trace
 		trace := TreeTrace{
 			TreeIndex:       treeIdx,
@@ -261,7 +261,7 @@ func (pt *PrecisionTracker) predictSingleWithTrace(features []float64) []float64
 		}
 		pt.TreeTrace = append(pt.TreeTrace, trace)
 	}
-	
+
 	// Apply objective transformation
 	switch pt.Model.Objective {
 	case BinaryLogistic:
@@ -281,30 +281,30 @@ func (pt *PrecisionTracker) getLeafDetails(tree *LeavesTree, features []float64)
 		}
 		return 0, 0.0
 	}
-	
+
 	// Traverse tree to find leaf
 	nodeIdx := uint32(0)
-	
+
 	for nodeIdx < uint32(len(tree.Nodes)) {
 		node := &tree.Nodes[nodeIdx]
-		
+
 		// Check if we've reached a leaf
 		if node.Flags&leftLeaf != 0 || node.Flags&rightLeaf != 0 {
 			// Determine which way to go
 			featureVal := features[node.Feature]
 			goLeft := featureVal <= node.Threshold
-			
+
 			// Handle categorical
 			if node.Flags&categorical != 0 {
 				goLeft = uint32(featureVal) == uint32(node.Threshold)
 			}
-			
+
 			// Handle missing values
 			if (node.Flags&missingNan != 0 && isNaN(featureVal)) ||
 				(node.Flags&missingZero != 0 && featureVal == 0.0) {
 				goLeft = node.Flags&defaultLeft != 0
 			}
-			
+
 			if goLeft {
 				if node.Flags&leftLeaf != 0 {
 					// Left is a leaf
@@ -328,7 +328,7 @@ func (pt *PrecisionTracker) getLeafDetails(tree *LeavesTree, features []float64)
 			break
 		}
 	}
-	
+
 	// Default to first leaf if something went wrong
 	if len(tree.LeafValues) > 0 {
 		return 0, tree.LeafValues[0]
@@ -344,7 +344,7 @@ func stableSigmoid(x float64) float64 {
 	if x < -500 {
 		return 0.0
 	}
-	
+
 	if x >= 0 {
 		expNegX := math.Exp(-x)
 		return 1.0 / (1.0 + expNegX)
@@ -363,7 +363,7 @@ func stableSoftmaxArray(x []float64) []float64 {
 			maxVal = v
 		}
 	}
-	
+
 	// Compute exp(x - max) and sum
 	expSum := 0.0
 	result := make([]float64, len(x))
@@ -371,12 +371,12 @@ func stableSoftmaxArray(x []float64) []float64 {
 		result[i] = math.Exp(v - maxVal)
 		expSum += result[i]
 	}
-	
+
 	// Normalize
 	for i := range result {
 		result[i] = result[i] / expSum
 	}
-	
+
 	return result
 }
 
@@ -393,20 +393,20 @@ func almostEqual(a, b, tolerance float64) bool {
 	if math.IsInf(a, -1) && math.IsInf(b, -1) {
 		return true
 	}
-	
+
 	// Check absolute difference
 	diff := math.Abs(a - b)
 	if diff < tolerance {
 		return true
 	}
-	
+
 	// Check relative difference for large numbers
 	maxAbs := math.Max(math.Abs(a), math.Abs(b))
 	if maxAbs > 1.0 {
 		relDiff := diff / maxAbs
 		return relDiff < tolerance
 	}
-	
+
 	return false
 }
 
@@ -436,7 +436,7 @@ func BenchmarkPrecisionTracking(b *testing.B) {
 		Objective:   RegressionL2,
 		Trees:       make([]LeavesTree, 100),
 	}
-	
+
 	// Initialize trees
 	for i := range model.Trees {
 		model.Trees[i] = LeavesTree{
@@ -454,10 +454,10 @@ func BenchmarkPrecisionTracking(b *testing.B) {
 			},
 		}
 	}
-	
+
 	tracker := &PrecisionTracker{Model: model}
 	X := mat.NewDense(10, 5, nil)
-	
+
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		_ = tracker.PredictWithTrace(X)

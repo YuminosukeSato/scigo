@@ -1,3 +1,4 @@
+//go:build compat
 // +build compat
 
 package lightgbm
@@ -23,10 +24,10 @@ type TestExpectation struct {
 		LeafIndex [][]int     `json:"leaf_index"`
 	} `json:"predictions"`
 	ModelInfo struct {
-		NumTrees      int      `json:"num_trees"`
-		NumFeatures   int      `json:"num_features"`
-		FeatureNames  []string `json:"feature_names"`
-		CategoricalFeatures []int `json:"categorical_features,omitempty"`
+		NumTrees            int      `json:"num_trees"`
+		NumFeatures         int      `json:"num_features"`
+		FeatureNames        []string `json:"feature_names"`
+		CategoricalFeatures []int    `json:"categorical_features,omitempty"`
 	} `json:"model_info"`
 }
 
@@ -192,7 +193,7 @@ func TestNumericalPrecision(t *testing.T) {
 // TestCompatibilityWithExistingModels tests with models in testdata/compatibility
 func TestCompatibilityWithExistingModels(t *testing.T) {
 	compatDir := "testdata/compatibility"
-	
+
 	testCases := []struct {
 		name      string
 		modelFile string

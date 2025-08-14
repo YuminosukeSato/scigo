@@ -1,16 +1,16 @@
 package lightgbm
 
 import (
-    "fmt"
-    "math"
-    "math/rand"
-    "sort"
-    "sync"
-    "time"
+	"fmt"
+	"math"
+	"math/rand"
+	"sort"
+	"sync"
+	"time"
 
-    "github.com/YuminosukeSato/scigo/pkg/log"
-    "gonum.org/v1/gonum/mat"
-    "strings"
+	"github.com/YuminosukeSato/scigo/pkg/log"
+	"gonum.org/v1/gonum/mat"
+	"strings"
 )
 
 // Trainer implements the LightGBM training algorithm
@@ -59,10 +59,10 @@ type Trainer struct {
 
 	// Callbacks
 	callbacks *CallbackList
-	
+
 	// Sampling and regularization strategies
-	sampler       *SamplingStrategy
-	regularizer   *RegularizationStrategy
+	sampler        *SamplingStrategy
+	regularizer    *RegularizationStrategy
 	activeFeatures []int // Features selected for current iteration
 }
 
@@ -89,10 +89,10 @@ type TrainingParams struct {
 	MaxBin       int `json:"max_bin"`
 	MinDataInBin int `json:"min_data_in_bin"`
 
-    // Objective
-    Objective    string `json:"objective"`
-    NumClass     int    `json:"num_class"`
-    BoostingType string `json:"boosting_type"` // "gbdt", "goss", etc.
+	// Objective
+	Objective    string `json:"objective"`
+	NumClass     int    `json:"num_class"`
+	BoostingType string `json:"boosting_type"` // "gbdt", "goss", etc.
 
 	// Objective-specific parameters
 	HuberDelta    float64 `json:"huber_delta"`    // Delta for Huber loss
@@ -104,26 +104,26 @@ type TrainingParams struct {
 	MaxCatToOnehot      int     `json:"max_cat_to_onehot"`    // Max categories to use one-hot encoding
 	CatSmooth           float64 `json:"cat_smooth"`           // Smoothing for categorical splits
 
-    // Other
-    Seed          int    `json:"seed"`
-    Deterministic bool   `json:"deterministic"`
-    Verbosity     int    `json:"verbosity"`
-    EarlyStopping int    `json:"early_stopping_rounds"`
-    Metric        string `json:"metric"` // Metric for evaluation
+	// Other
+	Seed          int    `json:"seed"`
+	Deterministic bool   `json:"deterministic"`
+	Verbosity     int    `json:"verbosity"`
+	EarlyStopping int    `json:"early_stopping_rounds"`
+	Metric        string `json:"metric"` // Metric for evaluation
 
-    // DART parameters (placeholders; training logic TBD)
-    DropRate        float64 `json:"drop_rate"`
-    MaxDrop         int     `json:"max_drop"`
-    SkipDrop        float64 `json:"skip_drop"`
-    UniformDrop     bool    `json:"uniform_drop"`
-    XGBoostDartMode bool    `json:"xgboost_dart_mode"`
-    DropSeed        int     `json:"drop_seed"`
+	// DART parameters (placeholders; training logic TBD)
+	DropRate        float64 `json:"drop_rate"`
+	MaxDrop         int     `json:"max_drop"`
+	SkipDrop        float64 `json:"skip_drop"`
+	UniformDrop     bool    `json:"uniform_drop"`
+	XGBoostDartMode bool    `json:"xgboost_dart_mode"`
+	DropSeed        int     `json:"drop_seed"`
 
-    // GOSS (Gradient-based One-Side Sampling) parameters
-    // Reduces training data by intelligently sampling based on gradient magnitudes
-    TopRate   float64 `json:"top_rate"`   // Fraction of samples with largest gradients to always keep (default 0.2)
-    OtherRate float64 `json:"other_rate"` // Fraction of remaining samples to randomly select (default 0.1)
-                                            // Selected other samples get amplified by factor (1-TopRate)/OtherRate
+	// GOSS (Gradient-based One-Side Sampling) parameters
+	// Reduces training data by intelligently sampling based on gradient magnitudes
+	TopRate   float64 `json:"top_rate"`   // Fraction of samples with largest gradients to always keep (default 0.2)
+	OtherRate float64 `json:"other_rate"` // Fraction of remaining samples to randomly select (default 0.1)
+	// Selected other samples get amplified by factor (1-TopRate)/OtherRate
 }
 
 // Histogram represents a histogram bin
@@ -191,83 +191,88 @@ func NewTrainer(params TrainingParams) *Trainer {
 		params.FeatureFraction = 1.0
 	}
 
-    t := &Trainer{
-        params:     params,
-        numThreads: 4, // Default to 4 threads
-        pool: &sync.Pool{
-            New: func() interface{} {
-                return &Histogram{}
-            },
-        },
-        callbacks: nil, // Initialize callbacks as nil
-        sampler: NewSamplingStrategy(params),
-        regularizer: NewRegularizationStrategy(params),
+	t := &Trainer{
+		params:     params,
+		numThreads: 4, // Default to 4 threads
+		pool: &sync.Pool{
+			New: func() interface{} {
+				return &Histogram{}
+			},
+		},
+		callbacks:   nil, // Initialize callbacks as nil
+		sampler:     NewSamplingStrategy(params),
+		regularizer: NewRegularizationStrategy(params),
+	}
 
-    }
+	// Initialize GOSS rates from params/defaults if GOSS is enabled
+	if strings.ToLower(params.BoostingType) == "goss" {
+		t.gossTopRate = params.TopRate
+		if t.gossTopRate <= 0 {
+			t.gossTopRate = 0.2
+		}
+		t.gossOtherRate = params.OtherRate
+		if t.gossOtherRate <= 0 {
+			t.gossOtherRate = 0.1
+		}
+	}
 
-    // Initialize GOSS rates from params/defaults if GOSS is enabled
-    if strings.ToLower(params.BoostingType) == "goss" {
-        t.gossTopRate = params.TopRate
-        if t.gossTopRate <= 0 {
-            t.gossTopRate = 0.2
-        }
-        t.gossOtherRate = params.OtherRate
-        if t.gossOtherRate <= 0 {
-            t.gossOtherRate = 0.1
-        }
-    }
-
-    return t
+	return t
 }
 
 // selectDARTDropIndices chooses a subset of previous trees to drop
 // Deterministic based on DropSeed and iteration index
 func (t *Trainer) selectDARTDropIndices(numTrees int, iteration int) []int {
-    if strings.ToLower(t.params.BoostingType) != "dart" || numTrees <= 0 {
-        return nil
-    }
-    // Skip with probability SkipDrop
-    if t.params.SkipDrop > 0 {
-        r := rand.New(rand.NewSource(int64(t.params.DropSeed) + int64(iteration)))
-        if r.Float64() < t.params.SkipDrop {
-            return nil
-        }
-    }
-    // Desired count
-    k := int(math.Ceil(t.params.DropRate * float64(numTrees)))
-    if t.params.MaxDrop > 0 && k > t.params.MaxDrop {
-        k = t.params.MaxDrop
-    }
-    if k < 1 {
-        k = 1
-    }
-    // Select k distinct indices from [0, numTrees)
-    idxs := make([]int, numTrees)
-    for i := 0; i < numTrees; i++ { idxs[i] = i }
-    r := rand.New(rand.NewSource(int64(t.params.DropSeed) + int64(iteration)))
-    for i := 0; i < k && i < numTrees; i++ {
-        j := i + r.Intn(numTrees-i)
-        idxs[i], idxs[j] = idxs[j], idxs[i]
-    }
-    return idxs[:k]
+	if strings.ToLower(t.params.BoostingType) != "dart" || numTrees <= 0 {
+		return nil
+	}
+	// Skip with probability SkipDrop
+	if t.params.SkipDrop > 0 {
+		r := rand.New(rand.NewSource(int64(t.params.DropSeed) + int64(iteration)))
+		if r.Float64() < t.params.SkipDrop {
+			return nil
+		}
+	}
+	// Desired count
+	k := int(math.Ceil(t.params.DropRate * float64(numTrees)))
+	if t.params.MaxDrop > 0 && k > t.params.MaxDrop {
+		k = t.params.MaxDrop
+	}
+	if k < 1 {
+		k = 1
+	}
+	// Select k distinct indices from [0, numTrees)
+	idxs := make([]int, numTrees)
+	for i := 0; i < numTrees; i++ {
+		idxs[i] = i
+	}
+	r := rand.New(rand.NewSource(int64(t.params.DropSeed) + int64(iteration)))
+	for i := 0; i < k && i < numTrees; i++ {
+		j := i + r.Intn(numTrees-i)
+		idxs[i], idxs[j] = idxs[j], idxs[i]
+	}
+	return idxs[:k]
 }
 
 // normalizeDARTWeights scales the weights of kept trees to compensate dropped set
 func (t *Trainer) normalizeDARTWeights(dropped []int) {
-    if strings.ToLower(t.params.BoostingType) != "dart" || len(dropped) == 0 {
-        return
-    }
-    n := len(t.trees)
-    if n == 0 || len(dropped) >= n {
-        return
-    }
-    factor := float64(n) / float64(n-len(dropped))
-    droppedSet := make(map[int]bool, len(dropped))
-    for _, di := range dropped { droppedSet[di] = true }
-    for i := range t.trees {
-        if droppedSet[i] { continue }
-        t.trees[i].ShrinkageRate *= factor
-    }
+	if strings.ToLower(t.params.BoostingType) != "dart" || len(dropped) == 0 {
+		return
+	}
+	n := len(t.trees)
+	if n == 0 || len(dropped) >= n {
+		return
+	}
+	factor := float64(n) / float64(n-len(dropped))
+	droppedSet := make(map[int]bool, len(dropped))
+	for _, di := range dropped {
+		droppedSet[di] = true
+	}
+	for i := range t.trees {
+		if droppedSet[i] {
+			continue
+		}
+		t.trees[i].ShrinkageRate *= factor
+	}
 }
 
 // WithCallbacks sets the callbacks for training
@@ -356,7 +361,7 @@ func (t *Trainer) Fit(X, y mat.Matrix) error {
 
 		// Calculate gradients and hessians
 		t.calculateGradients()
-		
+
 		// Sample features for this iteration
 		_, numFeatures := t.X.Dims()
 		t.activeFeatures = t.sampler.SampleFeatures(numFeatures, iter)
@@ -736,14 +741,15 @@ func (t *Trainer) predictSingleTree(tree Tree, sampleIdx int) float64 {
 // gosssampling performs Gradient-based One-Side Sampling (GOSS)
 // GOSS reduces training data size while preserving information-rich samples
 // Algorithm:
-//   1. Sort all samples by absolute gradient magnitude (descending)
-//   2. Keep top TopRate fraction of samples (highest gradients)
-//   3. Randomly sample OtherRate fraction from remaining samples
-//   4. Amplify selected "other" samples by factor (1-TopRate)/OtherRate
-//      to compensate for information loss from undersampling
+//  1. Sort all samples by absolute gradient magnitude (descending)
+//  2. Keep top TopRate fraction of samples (highest gradients)
+//  3. Randomly sample OtherRate fraction from remaining samples
+//  4. Amplify selected "other" samples by factor (1-TopRate)/OtherRate
+//     to compensate for information loss from undersampling
+//
 // Reference: LightGBM paper section 3.2
 func (t *Trainer) gosssampling() []int {
-    rows, _ := t.X.Dims()
+	rows, _ := t.X.Dims()
 
 	// Calculate absolute gradients
 	absGrads := make([]struct {
@@ -761,18 +767,18 @@ func (t *Trainer) gosssampling() []int {
 		return absGrads[i].value > absGrads[j].value
 	})
 
-    // Select top samples (by absolute gradient)
-    topCount := int(float64(rows) * t.gossTopRate)
-    if topCount < 1 {
-        topCount = 1
-    }
+	// Select top samples (by absolute gradient)
+	topCount := int(float64(rows) * t.gossTopRate)
+	if topCount < 1 {
+		topCount = 1
+	}
 
-    // Sample from remaining
-    remainingCount := rows - topCount
-    if remainingCount < 0 {
-        remainingCount = 0
-    }
-    otherCount := int(float64(remainingCount) * t.gossOtherRate)
+	// Sample from remaining
+	remainingCount := rows - topCount
+	if remainingCount < 0 {
+		remainingCount = 0
+	}
+	otherCount := int(float64(remainingCount) * t.gossOtherRate)
 
 	selectedIndices := make([]int, 0, topCount+otherCount)
 
@@ -781,36 +787,36 @@ func (t *Trainer) gosssampling() []int {
 		selectedIndices = append(selectedIndices, absGrads[i].index)
 	}
 
-    // Randomly sample from remaining samples (without replacement)
-    if otherCount > 0 && topCount < len(absGrads) {
-        remaining := absGrads[topCount:]
-        otherSelected := make([]int, 0, otherCount)
-        // Deterministic RNG if seed provided; fallback to time-based
-        seed := int64(t.params.Seed)
-        if seed == 0 {
-            seed = time.Now().UnixNano()
-        }
-        r := rand.New(rand.NewSource(seed))
-        // Fisher–Yates shuffle partially (only need first otherCount)
-        n := len(remaining)
-        for i := 0; i < otherCount && i < n; i++ {
-            j := i + r.Intn(n-i)
-            remaining[i], remaining[j] = remaining[j], remaining[i]
-            idx := remaining[i].index
-            selectedIndices = append(selectedIndices, idx)
-            otherSelected = append(otherSelected, idx)
-        }
+	// Randomly sample from remaining samples (without replacement)
+	if otherCount > 0 && topCount < len(absGrads) {
+		remaining := absGrads[topCount:]
+		otherSelected := make([]int, 0, otherCount)
+		// Deterministic RNG if seed provided; fallback to time-based
+		seed := int64(t.params.Seed)
+		if seed == 0 {
+			seed = time.Now().UnixNano()
+		}
+		r := rand.New(rand.NewSource(seed))
+		// Fisher–Yates shuffle partially (only need first otherCount)
+		n := len(remaining)
+		for i := 0; i < otherCount && i < n; i++ {
+			j := i + r.Intn(n-i)
+			remaining[i], remaining[j] = remaining[j], remaining[i]
+			idx := remaining[i].index
+			selectedIndices = append(selectedIndices, idx)
+			otherSelected = append(otherSelected, idx)
+		}
 
-        // Amplify gradients/hessians for sampled small-gradient set
-        // LightGBM GOSS uses factor: (1 - top_rate) / other_rate
-        if t.gossOtherRate > 0 {
-            amp := (1.0 - t.gossTopRate) / t.gossOtherRate
-            for _, idx := range otherSelected {
-                t.gradients[idx] *= amp
-                t.hessians[idx] *= amp
-            }
-        }
-    }
+		// Amplify gradients/hessians for sampled small-gradient set
+		// LightGBM GOSS uses factor: (1 - top_rate) / other_rate
+		if t.gossOtherRate > 0 {
+			amp := (1.0 - t.gossTopRate) / t.gossOtherRate
+			for _, idx := range otherSelected {
+				t.gradients[idx] *= amp
+				t.hessians[idx] *= amp
+			}
+		}
+	}
 
 	return selectedIndices
 }
@@ -955,12 +961,12 @@ func (t *Trainer) findBestSplitWithHistogram(nodeHist *NodeHistogram, indices []
 			defer wg.Done()
 			var split SplitInfo
 			if t.isCategoricalFeature(feature) {
-					// Use categorical split logic
-					split = t.findBestCategoricalSplit(feature, indices)
-				} else {
-					// Use numerical split logic
-					split = t.findBestSplitForFeatureWithHistogram(nodeHist, feature)
-				}
+				// Use categorical split logic
+				split = t.findBestCategoricalSplit(feature, indices)
+			} else {
+				// Use numerical split logic
+				split = t.findBestSplitForFeatureWithHistogram(nodeHist, feature)
+			}
 			resultChan <- featureResult{feature: feature, split: split}
 		}(feature)
 	}
@@ -1248,8 +1254,7 @@ func (t *Trainer) findBestCategoricalSplit(feature int, indices []int) SplitInfo
 	return bestSplit
 }
 
-
 // SetSampleWeight sets the sample weights for training
 func (t *Trainer) SetSampleWeight(weights []float64) {
-    t.sampleWeight = weights
+	t.sampleWeight = weights
 }

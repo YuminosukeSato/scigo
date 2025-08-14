@@ -12,7 +12,7 @@ func TestFeatureFraction(t *testing.T) {
 	// Create test data
 	X := mat.NewDense(100, 10, nil)
 	y := mat.NewDense(100, 1, nil)
-	
+
 	// Initialize random data
 	for i := 0; i < 100; i++ {
 		for j := 0; j < 10; j++ {
@@ -20,11 +20,11 @@ func TestFeatureFraction(t *testing.T) {
 		}
 		y.Set(i, 0, float64(i%2))
 	}
-	
+
 	// Test different feature fraction values
 	testCases := []struct {
-		name            string
-		featureFraction float64
+		name             string
+		featureFraction  float64
 		expectedFeatures int
 	}{
 		{"all_features", 1.0, 10},
@@ -32,7 +32,7 @@ func TestFeatureFraction(t *testing.T) {
 		{"third_features", 0.3, 3},
 		{"one_feature", 0.1, 1},
 	}
-	
+
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			params := TrainingParams{
@@ -44,24 +44,24 @@ func TestFeatureFraction(t *testing.T) {
 				Seed:            42,
 				Deterministic:   true,
 			}
-			
+
 			trainer := NewTrainer(params)
 			trainer.X = X
 			trainer.y = y
-			
+
 			// Initialize trainer
 			if err := trainer.initialize(); err != nil {
 				t.Fatalf("Failed to initialize: %v", err)
 			}
-			
+
 			// Sample features
 			_, numFeatures := X.Dims()
 			sampled := trainer.sampler.SampleFeatures(numFeatures, 0)
-			
+
 			if len(sampled) != tc.expectedFeatures {
 				t.Errorf("Expected %d features, got %d", tc.expectedFeatures, len(sampled))
 			}
-			
+
 			// Check all sampled features are unique
 			seen := make(map[int]bool)
 			for _, f := range sampled {
@@ -79,7 +79,7 @@ func TestBaggingFraction(t *testing.T) {
 	// Create test data
 	X := mat.NewDense(100, 5, nil)
 	y := mat.NewDense(100, 1, nil)
-	
+
 	// Initialize random data
 	for i := 0; i < 100; i++ {
 		for j := 0; j < 5; j++ {
@@ -87,7 +87,7 @@ func TestBaggingFraction(t *testing.T) {
 		}
 		y.Set(i, 0, float64(i%2))
 	}
-	
+
 	// Test different bagging configurations
 	testCases := []struct {
 		name            string
@@ -102,7 +102,7 @@ func TestBaggingFraction(t *testing.T) {
 		{"bagging_freq_2_iter_1", 0.5, 2, 1, 100}, // No bagging on odd iteration
 		{"small_bagging", 0.1, 1, 0, 10},
 	}
-	
+
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			params := TrainingParams{
@@ -115,24 +115,24 @@ func TestBaggingFraction(t *testing.T) {
 				Seed:            42,
 				Deterministic:   true,
 			}
-			
+
 			trainer := NewTrainer(params)
 			trainer.X = X
 			trainer.y = y
-			
+
 			// Initialize trainer
 			if err := trainer.initialize(); err != nil {
 				t.Fatalf("Failed to initialize: %v", err)
 			}
-			
+
 			// Sample instances
 			rows, _ := X.Dims()
 			sampled := trainer.sampler.SampleInstances(rows, tc.iteration)
-			
+
 			if len(sampled) != tc.expectedSamples {
 				t.Errorf("Expected %d samples, got %d", tc.expectedSamples, len(sampled))
 			}
-			
+
 			// Check all sampled instances are unique and valid
 			seen := make(map[int]bool)
 			for _, idx := range sampled {
@@ -207,17 +207,17 @@ func TestL1L2Regularization(t *testing.T) {
 			expected: -(10.0 - 2.0) / 6.0, // -(10-2)/(5+1)
 		},
 	}
-	
+
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			params := TrainingParams{
 				Alpha:  tc.lambdaL1,
 				Lambda: tc.lambdaL2,
 			}
-			
+
 			regularizer := NewRegularizationStrategy(params)
 			result := regularizer.ApplyLeafRegularization(tc.sumGrad, tc.sumHess)
-			
+
 			if math.Abs(result-tc.expected) > 1e-10 {
 				t.Errorf("Expected leaf value %.10f, got %.10f", tc.expected, result)
 			}
@@ -261,26 +261,26 @@ func TestRegularizedSplitGain(t *testing.T) {
 			parentHess: 5.0,
 		},
 	}
-	
+
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			params := TrainingParams{
 				Alpha:  tc.lambdaL1,
 				Lambda: tc.lambdaL2,
 			}
-			
+
 			regularizer := NewRegularizationStrategy(params)
 			gain := regularizer.CalculateSplitGain(
 				tc.leftGrad, tc.leftHess,
 				tc.rightGrad, tc.rightHess,
 				tc.parentGrad, tc.parentHess,
 			)
-			
+
 			// Just check that gain is calculated (exact value depends on formula)
 			if math.IsNaN(gain) || math.IsInf(gain, 0) {
 				t.Errorf("Invalid gain value: %v", gain)
 			}
-			
+
 			// Gain should be non-negative for valid splits
 			if gain < -1e-10 {
 				t.Errorf("Negative gain: %v", gain)
@@ -298,34 +298,34 @@ func TestDeterministicSampling(t *testing.T) {
 		Seed:            42,
 		Deterministic:   true,
 	}
-	
+
 	// Create two samplers with same parameters
 	sampler1 := NewSamplingStrategy(params)
 	sampler2 := NewSamplingStrategy(params)
-	
+
 	// Test feature sampling
 	features1 := sampler1.SampleFeatures(10, 0)
 	features2 := sampler2.SampleFeatures(10, 0)
-	
+
 	if len(features1) != len(features2) {
 		t.Errorf("Different number of features sampled")
 	}
-	
+
 	for i := range features1 {
 		if features1[i] != features2[i] {
-			t.Errorf("Feature sampling not deterministic at index %d: %d vs %d", 
+			t.Errorf("Feature sampling not deterministic at index %d: %d vs %d",
 				i, features1[i], features2[i])
 		}
 	}
-	
+
 	// Test instance sampling
 	instances1 := sampler1.SampleInstances(100, 0)
 	instances2 := sampler2.SampleInstances(100, 0)
-	
+
 	if len(instances1) != len(instances2) {
 		t.Errorf("Different number of instances sampled")
 	}
-	
+
 	for i := range instances1 {
 		if instances1[i] != instances2[i] {
 			t.Errorf("Instance sampling not deterministic at index %d: %d vs %d",
@@ -339,7 +339,7 @@ func TestIntegrationWithTraining(t *testing.T) {
 	// Create simple dataset
 	X := mat.NewDense(50, 5, nil)
 	y := mat.NewDense(50, 1, nil)
-	
+
 	for i := 0; i < 50; i++ {
 		for j := 0; j < 5; j++ {
 			X.Set(i, j, float64(i+j))
@@ -355,7 +355,7 @@ func TestIntegrationWithTraining(t *testing.T) {
 			y.Set(i, 0, 0.0)
 		}
 	}
-	
+
 	params := TrainingParams{
 		NumIterations:   3,
 		LearningRate:    0.1,
@@ -371,34 +371,34 @@ func TestIntegrationWithTraining(t *testing.T) {
 		Deterministic:   true,
 		Verbosity:       0,
 	}
-	
+
 	trainer := NewTrainer(params)
-	
+
 	// Train model
 	err := trainer.Fit(X, y)
 	if err != nil {
 		t.Fatalf("Training failed: %v", err)
 	}
-	
+
 	// Get model
 	model := trainer.GetModel()
-	
+
 	// Check trees were built
 	if len(model.Trees) == 0 {
 		t.Error("No trees built")
 	}
-	
+
 	if len(model.Trees) > params.NumIterations {
 		t.Errorf("Too many trees built: %d > %d", len(model.Trees), params.NumIterations)
 	}
-	
+
 	// Make predictions
 	predictor := NewPredictor(model)
 	predictions, err := predictor.Predict(X)
 	if err != nil {
 		t.Fatalf("Prediction failed: %v", err)
 	}
-	
+
 	// Check predictions are in valid range
 	rows, _ := predictions.Dims()
 	for i := 0; i < rows; i++ {
@@ -415,10 +415,10 @@ func BenchmarkFeatureSampling(b *testing.B) {
 		FeatureFraction: 0.5,
 		Seed:            42,
 	}
-	
+
 	sampler := NewSamplingStrategy(params)
 	numFeatures := 1000
-	
+
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		_ = sampler.SampleFeatures(numFeatures, i)
@@ -432,10 +432,10 @@ func BenchmarkInstanceSampling(b *testing.B) {
 		BaggingFreq:     1,
 		Seed:            42,
 	}
-	
+
 	sampler := NewSamplingStrategy(params)
 	numInstances := 10000
-	
+
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		_ = sampler.SampleInstances(numInstances, i)

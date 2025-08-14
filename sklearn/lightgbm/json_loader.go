@@ -34,37 +34,37 @@ type FeatureInfo struct {
 
 // JSONTreeInfo represents information about a single tree
 type JSONTreeInfo struct {
-	TreeIndex     int             `json:"tree_index"`
-	NumLeaves     int             `json:"num_leaves"`
-	NumCat        int             `json:"num_cat"`
-	Shrinkage     float64         `json:"shrinkage"`
-	TreeStructure JSONTreeNode    `json:"tree_structure"`
+	TreeIndex     int          `json:"tree_index"`
+	NumLeaves     int          `json:"num_leaves"`
+	NumCat        int          `json:"num_cat"`
+	Shrinkage     float64      `json:"shrinkage"`
+	TreeStructure JSONTreeNode `json:"tree_structure"`
 }
 
 // JSONTreeNode represents a node in the tree (can be internal or leaf)
 type JSONTreeNode struct {
 	// Internal node fields
-	SplitIndex    int             `json:"split_index,omitempty"`
-	SplitFeature  int             `json:"split_feature,omitempty"`
-	SplitGain     float64         `json:"split_gain,omitempty"`
-	Threshold     interface{}     `json:"threshold,omitempty"` // Can be float64 or string for categorical
-	DecisionType  string          `json:"decision_type,omitempty"`
-	DefaultLeft   bool            `json:"default_left,omitempty"`
-	MissingType   string          `json:"missing_type,omitempty"`
-	InternalValue float64         `json:"internal_value,omitempty"`
-	InternalWeight float64        `json:"internal_weight,omitempty"`
-	InternalCount int             `json:"internal_count,omitempty"`
-	LeftChild     *JSONTreeNode   `json:"left_child,omitempty"`
-	RightChild    *JSONTreeNode   `json:"right_child,omitempty"`
-	
+	SplitIndex     int           `json:"split_index,omitempty"`
+	SplitFeature   int           `json:"split_feature,omitempty"`
+	SplitGain      float64       `json:"split_gain,omitempty"`
+	Threshold      interface{}   `json:"threshold,omitempty"` // Can be float64 or string for categorical
+	DecisionType   string        `json:"decision_type,omitempty"`
+	DefaultLeft    bool          `json:"default_left,omitempty"`
+	MissingType    string        `json:"missing_type,omitempty"`
+	InternalValue  float64       `json:"internal_value,omitempty"`
+	InternalWeight float64       `json:"internal_weight,omitempty"`
+	InternalCount  int           `json:"internal_count,omitempty"`
+	LeftChild      *JSONTreeNode `json:"left_child,omitempty"`
+	RightChild     *JSONTreeNode `json:"right_child,omitempty"`
+
 	// Categorical split fields
-	SplitIndices  []int           `json:"split_indices,omitempty"`
-	
+	SplitIndices []int `json:"split_indices,omitempty"`
+
 	// Leaf node fields
-	LeafIndex     int             `json:"leaf_index,omitempty"`
-	LeafValue     float64         `json:"leaf_value,omitempty"`
-	LeafWeight    float64         `json:"leaf_weight,omitempty"`
-	LeafCount     int             `json:"leaf_count,omitempty"`
+	LeafIndex  int     `json:"leaf_index,omitempty"`
+	LeafValue  float64 `json:"leaf_value,omitempty"`
+	LeafWeight float64 `json:"leaf_weight,omitempty"`
+	LeafCount  int     `json:"leaf_count,omitempty"`
 }
 
 // LoadJSONModelFromFile loads a LightGBM model from JSON file
@@ -148,7 +148,7 @@ func convertJSONTree(treeInfo *JSONTreeInfo) (LeavesTree, error) {
 	// Collect all leaf values and build nodes
 	leafValues := make([]float64, 0)
 	nodes := make([]LeavesNode, 0)
-	
+
 	// If the tree is a single leaf (no splits)
 	if treeInfo.TreeStructure.LeafIndex >= 0 {
 		leafValues = append(leafValues, treeInfo.TreeStructure.LeafValue)
@@ -159,13 +159,13 @@ func convertJSONTree(treeInfo *JSONTreeInfo) (LeavesTree, error) {
 
 	// Build the tree structure using DFS
 	var leafIndex uint32 = 0
-	
+
 	var buildNodes func(jsonNode *JSONTreeNode) uint32
 	buildNodes = func(jsonNode *JSONTreeNode) uint32 {
 		if jsonNode == nil {
 			return 0
 		}
-		
+
 		// Check if this is a leaf node
 		if jsonNode.LeftChild == nil && jsonNode.RightChild == nil {
 			// This is a leaf
@@ -174,13 +174,13 @@ func convertJSONTree(treeInfo *JSONTreeInfo) (LeavesTree, error) {
 			leafIndex++
 			return idx | (1 << 31) // Mark as leaf with high bit
 		}
-		
+
 		// This is an internal node
 		nodeIdx := uint32(len(nodes))
 		node := LeavesNode{
 			Feature: uint32(jsonNode.SplitFeature),
 		}
-		
+
 		// Parse threshold value (can be float64 or string for categorical)
 		switch v := jsonNode.Threshold.(type) {
 		case float64:
@@ -195,7 +195,7 @@ func convertJSONTree(treeInfo *JSONTreeInfo) (LeavesTree, error) {
 		default:
 			node.Threshold = 0.0
 		}
-		
+
 		// Set flags based on decision type and missing type
 		if jsonNode.DecisionType == "==" {
 			// Categorical split
@@ -207,7 +207,7 @@ func convertJSONTree(treeInfo *JSONTreeInfo) (LeavesTree, error) {
 				node.Threshold = float64(jsonNode.SplitIndices[0])
 			}
 		}
-		
+
 		// Handle missing values
 		switch jsonNode.MissingType {
 		case "Zero":
@@ -215,19 +215,19 @@ func convertJSONTree(treeInfo *JSONTreeInfo) (LeavesTree, error) {
 		case "NaN":
 			node.Flags |= missingNan
 		}
-		
+
 		// Set default direction
 		if jsonNode.DefaultLeft {
 			node.Flags |= defaultLeft
 		}
-		
+
 		// Add node first to get its index
 		nodes = append(nodes, node)
-		
+
 		// Process children
 		leftResult := buildNodes(jsonNode.LeftChild)
 		rightResult := buildNodes(jsonNode.RightChild)
-		
+
 		// Update node with children info
 		if leftResult&(1<<31) != 0 {
 			// Left child is a leaf
@@ -236,7 +236,7 @@ func convertJSONTree(treeInfo *JSONTreeInfo) (LeavesTree, error) {
 		} else {
 			nodes[nodeIdx].Left = leftResult
 		}
-		
+
 		if rightResult&(1<<31) != 0 {
 			// Right child is a leaf
 			nodes[nodeIdx].Flags |= rightLeaf
@@ -246,16 +246,16 @@ func convertJSONTree(treeInfo *JSONTreeInfo) (LeavesTree, error) {
 			// We need to rearrange nodes to ensure this
 			nodes[nodeIdx].Right = nodeIdx + 1
 		}
-		
+
 		return nodeIdx
 	}
-	
+
 	// Build the tree starting from root
 	buildNodes(&treeInfo.TreeStructure)
-	
+
 	tree.Nodes = nodes
 	tree.LeafValues = leafValues
-	
+
 	return tree, nil
 }
 
@@ -265,7 +265,7 @@ func IsJSONModel(filePath string) bool {
 	if err != nil {
 		return false
 	}
-	
+
 	var jsonModel JSONModel
 	return json.Unmarshal(data, &jsonModel) == nil && jsonModel.Version != ""
 }
@@ -276,7 +276,7 @@ func LoadModelAutoDetect(filePath string) (*LeavesModel, error) {
 	if IsJSONModel(filePath) {
 		return LoadJSONModelFromFile(filePath)
 	}
-	
+
 	// Otherwise, assume it's text format
 	return LoadLeavesModelFromFile(filePath)
 }

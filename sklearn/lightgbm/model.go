@@ -150,6 +150,7 @@ const (
 
 	// Multiclass classification objectives
 	MulticlassSoftmax ObjectiveType = "multiclass"
+	MulticlassLogLoss ObjectiveType = "multiclass_logloss"
 	MulticlassOVA     ObjectiveType = "multiclassova"
 
 	// Ranking objectives
@@ -321,6 +322,143 @@ func (m *Model) GetFeatureImportance(importanceType string) []float64 {
 	}
 
 	return importance
+}
+
+// SaveToText saves the model in LightGBM text format
+func (m *Model) SaveToText(filename string) error {
+	var sb strings.Builder
+
+	// Write header
+	sb.WriteString("tree\n")
+	sb.WriteString("version=v3\n")
+	sb.WriteString(fmt.Sprintf("num_class=%d\n", m.NumClass))
+	sb.WriteString(fmt.Sprintf("num_tree_per_iteration=%d\n", func() int {
+		if m.NumClass > 2 {
+			return m.NumClass
+		}
+		return 1
+	}()))
+	sb.WriteString("label_index=0\n")
+	sb.WriteString(fmt.Sprintf("max_feature_idx=%d\n", m.NumFeatures-1))
+	sb.WriteString(fmt.Sprintf("objective=%s\n", m.Objective))
+
+	// Write feature names if available
+	if len(m.FeatureNames) > 0 {
+		sb.WriteString(fmt.Sprintf("feature_names=%s\n", strings.Join(m.FeatureNames, " ")))
+	}
+
+	// Write tree sizes
+	sb.WriteString("tree_sizes=")
+	for i, tree := range m.Trees {
+		if i > 0 {
+			sb.WriteString(" ")
+		}
+		// Calculate tree size in bytes (approximate)
+		treeSize := 100 + len(tree.Nodes)*50 + len(tree.LeafValues)*20
+		sb.WriteString(fmt.Sprintf("%d", treeSize))
+	}
+	sb.WriteString("\n\n")
+
+	// Write each tree
+	for i, tree := range m.Trees {
+		sb.WriteString(fmt.Sprintf("Tree=%d\n", i))
+		// Use actual node count instead of NumLeaves to match array lengths
+		sb.WriteString(fmt.Sprintf("num_leaves=%d\n", len(tree.Nodes)))
+		sb.WriteString(fmt.Sprintf("num_cat=%d\n", 0)) // Categorical features count
+		sb.WriteString(fmt.Sprintf("split_feature="))
+		for j, node := range tree.Nodes {
+			if j > 0 {
+				sb.WriteString(" ")
+			}
+			if node.IsLeaf() {
+				sb.WriteString("0") // Use 0 for leaf nodes (will be ignored anyway)
+			} else {
+				sb.WriteString(fmt.Sprintf("%d", node.SplitFeature))
+			}
+		}
+		sb.WriteString("\n")
+
+		// Write thresholds
+		sb.WriteString("threshold=")
+		for j, node := range tree.Nodes {
+			if j > 0 {
+				sb.WriteString(" ")
+			}
+			if node.IsLeaf() {
+				sb.WriteString("0")
+			} else {
+				sb.WriteString(fmt.Sprintf("%g", node.Threshold))
+			}
+		}
+		sb.WriteString("\n")
+
+		// Write decision types
+		sb.WriteString("decision_type=")
+		for j, node := range tree.Nodes {
+			if j > 0 {
+				sb.WriteString(" ")
+			}
+			if node.IsLeaf() {
+				sb.WriteString("0")
+			} else if node.NodeType == CategoricalNode {
+				sb.WriteString("1") // Categorical
+			} else {
+				sb.WriteString("2") // Numerical (<=)
+			}
+		}
+		sb.WriteString("\n")
+
+		// Write left children
+		sb.WriteString("left_child=")
+		for j, node := range tree.Nodes {
+			if j > 0 {
+				sb.WriteString(" ")
+			}
+			sb.WriteString(fmt.Sprintf("%d", node.LeftChild))
+		}
+		sb.WriteString("\n")
+
+		// Write right children
+		sb.WriteString("right_child=")
+		for j, node := range tree.Nodes {
+			if j > 0 {
+				sb.WriteString(" ")
+			}
+			sb.WriteString(fmt.Sprintf("%d", node.RightChild))
+		}
+		sb.WriteString("\n")
+
+		// Write leaf values
+		sb.WriteString("leaf_value=")
+		if len(tree.LeafValues) > 0 {
+			for j, val := range tree.LeafValues {
+				if j > 0 {
+					sb.WriteString(" ")
+				}
+				sb.WriteString(fmt.Sprintf("%g", val))
+			}
+		} else {
+			// Use node leaf values if tree leaf values not available
+			for j, node := range tree.Nodes {
+				if j > 0 {
+					sb.WriteString(" ")
+				}
+				if node.IsLeaf() {
+					sb.WriteString(fmt.Sprintf("%g", node.LeafValue))
+				} else {
+					sb.WriteString("0")
+				}
+			}
+		}
+		sb.WriteString("\n")
+
+		// Write shrinkage
+		sb.WriteString(fmt.Sprintf("shrinkage=%g\n", tree.ShrinkageRate))
+		sb.WriteString("\n")
+	}
+
+	// Write to file
+	return os.WriteFile(filename, []byte(sb.String()), 0644)
 }
 
 // Helper functions
