@@ -2,8 +2,8 @@ package lightgbm
 
 import (
 	"encoding/json"
-	"io/ioutil"
 	"math"
+	"os"
 	"testing"
 
 	"gonum.org/v1/gonum/mat"
@@ -54,7 +54,7 @@ type GOSSTestData struct {
 
 // loadGOSSTestData loads the test data from JSON file
 func loadGOSSTestData(t *testing.T) *GOSSTestData {
-	data, err := ioutil.ReadFile("testdata/goss_verification_data.json")
+	data, err := os.ReadFile("testdata/goss_verification_data.json")
 	if err != nil {
 		t.Fatalf("Failed to read test data: %v", err)
 	}

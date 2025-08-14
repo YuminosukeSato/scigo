@@ -365,7 +365,7 @@ func (m *Model) SaveToText(filename string) error {
 		// Use actual node count instead of NumLeaves to match array lengths
 		sb.WriteString(fmt.Sprintf("num_leaves=%d\n", len(tree.Nodes)))
 		sb.WriteString(fmt.Sprintf("num_cat=%d\n", 0)) // Categorical features count
-		sb.WriteString(fmt.Sprintf("split_feature="))
+		sb.WriteString("split_feature=")
 		for j, node := range tree.Nodes {
 			if j > 0 {
 				sb.WriteString(" ")

@@ -2,8 +2,8 @@ package lightgbm
 
 import (
 	"encoding/json"
-	"io/ioutil"
 	"math"
+	"os"
 	"testing"
 
 	"gonum.org/v1/gonum/mat"
@@ -47,7 +47,7 @@ type PredictProbaTestData struct {
 
 // loadPredictProbaTestData loads the test data from JSON file
 func loadPredictProbaTestData(t *testing.T) *PredictProbaTestData {
-	data, err := ioutil.ReadFile("testdata/predictproba_verification_data.json")
+	data, err := os.ReadFile("testdata/predictproba_verification_data.json")
 	if err != nil {
 		t.Fatalf("Failed to read test data: %v", err)
 	}
