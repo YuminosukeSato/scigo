@@ -1,9 +1,12 @@
+# golangci-lint configuration
+# https://golangci-lint.run/usage/configuration/
+
 run:
   timeout: 5m
   tests: true
   modules-download-mode: readonly
   concurrency: 4
-  go: "1.24"
+  go: "1.22"
 
 output:
   print-issued-lines: true

@@ -6,13 +6,11 @@ import (
 
 // SamplingStrategy handles data and feature sampling for training
 type SamplingStrategy struct {
-	rng              *rand.Rand
-	featureFraction  float64
-	baggingFraction  float64
-	baggingFreq      int
-	deterministic    bool
-	sampledFeatures  []int
-	sampledInstances []int
+	rng             *rand.Rand
+	featureFraction float64
+	baggingFraction float64
+	baggingFreq     int
+	deterministic   bool
 }
 
 // NewSamplingStrategy creates a new sampling strategy
