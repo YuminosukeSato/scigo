@@ -119,10 +119,20 @@ func TestGOSSSampling(t *testing.T) {
 	trainer.y = y
 	
 	// Set objective function
-	trainer.objective = NewObjectiveFunction(params.Objective, params)
-	trainer.initScore = trainer.objective.InitScore(y)
+	objFunc, err := CreateObjectiveFunction(params.Objective, &params)
+	if err != nil {
+		t.Fatalf("Failed to create objective: %v", err)
+	}
+	trainer.objective = objFunc
 	
-	err := trainer.initialize()
+	// Calculate initial score
+	targets := make([]float64, 100)
+	for i := 0; i < 100; i++ {
+		targets[i] = y.At(i, 0)
+	}
+	trainer.initScore = trainer.objective.GetInitScore(targets)
+	
+	err = trainer.initialize()
 	if err != nil {
 		t.Fatalf("Failed to initialize: %v", err)
 	}
