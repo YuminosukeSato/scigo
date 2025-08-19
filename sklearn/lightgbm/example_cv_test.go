@@ -152,15 +152,15 @@ func ExampleStratifiedKFold() {
 
 func TestExamples(t *testing.T) {
 	// Run examples to ensure they work
-	t.Run("CrossValidate", func(t *testing.T) {
+	t.Run("CrossValidate", func(_ *testing.T) {
 		ExampleCrossValidate()
 	})
 
-	t.Run("WithCallbacks", func(t *testing.T) {
+	t.Run("WithCallbacks", func(_ *testing.T) {
 		ExampleTrainer_WithCallbacks()
 	})
 
-	t.Run("StratifiedKFold", func(t *testing.T) {
+	t.Run("StratifiedKFold", func(_ *testing.T) {
 		ExampleStratifiedKFold()
 	})
 }

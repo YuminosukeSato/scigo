@@ -2,101 +2,74 @@ package lightgbm
 
 import (
 	"fmt"
+	"path/filepath"
 	"testing"
+
+	"gonum.org/v1/gonum/mat"
 )
 
-func TestDebugPrediction(t *testing.T) {
-	// Load model and make a simple prediction
-	model, err := LoadFromFile("testdata/compatibility/regression_model.txt")
+func TestDebugSinglePrediction(t *testing.T) {
+	// Load model
+	modelPath := filepath.Join("testdata/compatibility", "regression_model.txt")
+	model, err := LoadFromFile(modelPath)
 	if err != nil {
 		t.Fatalf("Failed to load model: %v", err)
 	}
 
-	// Create test features (single sample with 10 features)
-	features := []float64{0.5, -0.5, 1.0, -1.0, 0.0, 0.2, -0.2, 0.8, -0.8, 0.3}
+	// Create test features (first row from regression_X_test.csv)
+	features := []float64{
+		1.5904035685736386, -0.3939866812431204, 0.04092474872892285,
+		-0.9984408528767182, 1.9913704184169045, 0.43494103836789866,
+		1.6232566905280539, -0.5691481986725339, -0.7971135662249808,
+		0.3929135105482163,
+	}
 
+	X := mat.NewDense(1, 10, features)
+
+	// Make prediction
 	predictor := NewPredictor(model)
-	pred := predictor.predictSingleSample(features)
-
-	fmt.Printf("Single sample prediction: %v\n", pred)
-	fmt.Printf("InitScore: %f\n", model.InitScore)
-
-	// Check prediction process step by step
-	sumPred := model.InitScore
-	for i := 0; i < 3 && i < len(model.Trees); i++ {
-		tree := &model.Trees[i]
-		fmt.Printf("\nTree %d (shrinkage=%f):\n", i, tree.ShrinkageRate)
-
-		// Navigate through tree manually
-		nodeIdx := 0
-		for j := 0; j < 10 && nodeIdx >= 0 && nodeIdx < len(tree.Nodes); j++ {
-			node := &tree.Nodes[nodeIdx]
-			fmt.Printf("  Node %d: Type=%v, Feature=%d, Threshold=%f, LeafValue=%f, Left=%d, Right=%d\n",
-				nodeIdx, node.NodeType, node.SplitFeature, node.Threshold, node.LeafValue,
-				node.LeftChild, node.RightChild)
-
-			if node.IsLeaf() {
-				fmt.Printf("    -> Leaf reached with value: %f\n", node.LeafValue)
-				break
-			}
-
-			// Navigate based on feature value
-			if node.SplitFeature < len(features) {
-				fVal := features[node.SplitFeature]
-				if fVal <= node.Threshold {
-					fmt.Printf("    -> Going left (feature[%d]=%f <= %f)\n",
-						node.SplitFeature, fVal, node.Threshold)
-					nodeIdx = node.LeftChild
-				} else {
-					fmt.Printf("    -> Going right (feature[%d]=%f > %f)\n",
-						node.SplitFeature, fVal, node.Threshold)
-					nodeIdx = node.RightChild
-				}
-			}
-		}
-
-		treeOut := predictor.predictTree(tree, features)
-		sumPred += treeOut
-		fmt.Printf("  Tree output: %f, cumulative: %f\n", treeOut, sumPred)
-	}
-}
-
-func TestDebugModelLoading(t *testing.T) {
-	// Load a simple regression model
-	model, err := LoadFromFile("testdata/compatibility/regression_model.txt")
+	predictions, err := predictor.Predict(X)
 	if err != nil {
-		t.Fatalf("Failed to load model: %v", err)
+		t.Fatalf("Failed to predict: %v", err)
 	}
 
-	// Print model information
-	fmt.Printf("Model loaded:\n")
-	fmt.Printf("  NumFeatures: %d\n", model.NumFeatures)
-	fmt.Printf("  NumClass: %d\n", model.NumClass)
-	fmt.Printf("  NumIteration: %d\n", model.NumIteration)
-	fmt.Printf("  BestIteration: %d\n", model.BestIteration)
-	fmt.Printf("  InitScore: %f\n", model.InitScore)
-	fmt.Printf("  Number of trees: %d\n", len(model.Trees))
-	fmt.Printf("  Objective: %s\n", model.Objective)
+	pred := predictions.At(0, 0)
+	fmt.Printf("Prediction: %f\n", pred)
+	fmt.Printf("Expected: approximately 77.486099\n")
+	fmt.Printf("InitScore: %f\n", model.InitScore)
+	fmt.Printf("Number of trees: %d\n", len(model.Trees))
 
-	// Check first few trees
-	for tIdx := 0; tIdx < 3 && tIdx < len(model.Trees); tIdx++ {
-		tree := model.Trees[tIdx]
-		fmt.Printf("\nTree %d:\n", tIdx)
-		fmt.Printf("  TreeIndex: %d\n", tree.TreeIndex)
-		fmt.Printf("  NumLeaves: %d\n", tree.NumLeaves)
-		fmt.Printf("  NumNodes: %d\n", len(tree.Nodes))
+	// Calculate sum manually
+	sum := model.InitScore
+	for i := 0; i < len(model.Trees); i++ {
+		tree := &model.Trees[i]
+		treeOutput := predictor.predictTree(tree, features)
+		sum += treeOutput
+		if i < 5 {
+			fmt.Printf("Tree %d: output=%f, cumulative=%f\n", i, treeOutput, sum)
+		}
+	}
+	fmt.Printf("Manual sum (100 trees): %f\n", sum)
+
+	// Debug first tree
+	if len(model.Trees) > 0 {
+		tree := &model.Trees[0]
+		fmt.Printf("\nFirst tree info:\n")
+		fmt.Printf("  Nodes: %d\n", len(tree.Nodes))
+		fmt.Printf("  LeafValues: %d\n", len(tree.LeafValues))
 		fmt.Printf("  ShrinkageRate: %f\n", tree.ShrinkageRate)
 
-		// Check if tree has any nodes
-		if len(tree.Nodes) == 0 && len(tree.LeafValues) > 0 {
-			fmt.Printf("  Single leaf tree with value: %f\n", tree.LeafValues[0])
+		// Check first few nodes
+		for i := 0; i < 5 && i < len(tree.Nodes); i++ {
+			node := &tree.Nodes[i]
+			fmt.Printf("  Node %d: Left=%d, Right=%d, Feature=%d, Threshold=%f\n",
+				i, node.LeftChild, node.RightChild, node.SplitFeature, node.Threshold)
 		}
 
-		// Check first few nodes
-		for i := 0; i < 3 && i < len(tree.Nodes); i++ {
-			node := tree.Nodes[i]
-			fmt.Printf("  Node %d: Type=%v, Feature=%d, Threshold=%f, LeafValue=%f\n",
-				i, node.NodeType, node.SplitFeature, node.Threshold, node.LeafValue)
+		// Check leaf values
+		fmt.Printf("\nLeaf values:\n")
+		for i := 0; i < 5 && i < len(tree.LeafValues); i++ {
+			fmt.Printf("  Leaf %d: %f\n", i, tree.LeafValues[i])
 		}
 	}
 }

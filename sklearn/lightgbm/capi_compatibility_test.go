@@ -64,7 +64,9 @@ func TestCAPIModelStructureEquality(t *testing.T) {
 			treeStructPath := filepath.Join("testdata/compatibility",
 				fmt.Sprintf("%s_tree_structure.json", tc))
 
-			treeData, err := os.ReadFile(treeStructPath)
+			// Clean the file path to prevent path traversal attacks
+			cleanPath := filepath.Clean(treeStructPath)
+			treeData, err := os.ReadFile(cleanPath)
 			if err != nil {
 				t.Skipf("Tree structure file not found: %v", err)
 			}
@@ -418,7 +420,9 @@ func countTreeLeaves(tree LeavesTree) int {
 }
 
 func loadCompatibilityTestData(path string) (*CompatibilityTestData, error) {
-	data, err := os.ReadFile(path)
+	// Clean the file path to prevent path traversal attacks
+	cleanPath := filepath.Clean(path)
+	data, err := os.ReadFile(cleanPath)
 	if err != nil {
 		return nil, err
 	}
@@ -475,7 +479,9 @@ func loadNumpyData(objective, split string) (mat.Matrix, mat.Matrix, error) {
 
 // Minimal NPY loader for float64 C-order arrays used in tests
 func loadNPYFloat64Matrix(path string) (*mat.Dense, error) {
-	f, err := os.Open(path)
+	// Clean the file path to prevent path traversal attacks
+	cleanPath := filepath.Clean(path)
+	f, err := os.Open(cleanPath)
 	if err != nil {
 		return nil, err
 	}
@@ -516,7 +522,9 @@ func loadNPYFloat64Matrix(path string) (*mat.Dense, error) {
 }
 
 func loadNPYFloat64VectorAsMatrix(path string) (*mat.Dense, error) {
-	f, err := os.Open(path)
+	// Clean the file path to prevent path traversal attacks
+	cleanPath := filepath.Clean(path)
+	f, err := os.Open(cleanPath)
 	if err != nil {
 		return nil, err
 	}

@@ -251,21 +251,32 @@ func TestRegressorTraining(t *testing.T) {
 
 // TestSplitGainCalculation tests the split gain calculation
 func TestSplitGainCalculation(t *testing.T) {
+	params := TrainingParams{
+		Lambda: 1.0,
+		Alpha:  0.0,
+	}
 	trainer := &Trainer{
-		params: TrainingParams{
-			Lambda: 1.0,
-		},
+		params:      params,
+		regularizer: NewRegularizationStrategy(params),
 	}
 
 	// Test case 1: Perfect split
+	// The gain formula is: left_score + right_score - parent_score
+	// where score = -0.5 * G^2 / (H + lambda)
 	gain := trainer.calculateSplitGain(
 		-10.0, 5.0, // left gradient and hessian
 		10.0, 5.0, // right gradient and hessian
 		0.0, 10.0, // total gradient and hessian
 	)
 
-	if gain <= 0 {
-		t.Errorf("Expected positive gain for good split, got %.4f", gain)
+	// With lambda=1.0:
+	// left_score = 0.5 * 100 / 6 = 8.333
+	// right_score = 0.5 * 100 / 6 = 8.333
+	// parent_score = 0 (since parent gradient is 0)
+	// gain = 8.333 + 8.333 - 0 = 16.667
+	expectedGain := 16.667
+	if math.Abs(gain-expectedGain) > 0.01 {
+		t.Errorf("Expected gain %.4f, got %.4f", expectedGain, gain)
 	}
 
 	// Test case 2: Bad split (no gain)
@@ -282,12 +293,14 @@ func TestSplitGainCalculation(t *testing.T) {
 
 // TestLeafValueCalculation tests leaf value calculation
 func TestLeafValueCalculation(t *testing.T) {
+	params := TrainingParams{
+		Lambda: 1.0,
+	}
 	trainer := &Trainer{
-		params: TrainingParams{
-			Lambda: 1.0,
-		},
-		gradients: []float64{-1.0, -2.0, -3.0, 1.0, 2.0},
-		hessians:  []float64{1.0, 1.0, 1.0, 1.0, 1.0},
+		params:      params,
+		gradients:   []float64{-1.0, -2.0, -3.0, 1.0, 2.0},
+		hessians:    []float64{1.0, 1.0, 1.0, 1.0, 1.0},
+		regularizer: NewRegularizationStrategy(params),
 	}
 
 	indices := []int{0, 1, 2} // First three samples

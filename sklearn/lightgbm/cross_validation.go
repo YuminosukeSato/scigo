@@ -47,7 +47,7 @@ func (kf *KFold) GetNSplits() int {
 }
 
 // Split generates train/test indices for each fold
-func (kf *KFold) Split(X, y mat.Matrix) []CVFold {
+func (kf *KFold) Split(X, _ mat.Matrix) []CVFold {
 	nSamples, _ := X.Dims()
 
 	// Create indices
@@ -398,7 +398,7 @@ func extractSubset(X, y mat.Matrix, indices []int) (mat.Matrix, mat.Matrix) {
 }
 
 // evaluateMetric calculates the specified metric
-func evaluateMetric(yTrue, yPred mat.Matrix, metric, objective string) float64 {
+func evaluateMetric(yTrue, yPred mat.Matrix, metric, _ string) float64 {
 	rows, _ := yTrue.Dims()
 
 	switch metric {

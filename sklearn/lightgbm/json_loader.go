@@ -146,19 +146,21 @@ func convertJSONTree(treeInfo *JSONTreeInfo) (LeavesTree, error) {
 	}
 
 	// Collect all leaf values and build nodes
-	leafValues := make([]float64, 0)
+	var leafValues []float64
 	nodes := make([]LeavesNode, 0)
+	nodesPtr := &nodes
+	leafValuesPtr := &leafValues
 
 	// If the tree is a single leaf (no splits)
-	if treeInfo.TreeStructure.LeafIndex >= 0 {
-		leafValues = append(leafValues, treeInfo.TreeStructure.LeafValue)
-		tree.LeafValues = leafValues
-		tree.Nodes = nodes
+	if treeInfo.TreeStructure.LeftChild == nil && treeInfo.TreeStructure.RightChild == nil {
+		*leafValuesPtr = append(*leafValuesPtr, treeInfo.TreeStructure.LeafValue)
+		tree.LeafValues = *leafValuesPtr
+		tree.Nodes = *nodesPtr
 		return tree, nil
 	}
 
 	// Build the tree structure using DFS
-	var leafIndex uint32 = 0
+	var leafIndex uint32
 
 	var buildNodes func(jsonNode *JSONTreeNode) uint32
 	buildNodes = func(jsonNode *JSONTreeNode) uint32 {
@@ -169,16 +171,16 @@ func convertJSONTree(treeInfo *JSONTreeInfo) (LeavesTree, error) {
 		// Check if this is a leaf node
 		if jsonNode.LeftChild == nil && jsonNode.RightChild == nil {
 			// This is a leaf
-			leafValues = append(leafValues, jsonNode.LeafValue)
+			*leafValuesPtr = append(*leafValuesPtr, jsonNode.LeafValue)
 			idx := leafIndex
 			leafIndex++
 			return idx | (1 << 31) // Mark as leaf with high bit
 		}
 
 		// This is an internal node
-		nodeIdx := uint32(len(nodes))
+		nodeIdx := uint32(len(*nodesPtr)) // nolint:gosec // Safe conversion: node count is always positive
 		node := LeavesNode{
-			Feature: uint32(jsonNode.SplitFeature),
+			Feature: uint32(jsonNode.SplitFeature), // nolint:gosec // Safe conversion: feature index is always positive
 		}
 
 		// Parse threshold value (can be float64 or string for categorical)
@@ -222,7 +224,7 @@ func convertJSONTree(treeInfo *JSONTreeInfo) (LeavesTree, error) {
 		}
 
 		// Add node first to get its index
-		nodes = append(nodes, node)
+		*nodesPtr = append(*nodesPtr, node)
 
 		// Process children
 		leftResult := buildNodes(jsonNode.LeftChild)
@@ -231,20 +233,20 @@ func convertJSONTree(treeInfo *JSONTreeInfo) (LeavesTree, error) {
 		// Update node with children info
 		if leftResult&(1<<31) != 0 {
 			// Left child is a leaf
-			nodes[nodeIdx].Flags |= leftLeaf
-			nodes[nodeIdx].Left = leftResult & 0x7FFFFFFF
+			(*nodesPtr)[nodeIdx].Flags |= leftLeaf
+			(*nodesPtr)[nodeIdx].Left = leftResult & 0x7FFFFFFF
 		} else {
-			nodes[nodeIdx].Left = leftResult
+			(*nodesPtr)[nodeIdx].Left = leftResult
 		}
 
 		if rightResult&(1<<31) != 0 {
 			// Right child is a leaf
-			nodes[nodeIdx].Flags |= rightLeaf
-			nodes[nodeIdx].Right = rightResult & 0x7FFFFFFF
+			(*nodesPtr)[nodeIdx].Flags |= rightLeaf
+			(*nodesPtr)[nodeIdx].Right = rightResult & 0x7FFFFFFF
 		} else {
 			// For leaves format, right child is implicitly at nodeIdx+1
 			// We need to rearrange nodes to ensure this
-			nodes[nodeIdx].Right = nodeIdx + 1
+			(*nodesPtr)[nodeIdx].Right = nodeIdx + 1
 		}
 
 		return nodeIdx
@@ -253,15 +255,17 @@ func convertJSONTree(treeInfo *JSONTreeInfo) (LeavesTree, error) {
 	// Build the tree starting from root
 	buildNodes(&treeInfo.TreeStructure)
 
-	tree.Nodes = nodes
-	tree.LeafValues = leafValues
+	tree.Nodes = *nodesPtr
+	tree.LeafValues = *leafValuesPtr
 
 	return tree, nil
 }
 
 // IsJSONModel checks if the file is a JSON model by attempting to parse it
 func IsJSONModel(filePath string) bool {
-	data, err := os.ReadFile(filePath)
+	// Clean the file path to prevent path traversal attacks
+	cleanPath := filepath.Clean(filePath)
+	data, err := os.ReadFile(cleanPath)
 	if err != nil {
 		return false
 	}

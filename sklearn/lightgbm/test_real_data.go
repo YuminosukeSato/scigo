@@ -7,6 +7,7 @@ import (
 	"gonum.org/v1/gonum/mat"
 )
 
+// TestRealData tests LightGBM with real data scenarios
 func TestRealData(t *testing.T) {
 	// Load model
 	model, err := LoadFromFile("testdata/compatibility/regression_model.txt")

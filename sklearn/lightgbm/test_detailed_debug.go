@@ -5,6 +5,7 @@ import (
 	"testing"
 )
 
+// TestDetailedDebug performs detailed debugging of the LightGBM implementation
 func TestDetailedDebug(t *testing.T) {
 	// Load model
 	model, err := LoadFromFile("testdata/compatibility/regression_model.txt")

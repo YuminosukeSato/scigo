@@ -73,7 +73,7 @@ func TestLGBMRegressorParameters(t *testing.T) {
 	reg := NewLGBMRegressor()
 
 	// Test setting parameters
-	reg.SetParams(map[string]interface{}{
+	err := reg.SetParams(map[string]interface{}{
 		"n_estimators":      50,
 		"learning_rate":     0.05,
 		"max_depth":         5,
@@ -84,6 +84,7 @@ func TestLGBMRegressorParameters(t *testing.T) {
 		"reg_alpha":         0.1,
 		"reg_lambda":        0.1,
 	})
+	require.NoError(t, err)
 
 	// Verify parameters are set
 	params := reg.GetParams()
@@ -189,11 +190,12 @@ func TestLGBMRegressorWithCategoricalFeatures(t *testing.T) {
 	}
 
 	reg := NewLGBMRegressor()
-	reg.SetParams(map[string]interface{}{
+	err := reg.SetParams(map[string]interface{}{
 		"categorical_features": []int{0, 1, 3},
 	})
+	require.NoError(t, err)
 
-	err := reg.Fit(X, y)
+	err = reg.Fit(X, y)
 	require.NoError(t, err)
 
 	// Make predictions
@@ -219,11 +221,14 @@ func TestLGBMRegressorSaveLoad(t *testing.T) {
 	}
 
 	reg := NewLGBMRegressor()
-	reg.SetParams(map[string]interface{}{
+	err := reg.SetParams(map[string]interface{}{
 		"n_estimators":  10,
 		"learning_rate": 0.1,
 	})
-	err := reg.Fit(X, y)
+	if err != nil {
+		t.Fatalf("Failed to set params: %v", err)
+	}
+	err = reg.Fit(X, y)
 	require.NoError(t, err)
 
 	// Save model

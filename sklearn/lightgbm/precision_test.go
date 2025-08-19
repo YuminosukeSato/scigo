@@ -285,7 +285,7 @@ func (pt *PrecisionTracker) getLeafDetails(tree *LeavesTree, features []float64)
 	// Traverse tree to find leaf
 	nodeIdx := uint32(0)
 
-	for nodeIdx < uint32(len(tree.Nodes)) {
+	for nodeIdx < uint32(len(tree.Nodes)) { // nolint:gosec // Safe conversion: tree nodes count is always positive
 		node := &tree.Nodes[nodeIdx]
 
 		// Check if we've reached a leaf
@@ -445,7 +445,7 @@ func BenchmarkPrecisionTracking(b *testing.B) {
 			LeafValues:    []float64{0.1, 0.2, 0.3},
 			Nodes: []LeavesNode{
 				{
-					Feature:   uint32(i % 5),
+					Feature:   uint32(i % 5), // nolint:gosec // Safe conversion: modulo result is always positive
 					Threshold: 0.5,
 					Flags:     leftLeaf | rightLeaf,
 					Left:      0,

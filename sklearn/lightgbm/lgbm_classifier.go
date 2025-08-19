@@ -46,11 +46,11 @@ type LGBMClassifier struct {
 	ShowProgress bool // Show progress bar during training
 
 	// Internal state
-	classes_  []int // Unique class labels
-	nClasses_ int   // Number of classes
-	// featureNames_ field reserved for future use
-	// featureNames_ []string // Feature names
-	nFeatures_ int // Number of features
+	classes  []int // Unique class labels
+	nClasses int   // Number of classes
+	// featureNames field reserved for future use
+	// featureNames []string // Feature names
+	nFeatures int // Number of features
 }
 
 // NewLGBMClassifier creates a new LightGBM classifier with default parameters
@@ -151,18 +151,18 @@ func (lgb *LGBMClassifier) Fit(X, y mat.Matrix) (err error) {
 	lgb.extractClasses(y)
 
 	// Set objective based on number of classes
-	if lgb.nClasses_ == 2 {
+	if lgb.nClasses == 2 {
 		lgb.Objective = string(BinaryLogistic)
 		lgb.NumClass = 1
-	} else if lgb.nClasses_ > 2 {
+	} else if lgb.nClasses > 2 {
 		lgb.Objective = string(MulticlassSoftmax)
-		lgb.NumClass = lgb.nClasses_
+		lgb.NumClass = lgb.nClasses
 	} else {
-		return fmt.Errorf("invalid number of classes: %d", lgb.nClasses_)
+		return fmt.Errorf("invalid number of classes: %d", lgb.nClasses)
 	}
 
 	// Store feature information
-	lgb.nFeatures_ = cols
+	lgb.nFeatures = cols
 
 	// Log training start
 	logger := log.GetLoggerWithName("lightgbm.classifier")
@@ -170,7 +170,7 @@ func (lgb *LGBMClassifier) Fit(X, y mat.Matrix) (err error) {
 		logger.Info("Training LGBMClassifier",
 			"samples", rows,
 			"features", cols,
-			"classes", lgb.nClasses_)
+			"classes", lgb.nClasses)
 	}
 
 	// Create training parameters
@@ -222,6 +222,200 @@ func (lgb *LGBMClassifier) Fit(X, y mat.Matrix) (err error) {
 	return nil
 }
 
+// FitWeighted trains the LightGBM classifier with sample weights
+func (lgb *LGBMClassifier) FitWeighted(X, y mat.Matrix, sampleWeight []float64) (err error) {
+	defer scigoErrors.Recover(&err, "LGBMClassifier.FitWeighted")
+
+	rows, cols := X.Dims()
+	yRows, yCols := y.Dims()
+
+	// Validate input dimensions
+	if rows != yRows {
+		return scigoErrors.NewDimensionError("FitWeighted", rows, yRows, 0)
+	}
+	if yCols != 1 {
+		return scigoErrors.NewDimensionError("FitWeighted", 1, yCols, 1)
+	}
+	if sampleWeight != nil && len(sampleWeight) != rows {
+		return scigoErrors.NewDimensionError("FitWeighted", rows, len(sampleWeight), 0)
+	}
+
+	// Extract unique classes
+	lgb.extractClasses(y)
+
+	// Set objective based on number of classes
+	if lgb.nClasses == 2 {
+		lgb.Objective = string(BinaryLogistic)
+		lgb.NumClass = 1
+	} else if lgb.nClasses > 2 {
+		lgb.Objective = string(MulticlassSoftmax)
+		lgb.NumClass = lgb.nClasses
+	} else {
+		return fmt.Errorf("invalid number of classes: %d", lgb.nClasses)
+	}
+
+	// Store feature information
+	lgb.nFeatures = cols
+
+	// Log training start
+	logger := log.GetLoggerWithName("lightgbm.classifier")
+	if lgb.ShowProgress {
+		logger.Info("Training LGBMClassifier with sample weights",
+			"samples", rows,
+			"features", cols,
+			"classes", lgb.nClasses)
+	}
+
+	// Create training parameters
+	params := TrainingParams{
+		NumIterations:   lgb.NumIterations,
+		LearningRate:    lgb.LearningRate,
+		NumLeaves:       lgb.NumLeaves,
+		MaxDepth:        lgb.MaxDepth,
+		MinDataInLeaf:   lgb.MinChildSamples,
+		Lambda:          lgb.RegLambda,
+		Alpha:           lgb.RegAlpha,
+		MinGainToSplit:  1e-7,
+		BaggingFraction: lgb.Subsample,
+		BaggingFreq:     lgb.SubsampleFreq,
+		FeatureFraction: lgb.ColsampleBytree,
+		MaxBin:          255,
+		MinDataInBin:    3,
+		Objective:       lgb.Objective,
+		NumClass:        lgb.NumClass,
+		Seed:            lgb.RandomState,
+		Deterministic:   lgb.Deterministic,
+		Verbosity:       lgb.Verbosity,
+		EarlyStopping:   lgb.EarlyStopping,
+	}
+
+	// Create and run trainer with sample weights
+	trainer := NewTrainer(params)
+	if sampleWeight != nil {
+		trainer.SetSampleWeight(sampleWeight)
+	}
+	if err := trainer.Fit(X, y); err != nil {
+		return fmt.Errorf("training failed: %w", err)
+	}
+
+	// Get trained model
+	lgb.Model = trainer.GetModel()
+
+	// Create predictor
+	lgb.Predictor = NewPredictor(lgb.Model)
+	if lgb.NumThreads > 0 {
+		lgb.Predictor.SetNumThreads(lgb.NumThreads)
+	}
+	lgb.Predictor.SetDeterministic(lgb.Deterministic)
+
+	// Mark as fitted
+	lgb.state.SetFitted()
+
+	if lgb.ShowProgress {
+		logger.Info("Training with sample weights completed successfully")
+	}
+
+	return nil
+}
+
+// FitWithInit trains the LightGBM classifier with initial score and optional sample weights
+func (lgb *LGBMClassifier) FitWithInit(X, y mat.Matrix, initScore float64, sampleWeight []float64) (err error) {
+	defer scigoErrors.Recover(&err, "LGBMClassifier.FitWithInit")
+
+	rows, cols := X.Dims()
+	yRows, yCols := y.Dims()
+
+	// Validate input dimensions
+	if rows != yRows {
+		return scigoErrors.NewDimensionError("FitWithInit", rows, yRows, 0)
+	}
+	if yCols != 1 {
+		return scigoErrors.NewDimensionError("FitWithInit", 1, yCols, 1)
+	}
+	if sampleWeight != nil && len(sampleWeight) != rows {
+		return scigoErrors.NewDimensionError("FitWithInit", rows, len(sampleWeight), 0)
+	}
+
+	// Extract unique classes
+	lgb.extractClasses(y)
+
+	// Set objective based on number of classes
+	if lgb.nClasses == 2 {
+		lgb.Objective = string(BinaryLogistic)
+		lgb.NumClass = 1
+	} else if lgb.nClasses > 2 {
+		lgb.Objective = string(MulticlassSoftmax)
+		lgb.NumClass = lgb.nClasses
+	} else {
+		return fmt.Errorf("invalid number of classes: %d", lgb.nClasses)
+	}
+
+	// Store feature information
+	lgb.nFeatures = cols
+
+	// Log training start
+	logger := log.GetLoggerWithName("lightgbm.classifier")
+	if lgb.ShowProgress {
+		logger.Info("Training LGBMClassifier with init score",
+			"samples", rows,
+			"features", cols,
+			"classes", lgb.nClasses,
+			"init_score", initScore)
+	}
+
+	// Create training parameters
+	params := TrainingParams{
+		NumIterations:   lgb.NumIterations,
+		LearningRate:    lgb.LearningRate,
+		NumLeaves:       lgb.NumLeaves,
+		MaxDepth:        lgb.MaxDepth,
+		MinDataInLeaf:   lgb.MinChildSamples,
+		Lambda:          lgb.RegLambda,
+		Alpha:           lgb.RegAlpha,
+		MinGainToSplit:  1e-7,
+		BaggingFraction: lgb.Subsample,
+		BaggingFreq:     lgb.SubsampleFreq,
+		FeatureFraction: lgb.ColsampleBytree,
+		MaxBin:          255,
+		MinDataInBin:    3,
+		Objective:       lgb.Objective,
+		NumClass:        lgb.NumClass,
+		Seed:            lgb.RandomState,
+		Deterministic:   lgb.Deterministic,
+		Verbosity:       lgb.Verbosity,
+		EarlyStopping:   lgb.EarlyStopping,
+	}
+
+	// Create and run trainer with init score and sample weights
+	trainer := NewTrainer(params)
+	trainer.SetInitScore(initScore)
+	if sampleWeight != nil {
+		trainer.SetSampleWeight(sampleWeight)
+	}
+	if err := trainer.Fit(X, y); err != nil {
+		return fmt.Errorf("training failed: %w", err)
+	}
+
+	// Get trained model
+	lgb.Model = trainer.GetModel()
+
+	// Create predictor
+	lgb.Predictor = NewPredictor(lgb.Model)
+	if lgb.NumThreads > 0 {
+		lgb.Predictor.SetNumThreads(lgb.NumThreads)
+	}
+	lgb.Predictor.SetDeterministic(lgb.Deterministic)
+
+	// Mark as fitted
+	lgb.state.SetFitted()
+
+	if lgb.ShowProgress {
+		logger.Info("Training with init score completed successfully")
+	}
+
+	return nil
+}
+
 // extractClasses extracts unique class labels from y
 func (lgb *LGBMClassifier) extractClasses(y mat.Matrix) {
 	rows, _ := y.Dims()
@@ -233,21 +427,21 @@ func (lgb *LGBMClassifier) extractClasses(y mat.Matrix) {
 	}
 
 	// Convert map to sorted slice
-	lgb.classes_ = make([]int, 0, len(classMap))
+	lgb.classes = make([]int, 0, len(classMap))
 	for class := range classMap {
-		lgb.classes_ = append(lgb.classes_, class)
+		lgb.classes = append(lgb.classes, class)
 	}
 
 	// Sort classes
-	for i := 0; i < len(lgb.classes_)-1; i++ {
-		for j := i + 1; j < len(lgb.classes_); j++ {
-			if lgb.classes_[i] > lgb.classes_[j] {
-				lgb.classes_[i], lgb.classes_[j] = lgb.classes_[j], lgb.classes_[i]
+	for i := 0; i < len(lgb.classes)-1; i++ {
+		for j := i + 1; j < len(lgb.classes); j++ {
+			if lgb.classes[i] > lgb.classes[j] {
+				lgb.classes[i], lgb.classes[j] = lgb.classes[j], lgb.classes[i]
 			}
 		}
 	}
 
-	lgb.nClasses_ = len(lgb.classes_)
+	lgb.nClasses = len(lgb.classes)
 }
 
 // Predict makes predictions for input samples
@@ -257,8 +451,8 @@ func (lgb *LGBMClassifier) Predict(X mat.Matrix) (mat.Matrix, error) {
 	}
 
 	_, cols := X.Dims()
-	if cols != lgb.nFeatures_ {
-		return nil, scigoErrors.NewDimensionError("Predict", lgb.nFeatures_, cols, 1)
+	if cols != lgb.nFeatures {
+		return nil, scigoErrors.NewDimensionError("Predict", lgb.nFeatures, cols, 1)
 	}
 
 	// Get probability predictions
@@ -275,21 +469,21 @@ func (lgb *LGBMClassifier) Predict(X mat.Matrix) (mat.Matrix, error) {
 		maxProb := 0.0
 		maxClass := 0
 
-		if lgb.nClasses_ == 2 {
+		if lgb.nClasses == 2 {
 			// Binary classification
 			prob := proba.At(i, 1)
 			if prob >= 0.5 {
-				maxClass = lgb.classes_[1]
+				maxClass = lgb.classes[1]
 			} else {
-				maxClass = lgb.classes_[0]
+				maxClass = lgb.classes[0]
 			}
 		} else {
 			// Multiclass
-			for j := 0; j < lgb.nClasses_; j++ {
+			for j := 0; j < lgb.nClasses; j++ {
 				prob := proba.At(i, j)
 				if prob > maxProb {
 					maxProb = prob
-					maxClass = lgb.classes_[j]
+					maxClass = lgb.classes[j]
 				}
 			}
 		}
@@ -307,8 +501,8 @@ func (lgb *LGBMClassifier) PredictProba(X mat.Matrix) (mat.Matrix, error) {
 	}
 
 	_, cols := X.Dims()
-	if cols != lgb.nFeatures_ {
-		return nil, scigoErrors.NewDimensionError("PredictProba", lgb.nFeatures_, cols, 1)
+	if cols != lgb.nFeatures {
+		return nil, scigoErrors.NewDimensionError("PredictProba", lgb.nFeatures, cols, 1)
 	}
 
 	// Use predictor for probability predictions
@@ -374,19 +568,19 @@ func (lgb *LGBMClassifier) LoadModel(filepath string) error {
 	lgb.Predictor = NewPredictor(model)
 
 	// Set parameters from loaded model
-	lgb.nFeatures_ = model.NumFeatures
+	lgb.nFeatures = model.NumFeatures
 	lgb.NumClass = model.NumClass
 
 	// Extract objective
 	switch model.Objective {
 	case BinaryLogistic, BinaryCrossEntropy:
-		lgb.nClasses_ = 2
-		lgb.classes_ = []int{0, 1}
+		lgb.nClasses = 2
+		lgb.classes = []int{0, 1}
 	case MulticlassSoftmax:
-		lgb.nClasses_ = model.NumClass
-		lgb.classes_ = make([]int, lgb.nClasses_)
-		for i := range lgb.classes_ {
-			lgb.classes_[i] = i
+		lgb.nClasses = model.NumClass
+		lgb.classes = make([]int, lgb.nClasses)
+		for i := range lgb.classes {
+			lgb.classes[i] = i
 		}
 	}
 
@@ -403,18 +597,18 @@ func (lgb *LGBMClassifier) LoadModelFromString(modelStr string) error {
 
 	lgb.Model = model
 	lgb.Predictor = NewPredictor(model)
-	lgb.nFeatures_ = model.NumFeatures
+	lgb.nFeatures = model.NumFeatures
 
 	// Set classes based on model
 	if model.NumClass > 2 {
-		lgb.nClasses_ = model.NumClass
-		lgb.classes_ = make([]int, lgb.nClasses_)
-		for i := range lgb.classes_ {
-			lgb.classes_[i] = i
+		lgb.nClasses = model.NumClass
+		lgb.classes = make([]int, lgb.nClasses)
+		for i := range lgb.classes {
+			lgb.classes[i] = i
 		}
 	} else {
-		lgb.nClasses_ = 2
-		lgb.classes_ = []int{0, 1}
+		lgb.nClasses = 2
+		lgb.classes = []int{0, 1}
 	}
 
 	lgb.state.SetFitted()
@@ -430,18 +624,18 @@ func (lgb *LGBMClassifier) LoadModelFromJSON(jsonData []byte) error {
 
 	lgb.Model = model
 	lgb.Predictor = NewPredictor(model)
-	lgb.nFeatures_ = model.NumFeatures
+	lgb.nFeatures = model.NumFeatures
 
 	// Set classes based on model
 	if model.NumClass > 2 {
-		lgb.nClasses_ = model.NumClass
-		lgb.classes_ = make([]int, lgb.nClasses_)
-		for i := range lgb.classes_ {
-			lgb.classes_[i] = i
+		lgb.nClasses = model.NumClass
+		lgb.classes = make([]int, lgb.nClasses)
+		for i := range lgb.classes {
+			lgb.classes[i] = i
 		}
 	} else {
-		lgb.nClasses_ = 2
-		lgb.classes_ = []int{0, 1}
+		lgb.nClasses = 2
+		lgb.classes = []int{0, 1}
 	}
 
 	lgb.state.SetFitted()
@@ -548,8 +742,8 @@ func (lgb *LGBMClassifier) DecisionFunction(X mat.Matrix) (mat.Matrix, error) {
 	}
 
 	_, cols := X.Dims()
-	if cols != lgb.nFeatures_ {
-		return nil, scigoErrors.NewDimensionError("DecisionFunction", lgb.nFeatures_, cols, 1)
+	if cols != lgb.nFeatures {
+		return nil, scigoErrors.NewDimensionError("DecisionFunction", lgb.nFeatures, cols, 1)
 	}
 
 	// Get raw predictions without applying sigmoid/softmax
@@ -558,10 +752,10 @@ func (lgb *LGBMClassifier) DecisionFunction(X mat.Matrix) (mat.Matrix, error) {
 	// For binary classification, return single column
 	// For multiclass, return one column per class
 	var outputCols int
-	if lgb.nClasses_ == 2 {
+	if lgb.nClasses == 2 {
 		outputCols = 1
 	} else {
-		outputCols = lgb.nClasses_
+		outputCols = lgb.nClasses
 	}
 
 	decision := mat.NewDense(rows, outputCols, nil)
@@ -572,12 +766,12 @@ func (lgb *LGBMClassifier) DecisionFunction(X mat.Matrix) (mat.Matrix, error) {
 		// Get raw predictions (before transformation)
 		rawPred := lgb.Model.PredictSingle(features, -1)
 
-		if lgb.nClasses_ == 2 {
+		if lgb.nClasses == 2 {
 			// Binary: single decision value
 			decision.Set(i, 0, rawPred[0])
 		} else {
 			// Multiclass: one value per class
-			for j := 0; j < lgb.nClasses_; j++ {
+			for j := 0; j < lgb.nClasses; j++ {
 				if j < len(rawPred) {
 					decision.Set(i, j, rawPred[j])
 				}

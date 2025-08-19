@@ -203,7 +203,7 @@ func parseParams(params map[string]interface{}) lgb.TrainingParams {
 		MinDataInLeaf:   20,
 		Lambda:          0.0,
 		Alpha:           0.0,
-		MinGainToSplit:  0.0,
+		MinGainToSplit:  1e-7,
 		BaggingFraction: 1.0,
 		FeatureFraction: 1.0,
 		MaxBin:          255,

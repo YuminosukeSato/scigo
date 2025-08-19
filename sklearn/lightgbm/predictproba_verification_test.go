@@ -78,15 +78,16 @@ func TestPredictProbaSoftmaxApplication(t *testing.T) {
 
 	// Create trainer with MulticlassLogLoss parameters
 	params := TrainingParams{
-		NumIterations: testData.TrainingParams.NumBoostRound,
-		LearningRate:  testData.TrainingParams.LearningRate,
-		NumLeaves:     testData.TrainingParams.NumLeaves,
-		MinDataInLeaf: testData.TrainingParams.MinDataInLeaf,
-		Objective:     "multiclass_logloss",
-		NumClass:      testData.TrainingParams.NumClass,
-		Seed:          testData.TrainingParams.Seed,
-		Deterministic: true,
-		Verbosity:     -1,
+		NumIterations:  testData.TrainingParams.NumBoostRound,
+		LearningRate:   testData.TrainingParams.LearningRate,
+		NumLeaves:      testData.TrainingParams.NumLeaves,
+		MinDataInLeaf:  testData.TrainingParams.MinDataInLeaf,
+		MinGainToSplit: 1e-7, // Prevent infinite loops in tree building
+		Objective:      "multiclass_logloss",
+		NumClass:       testData.TrainingParams.NumClass,
+		Seed:           testData.TrainingParams.Seed,
+		Deterministic:  true,
+		Verbosity:      -1,
 	}
 
 	trainer := NewTrainer(params)

@@ -6,13 +6,16 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
 )
 
 // LoadFromFile loads a LightGBM model from a text file
-func LoadFromFile(filepath string) (*Model, error) {
-	file, err := os.Open(filepath)
+func LoadFromFile(filePath string) (*Model, error) {
+	// Clean the file path to prevent path traversal attacks
+	cleanPath := filepath.Clean(filePath)
+	file, err := os.Open(cleanPath)
 	if err != nil {
 		return nil, fmt.Errorf("failed to open file: %w", err)
 	}
@@ -69,6 +72,13 @@ func LoadFromReader(reader io.Reader) (*Model, error) {
 				inTree = true
 				treeParams = make(map[string]string)
 			}
+			continue
+		}
+
+		// Also handle simple "tree" marker (v4 format)
+		if line == "tree" {
+			// This marks the start of model metadata, not a tree
+			// Trees will come later with Tree=N format
 			continue
 		}
 
@@ -132,8 +142,13 @@ func LoadFromReader(reader io.Reader) (*Model, error) {
 		model.NumClass = 1
 	}
 
-	// LightGBM models don't use InitScore separately - it's already in leaf values
-	model.InitScore = 0.0
+	// Extract InitScore from first tree's internal value if available
+	if len(model.Trees) > 0 && model.Trees[0].InternalValue != 0.0 {
+		model.InitScore = model.Trees[0].InternalValue
+	} else {
+		// LightGBM models may include InitScore in leaf values
+		model.InitScore = 0.0
+	}
 
 	return model, nil
 }
@@ -253,8 +268,10 @@ func LoadFromJSON(jsonData []byte) (*Model, error) {
 }
 
 // LoadFromJSONFile loads a LightGBM model from a JSON file
-func LoadFromJSONFile(filepath string) (*Model, error) {
-	data, err := os.ReadFile(filepath)
+func LoadFromJSONFile(filePath string) (*Model, error) {
+	// Clean the file path to prevent path traversal attacks
+	cleanPath := filepath.Clean(filePath)
+	data, err := os.ReadFile(cleanPath)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read JSON file: %w", err)
 	}

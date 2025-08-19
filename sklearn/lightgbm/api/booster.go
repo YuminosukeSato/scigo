@@ -67,7 +67,7 @@ func (b *Booster) InitFromLeavesModel(model *lgb.LeavesModel) {
 
 // Update performs one boosting iteration
 // This is called internally during training
-func (b *Booster) Update(trainSet *Dataset, fobj func(mat.Matrix, *Dataset) (mat.Matrix, mat.Matrix)) error {
+func (b *Booster) Update(_ *Dataset, _ func(mat.Matrix, *Dataset) (mat.Matrix, mat.Matrix)) error {
 	// This would integrate with the existing trainer
 	// For now, we'll provide a placeholder
 	b.currentIteration++

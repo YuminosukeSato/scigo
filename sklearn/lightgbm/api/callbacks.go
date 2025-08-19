@@ -47,7 +47,7 @@ func NewPrintEvaluationCallback(period int) *PrintEvaluationCallback {
 }
 
 // Init initializes the callback
-func (cb *PrintEvaluationCallback) Init(env *CallbackEnv) error {
+func (cb *PrintEvaluationCallback) Init(_ *CallbackEnv) error {
 	if cb.period <= 0 {
 		cb.period = 1
 	}
@@ -55,7 +55,7 @@ func (cb *PrintEvaluationCallback) Init(env *CallbackEnv) error {
 }
 
 // BeforeIteration is called before each iteration
-func (cb *PrintEvaluationCallback) BeforeIteration(env *CallbackEnv) error {
+func (cb *PrintEvaluationCallback) BeforeIteration(_ *CallbackEnv) error {
 	return nil
 }
 
@@ -85,7 +85,7 @@ func (cb *PrintEvaluationCallback) AfterIteration(env *CallbackEnv) error {
 }
 
 // Finalize is called after training
-func (cb *PrintEvaluationCallback) Finalize(env *CallbackEnv) error {
+func (cb *PrintEvaluationCallback) Finalize(_ *CallbackEnv) error {
 	// Print final results if not already printed
 	if cb.lastTime < env.Iteration-1 && env.Iteration > 0 {
 		output := fmt.Sprintf("[%d]", env.Iteration)
@@ -131,7 +131,7 @@ func NewEarlyStoppingCallback(stoppingRounds int, verbose bool) *EarlyStoppingCa
 }
 
 // Init initializes the callback
-func (cb *EarlyStoppingCallback) Init(env *CallbackEnv) error {
+func (cb *EarlyStoppingCallback) Init(_ *CallbackEnv) error {
 	// Determine metric direction based on objective
 	if objective, ok := env.Params["objective"].(string); ok {
 		switch objective {
@@ -155,7 +155,7 @@ func (cb *EarlyStoppingCallback) Init(env *CallbackEnv) error {
 }
 
 // BeforeIteration is called before each iteration
-func (cb *EarlyStoppingCallback) BeforeIteration(env *CallbackEnv) error {
+func (cb *EarlyStoppingCallback) BeforeIteration(_ *CallbackEnv) error {
 	return nil
 }
 
@@ -226,7 +226,7 @@ func (cb *EarlyStoppingCallback) AfterIteration(env *CallbackEnv) error {
 }
 
 // Finalize is called after training
-func (cb *EarlyStoppingCallback) Finalize(env *CallbackEnv) error {
+func (cb *EarlyStoppingCallback) Finalize(_ *CallbackEnv) error {
 	if cb.verbose && cb.bestIteration > 0 {
 		fmt.Printf("[LightGBM] [Info] Best iteration: %d\n", cb.bestIteration+1)
 	}

@@ -37,13 +37,14 @@ func TestFeatureImportanceGain(t *testing.T) {
 
 	// Train model
 	reg := NewLGBMRegressor()
-	reg.SetParams(map[string]interface{}{
+	err := reg.SetParams(map[string]interface{}{
 		"n_estimators":  10,
 		"num_leaves":    15,
 		"learning_rate": 0.1,
 	})
+	require.NoError(t, err)
 
-	err := reg.Fit(X, y)
+	err = reg.Fit(X, y)
 	require.NoError(t, err)
 
 	// Get feature importance
@@ -83,12 +84,13 @@ func TestFeatureImportanceSplit(t *testing.T) {
 
 	// Train model
 	reg := NewLGBMRegressor()
-	reg.SetParams(map[string]interface{}{
+	err := reg.SetParams(map[string]interface{}{
 		"n_estimators": 5,
 		"num_leaves":   10,
 	})
+	require.NoError(t, err)
 
-	err := reg.Fit(X, y)
+	err = reg.Fit(X, y)
 	require.NoError(t, err)
 
 	// Get feature importance by split count
@@ -140,12 +142,13 @@ func TestFeatureImportanceClassification(t *testing.T) {
 
 	// Train classifier
 	clf := NewLGBMClassifier()
-	clf.SetParams(map[string]interface{}{
+	err := clf.SetParams(map[string]interface{}{
 		"n_estimators": 5,
 		"num_leaves":   8,
 	})
+	require.NoError(t, err)
 
-	err := clf.Fit(X, y)
+	err = clf.Fit(X, y)
 	require.NoError(t, err)
 
 	// Get feature importance
@@ -204,12 +207,14 @@ func TestFeatureImportanceConsistency(t *testing.T) {
 	}
 
 	reg1 := NewLGBMRegressor()
-	reg1.SetParams(params)
-	err := reg1.Fit(X, y)
+	err := reg1.SetParams(params)
+	require.NoError(t, err)
+	err = reg1.Fit(X, y)
 	require.NoError(t, err)
 
 	reg2 := NewLGBMRegressor()
-	reg2.SetParams(params)
+	err = reg2.SetParams(params)
+	require.NoError(t, err)
 	err = reg2.Fit(X, y)
 	require.NoError(t, err)
 
@@ -240,10 +245,13 @@ func BenchmarkFeatureImportance(b *testing.B) {
 	}
 
 	reg := NewLGBMRegressor()
-	reg.SetParams(map[string]interface{}{
+	err := reg.SetParams(map[string]interface{}{
 		"n_estimators": 20,
 		"num_leaves":   31,
 	})
+	if err != nil {
+		b.Fatal(err)
+	}
 	_ = reg.Fit(X, y)
 
 	b.ResetTimer()

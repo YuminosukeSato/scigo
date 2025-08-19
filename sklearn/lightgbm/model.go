@@ -83,7 +83,8 @@ func (t *Tree) Predict(features []float64) float64 {
 		node := &t.Nodes[nodeID]
 
 		if node.IsLeaf() {
-			return node.LeafValue * t.ShrinkageRate
+			// Leaf value already has shrinkage applied (either from file or during training)
+			return node.LeafValue
 		}
 
 		// Handle missing values
@@ -457,8 +458,8 @@ func (m *Model) SaveToText(filename string) error {
 		sb.WriteString("\n")
 	}
 
-	// Write to file
-	return os.WriteFile(filename, []byte(sb.String()), 0644)
+	// Write to file with secure permissions (owner read/write only)
+	return os.WriteFile(filename, []byte(sb.String()), 0600)
 }
 
 // Helper functions

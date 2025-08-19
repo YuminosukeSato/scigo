@@ -1,3 +1,4 @@
+// Package api provides integration tests for the LightGBM API implementation
 package api
 
 import (

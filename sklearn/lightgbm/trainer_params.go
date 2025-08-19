@@ -1,6 +1,7 @@
 package lightgbm
 
 import (
+	"math"
 	"math/rand"
 )
 
@@ -52,7 +53,7 @@ func (s *SamplingStrategy) SampleFeatures(numFeatures int, iteration int) []int 
 	// Create permutation with deterministic seed if needed
 	if s.deterministic {
 		// Use iteration as additional seed component for deterministic behavior
-		s.rng.Seed(int64(s.rng.Int31() + int32(iteration)))
+		s.rng.Seed(int64(s.rng.Int31() + int32(iteration))) // nolint:gosec // Safe conversion: iteration is bounded
 	}
 
 	// Fisher-Yates shuffle to sample features
@@ -102,7 +103,7 @@ func (s *SamplingStrategy) SampleInstances(numInstances int, iteration int) []in
 	// Create permutation with deterministic seed if needed
 	if s.deterministic {
 		// Use iteration as additional seed component for deterministic behavior
-		s.rng.Seed(int64(s.rng.Int31() + int32(iteration)))
+		s.rng.Seed(int64(s.rng.Int31() + int32(iteration))) // nolint:gosec // Safe conversion: iteration is bounded
 	}
 
 	// Sample without replacement
@@ -158,8 +159,6 @@ func (r *RegularizationStrategy) ApplyLeafRegularization(sumGrad, sumHess float6
 func (r *RegularizationStrategy) CalculateSplitGain(
 	leftGrad, leftHess, rightGrad, rightHess, parentGrad, parentHess float64) float64 {
 
-	const epsilon = 1e-10
-
 	// Calculate scores with L2 regularization
 	leftScore := r.calculateScore(leftGrad, leftHess)
 	rightScore := r.calculateScore(rightGrad, rightHess)
@@ -173,8 +172,18 @@ func (r *RegularizationStrategy) CalculateSplitGain(
 func (r *RegularizationStrategy) calculateScore(sumGrad, sumHess float64) float64 {
 	const epsilon = 1e-10
 
+	// Check for invalid inputs to prevent overflow
+	if math.IsNaN(sumGrad) || math.IsNaN(sumHess) || math.IsInf(sumGrad, 0) || math.IsInf(sumHess, 0) {
+		return 0.0
+	}
+
 	// Apply L2 regularization
 	denominator := sumHess + r.lambdaL2 + epsilon
+
+	// Prevent division by very small numbers that could cause overflow
+	if math.Abs(denominator) < epsilon {
+		return 0.0
+	}
 
 	// Apply L1 regularization
 	var numerator float64
@@ -190,6 +199,14 @@ func (r *RegularizationStrategy) calculateScore(sumGrad, sumHess float64) float6
 		numerator = sumGrad
 	}
 
-	// Score = -0.5 * G^2 / (H + lambda)
-	return 0.5 * numerator * numerator / denominator
+	// Score = 0.5 * G^2 / (H + lambda)
+	// Note: Positive score for gain calculation
+	score := 0.5 * numerator * numerator / denominator
+
+	// Check for overflow/underflow in result
+	if math.IsNaN(score) || math.IsInf(score, 0) {
+		return 0.0
+	}
+
+	return score
 }

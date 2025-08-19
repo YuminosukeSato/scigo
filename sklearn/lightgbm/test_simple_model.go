@@ -6,6 +6,7 @@ import (
 	"testing"
 )
 
+// TestSimpleModelPrediction tests basic model prediction functionality
 func TestSimpleModelPrediction(t *testing.T) {
 	// Load the simple model
 	model, err := LoadFromFile("testdata/simple_model.txt")

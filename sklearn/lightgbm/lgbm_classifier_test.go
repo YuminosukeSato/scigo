@@ -38,8 +38,8 @@ func TestLGBMClassifierBinaryFit(t *testing.T) {
 	// Verify model is fitted
 	assert.True(t, clf.state.IsFitted())
 	assert.NotNil(t, clf.Model)
-	assert.Equal(t, 2, clf.nClasses_)
-	assert.Equal(t, []int{0, 1}, clf.classes_)
+	assert.Equal(t, 2, clf.nClasses)
+	assert.Equal(t, []int{0, 1}, clf.classes)
 }
 
 // TestLGBMClassifierMulticlassFit tests the fit method for multiclass classification
@@ -66,8 +66,8 @@ func TestLGBMClassifierMulticlassFit(t *testing.T) {
 
 	// Verify model is fitted
 	assert.True(t, clf.state.IsFitted())
-	assert.Equal(t, 3, clf.nClasses_)
-	assert.Equal(t, []int{0, 1, 2}, clf.classes_)
+	assert.Equal(t, 3, clf.nClasses)
+	assert.Equal(t, []int{0, 1, 2}, clf.classes)
 }
 
 // TestLGBMClassifierPredict tests prediction for binary classification
@@ -92,14 +92,14 @@ func TestLGBMClassifierPredict(t *testing.T) {
 	require.NoError(t, err)
 
 	// Test prediction
-	X_test := mat.NewDense(10, 4, nil)
+	XTest := mat.NewDense(10, 4, nil)
 	for i := 0; i < 10; i++ {
 		for j := 0; j < 4; j++ {
-			X_test.Set(i, j, float64(i*j)/10.0)
+			XTest.Set(i, j, float64(i*j)/10.0)
 		}
 	}
 
-	predictions, err := clf.Predict(X_test)
+	predictions, err := clf.Predict(XTest)
 	require.NoError(t, err)
 
 	// Check prediction shape
@@ -136,14 +136,14 @@ func TestLGBMClassifierPredictProba(t *testing.T) {
 	require.NoError(t, err)
 
 	// Test probability prediction
-	X_test := mat.NewDense(10, 4, nil)
+	XTest := mat.NewDense(10, 4, nil)
 	for i := 0; i < 10; i++ {
 		for j := 0; j < 4; j++ {
-			X_test.Set(i, j, float64(i*j)/10.0)
+			XTest.Set(i, j, float64(i*j)/10.0)
 		}
 	}
 
-	proba, err := clf.PredictProba(X_test)
+	proba, err := clf.PredictProba(XTest)
 	require.NoError(t, err)
 
 	// Check shape
@@ -204,7 +204,7 @@ func TestLGBMClassifierParameters(t *testing.T) {
 	clf := NewLGBMClassifier()
 
 	// Test setting parameters
-	clf.SetParams(map[string]interface{}{
+	err := clf.SetParams(map[string]interface{}{
 		"n_estimators":      50,
 		"learning_rate":     0.05,
 		"max_depth":         5,
@@ -215,6 +215,7 @@ func TestLGBMClassifierParameters(t *testing.T) {
 		"reg_alpha":         0.1,
 		"reg_lambda":        0.1,
 	})
+	require.NoError(t, err)
 
 	// Verify parameters are set
 	params := clf.GetParams()
@@ -279,14 +280,14 @@ func TestLGBMClassifierFeatureImportance(t *testing.T) {
 func TestLGBMClassifierNotFittedError(t *testing.T) {
 	clf := NewLGBMClassifier()
 
-	X_test := mat.NewDense(10, 4, nil)
+	XTest := mat.NewDense(10, 4, nil)
 
 	// Should error when not fitted
-	_, err := clf.Predict(X_test)
+	_, err := clf.Predict(XTest)
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "not fitted")
 
-	_, err = clf.PredictProba(X_test)
+	_, err = clf.PredictProba(XTest)
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "not fitted")
 }
@@ -399,11 +400,12 @@ func TestLGBMClassifierSaveLoad(t *testing.T) {
 	}
 
 	clf := NewLGBMClassifier()
-	clf.SetParams(map[string]interface{}{
+	err := clf.SetParams(map[string]interface{}{
 		"n_estimators":  10,
 		"learning_rate": 0.1,
 	})
-	err := clf.Fit(X, y)
+	require.NoError(t, err)
+	err = clf.Fit(X, y)
 	require.NoError(t, err)
 
 	// Save model
