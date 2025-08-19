@@ -168,8 +168,10 @@ func loadCSVData(t *testing.T, filePath string) *mat.Dense {
 }
 
 // loadCSVPredictions loads prediction data from CSV
-func loadCSVPredictions(t *testing.T, filepath string) *mat.Dense {
-	file, err := os.Open(filepath)
+func loadCSVPredictions(t *testing.T, filePath string) *mat.Dense {
+	// Clean the file path to prevent path traversal attacks
+	cleanPath := filepath.Clean(filePath)
+	file, err := os.Open(cleanPath)
 	if err != nil {
 		t.Skipf("Prediction file not found: %v", err)
 	}

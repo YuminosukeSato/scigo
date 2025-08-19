@@ -20,7 +20,9 @@ type pyTestData struct {
 func loadLocalTestData(t *testing.T, name string) (*pyTestData, error) {
 	t.Helper()
 	path := filepath.Join("testdata", name+"_test_data.json")
-	f, err := os.Open(path)
+	// Clean the file path to prevent path traversal attacks
+	cleanPath := filepath.Clean(path)
+	f, err := os.Open(cleanPath)
 	if err != nil {
 		return nil, err
 	}

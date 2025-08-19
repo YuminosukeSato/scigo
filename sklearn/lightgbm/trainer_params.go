@@ -18,11 +18,11 @@ type SamplingStrategy struct {
 func NewSamplingStrategy(params TrainingParams) *SamplingStrategy {
 	seed := params.Seed
 	if seed == 0 && !params.Deterministic {
-		seed = int(rand.Int31())
+		seed = int(rand.Int31()) // #nosec G404 - ML sampling seed generation
 	}
 
 	return &SamplingStrategy{
-		rng:             rand.New(rand.NewSource(int64(seed))),
+		rng:             rand.New(rand.NewSource(int64(seed))), // #nosec G404 - ML sampling RNG
 		featureFraction: params.FeatureFraction,
 		baggingFraction: params.BaggingFraction,
 		baggingFreq:     params.BaggingFreq,

@@ -21,19 +21,19 @@ func TestCategoricalFeatures(t *testing.T) {
 
 	for i := 0; i < n; i++ {
 		// Continuous feature 0
-		x0 := rand.Float64() * 10
+		x0 := rand.Float64() * 10 // #nosec G404 - test data generation
 		X.Set(i, 0, x0)
 
 		// Categorical feature 1 (values: 0, 1, 2)
-		cat1 := float64(rand.Intn(3))
+		cat1 := float64(rand.Intn(3)) // #nosec G404 - test data generation
 		X.Set(i, 1, cat1)
 
 		// Continuous feature 2
-		x2 := rand.Float64() * 5
+		x2 := rand.Float64() * 5 // #nosec G404 - test data generation
 		X.Set(i, 2, x2)
 
 		// Categorical feature 3 (values: 0, 1, 2, 3, 4)
-		cat3 := float64(rand.Intn(5))
+		cat3 := float64(rand.Intn(5)) // #nosec G404 - test data generation
 		X.Set(i, 3, cat3)
 
 		// Target based on features with categorical effects
@@ -55,7 +55,7 @@ func TestCategoricalFeatures(t *testing.T) {
 		}
 
 		// Add noise
-		target += rand.NormFloat64() * 0.1
+		target += rand.NormFloat64() * 0.1 // #nosec G404 - test data generation
 
 		y.Set(i, 0, target)
 	}
@@ -168,7 +168,7 @@ func TestCategoricalFeatures(t *testing.T) {
 
 		for i := 0; i < n; i++ {
 			// Continuous feature
-			x0 := rand.Float64() * 10
+			x0 := rand.Float64() * 10 // #nosec G404 - test data generation
 			X.Set(i, 0, x0)
 
 			// Binary categorical feature (0 or 1)
@@ -296,13 +296,13 @@ func TestCategoricalWithLGBMRegressor(t *testing.T) {
 
 	for i := 0; i < n; i++ {
 		// Continuous
-		X.Set(i, 0, rand.Float64()*10)
+		X.Set(i, 0, rand.Float64()*10) // #nosec G404 - test data generation
 
 		// Categorical (0, 1, 2)
-		X.Set(i, 1, float64(rand.Intn(3)))
+		X.Set(i, 1, float64(rand.Intn(3))) // #nosec G404 - test data generation
 
 		// Continuous
-		X.Set(i, 2, rand.Float64()*5)
+		X.Set(i, 2, rand.Float64()*5) // #nosec G404 - test data generation
 
 		// Target
 		target := X.At(i, 0)*0.5 + X.At(i, 2)*0.3
@@ -311,7 +311,7 @@ func TestCategoricalWithLGBMRegressor(t *testing.T) {
 		} else if X.At(i, 1) == 2 {
 			target -= 2.0
 		}
-		target += rand.NormFloat64() * 0.1
+		target += rand.NormFloat64() * 0.1 // #nosec G404 - test data generation
 
 		y.Set(i, 0, target)
 	}

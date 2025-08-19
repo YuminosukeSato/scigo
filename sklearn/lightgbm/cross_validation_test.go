@@ -129,8 +129,8 @@ func TestStratifiedKFold(t *testing.T) {
 
 		// 70% class 0, 30% class 1
 		for i := 0; i < n; i++ {
-			X.Set(i, 0, rand.Float64())
-			X.Set(i, 1, rand.Float64())
+			X.Set(i, 0, rand.Float64()) // #nosec G404 - test data generation
+			X.Set(i, 1, rand.Float64()) // #nosec G404 - test data generation
 			if i < 70 {
 				y.Set(i, 0, 0.0)
 			} else {
@@ -169,8 +169,8 @@ func TestStratifiedKFold(t *testing.T) {
 
 		// 30 samples per class
 		for i := 0; i < n; i++ {
-			X.Set(i, 0, rand.Float64())
-			X.Set(i, 1, rand.Float64())
+			X.Set(i, 0, rand.Float64()) // #nosec G404 - test data generation
+			X.Set(i, 1, rand.Float64()) // #nosec G404 - test data generation
 			y.Set(i, 0, float64(i/30))
 		}
 
@@ -202,13 +202,13 @@ func TestCrossValidate(t *testing.T) {
 
 		// Removed deprecated rand.Seed - using default random source
 		for i := 0; i < n; i++ {
-			x1 := rand.Float64() * 10
-			x2 := rand.Float64() * 5
+			x1 := rand.Float64() * 10 // #nosec G404 - test data generation
+			x2 := rand.Float64() * 5 // #nosec G404 - test data generation
 			X.Set(i, 0, x1)
 			X.Set(i, 1, x2)
 
 			// y = 2*x1 + 3*x2 + noise
-			noise := rand.NormFloat64() * 0.1
+			noise := rand.NormFloat64() * 0.1 // #nosec G404 - test data generation
 			y.Set(i, 0, 2*x1+3*x2+noise)
 		}
 
@@ -251,8 +251,8 @@ func TestCrossValidate(t *testing.T) {
 
 		// Removed deprecated rand.Seed - using default random source
 		for i := 0; i < n; i++ {
-			x1 := rand.Float64() * 10
-			x2 := rand.Float64() * 5
+			x1 := rand.Float64() * 10 // #nosec G404 - test data generation
+			x2 := rand.Float64() * 5 // #nosec G404 - test data generation
 			X.Set(i, 0, x1)
 			X.Set(i, 1, x2)
 
@@ -291,9 +291,9 @@ func TestCrossValidate(t *testing.T) {
 		y := mat.NewDense(n, 1, nil)
 
 		for i := 0; i < n; i++ {
-			X.Set(i, 0, rand.Float64())
-			X.Set(i, 1, rand.Float64())
-			y.Set(i, 0, rand.Float64())
+			X.Set(i, 0, rand.Float64()) // #nosec G404 - test data generation
+			X.Set(i, 1, rand.Float64()) // #nosec G404 - test data generation
+			y.Set(i, 0, rand.Float64()) // #nosec G404 - test data generation
 		}
 
 		params := TrainingParams{
@@ -327,11 +327,11 @@ func TestCrossValidateRegressor(t *testing.T) {
 
 	// Removed deprecated rand.Seed - using default random source
 	for i := 0; i < n; i++ {
-		x1 := rand.Float64() * 10
-		x2 := rand.Float64() * 5
+		x1 := rand.Float64() * 10 // #nosec G404 - test data generation
+		x2 := rand.Float64() * 5 // #nosec G404 - test data generation
 		X.Set(i, 0, x1)
 		X.Set(i, 1, x2)
-		y.Set(i, 0, x1*0.5+x2*0.3+rand.NormFloat64()*0.1)
+		y.Set(i, 0, x1*0.5+x2*0.3+rand.NormFloat64()*0.1) // #nosec G404 - test data generation
 	}
 
 	// Create regressor
@@ -364,8 +364,8 @@ func TestCrossValidateClassifier(t *testing.T) {
 
 	// Removed deprecated rand.Seed - using default random source
 	for i := 0; i < n; i++ {
-		x1 := rand.Float64() * 10
-		x2 := rand.Float64() * 5
+		x1 := rand.Float64() * 10 // #nosec G404 - test data generation
+		x2 := rand.Float64() * 5 // #nosec G404 - test data generation
 		X.Set(i, 0, x1)
 		X.Set(i, 1, x2)
 

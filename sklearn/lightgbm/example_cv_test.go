@@ -17,15 +17,15 @@ func ExampleCrossValidate() {
 
 	// Removed deprecated rand.Seed - using default random source
 	for i := 0; i < n; i++ {
-		x1 := rand.Float64() * 10
-		x2 := rand.Float64() * 5
-		x3 := rand.Float64() * 2
+		x1 := rand.Float64() * 10 // #nosec G404 - test data generation
+		x2 := rand.Float64() * 5 // #nosec G404 - test data generation
+		x3 := rand.Float64() * 2 // #nosec G404 - test data generation
 		X.Set(i, 0, x1)
 		X.Set(i, 1, x2)
 		X.Set(i, 2, x3)
 
 		// y = 0.5*x1 + 0.3*x2 + 0.1*x3 + noise
-		y.Set(i, 0, 0.5*x1+0.3*x2+0.1*x3+rand.NormFloat64()*0.5)
+		y.Set(i, 0, 0.5*x1+0.3*x2+0.1*x3+rand.NormFloat64()*0.5) // #nosec G404 - test data generation
 	}
 
 	// Setup LightGBM parameters
@@ -67,9 +67,9 @@ func ExampleTrainer_WithCallbacks() {
 
 	// Removed deprecated rand.Seed - using default random source
 	for i := 0; i < n; i++ {
-		X.Set(i, 0, rand.Float64()*10)
-		X.Set(i, 1, rand.Float64()*5)
-		y.Set(i, 0, X.At(i, 0)*0.5+X.At(i, 1)*0.3+rand.NormFloat64()*0.1)
+		X.Set(i, 0, rand.Float64()*10) // #nosec G404 - test data generation
+		X.Set(i, 1, rand.Float64()*5) // #nosec G404 - test data generation
+		y.Set(i, 0, X.At(i, 0)*0.5+X.At(i, 1)*0.3+rand.NormFloat64()*0.1) // #nosec G404 - test data generation
 	}
 
 	// Setup parameters
