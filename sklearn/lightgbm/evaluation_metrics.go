@@ -397,6 +397,7 @@ func EvaluateClassification(yTrue, yPred []int, yProba []float64) (map[string]in
 // Import functions from metrics package for regression
 // These are wrapper functions to make them available in the lightgbm package
 
+// MSE calculates the Mean Squared Error between predicted and true values
 func MSE(yTrue, yPred *mat.VecDense) (float64, error) {
 	// This would be imported from the metrics package
 	// For now, implement a simple version
@@ -418,6 +419,7 @@ func MSE(yTrue, yPred *mat.VecDense) (float64, error) {
 	return sum / float64(n), nil
 }
 
+// MAE calculates the Mean Absolute Error between predicted and true values
 func MAE(yTrue, yPred *mat.VecDense) (float64, error) {
 	n := yTrue.Len()
 	if n == 0 {
@@ -437,6 +439,7 @@ func MAE(yTrue, yPred *mat.VecDense) (float64, error) {
 	return sum / float64(n), nil
 }
 
+// R2Score calculates the R-squared coefficient of determination
 func R2Score(yTrue, yPred *mat.VecDense) (float64, error) {
 	n := yTrue.Len()
 	if n == 0 {

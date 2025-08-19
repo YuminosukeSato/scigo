@@ -142,15 +142,19 @@ func (p *Predictor) predictParallel(X, predictions *mat.Dense) {
 
 // predictSingleSample makes a prediction for a single sample with numerical precision
 func (p *Predictor) predictSingleSample(features []float64) []float64 {
-	// Initialize predictions with proper precision
+	// Initialize predictions
+	// Note: LightGBM's text format already includes init_score in the first tree's leaf values
+	// However, for models created programmatically, we need to add InitScore explicitly
 	var predictions []float64
 	if p.model.NumClass > 2 {
 		predictions = make([]float64, p.model.NumClass)
+		// For multiclass, start from InitScore
 		for i := range predictions {
-			predictions[i] = p.ensurePrecision(p.model.InitScore)
+			predictions[i] = p.model.InitScore
 		}
 	} else {
-		predictions = []float64{p.ensurePrecision(p.model.InitScore)}
+		// For regression and binary classification, start from InitScore
+		predictions = []float64{p.model.InitScore}
 	}
 
 	// Use best iteration if available, otherwise all trees
@@ -159,17 +163,30 @@ func (p *Predictor) predictSingleSample(features []float64) []float64 {
 		numIteration = p.model.BestIteration
 	}
 
+	// If NumIteration is not set, use all trees
+	if numIteration == 0 {
+		numIteration = len(p.model.Trees)
+	}
+
 	// Accumulate predictions from trees with precision handling
 	for i := 0; i < numIteration && i < len(p.model.Trees); i++ {
 		tree := &p.model.Trees[i]
 		treeOutput := p.predictTree(tree, features)
+		// fmt.Printf("Tree %d: output=%f, shrinkage=%f\n", i, treeOutput, tree.ShrinkageRate)
+
+		// Apply the tree's specific shrinkage rate
+		// If ShrinkageRate is 0, default to the model's learning rate for backward compatibility
+		shrinkage := tree.ShrinkageRate
+		if shrinkage == 0 {
+			shrinkage = p.model.LearningRate
+		}
 
 		if p.model.NumClass > 2 {
 			// For multiclass, trees are arranged by class
 			classIdx := i % p.model.NumClass
-			predictions[classIdx] = p.ensurePrecision(predictions[classIdx] + treeOutput)
+			predictions[classIdx] = p.ensurePrecision(predictions[classIdx] + treeOutput*shrinkage)
 		} else {
-			predictions[0] = p.ensurePrecision(predictions[0] + treeOutput)
+			predictions[0] = p.ensurePrecision(predictions[0] + treeOutput*shrinkage)
 		}
 	}
 
@@ -181,15 +198,26 @@ func (p *Predictor) predictSingleSample(features []float64) []float64 {
 
 // predictTree makes a prediction using a single tree with precision guarantees
 func (p *Predictor) predictTree(tree *Tree, features []float64) float64 {
+	// Debug logging
+	// fmt.Printf("predictTree: %d nodes, %d leaf values, ShrinkageRate: %f\n", len(tree.Nodes), len(tree.LeafValues), tree.ShrinkageRate)
+
 	nodeIdx := 0 // Start from root
 
+	// Continue until we reach a leaf
 	for nodeIdx >= 0 && nodeIdx < len(tree.Nodes) {
 		node := &tree.Nodes[nodeIdx]
+		// fmt.Printf("  Node %d: IsLeaf=%v, LeftChild=%d, RightChild=%d, SplitFeature=%d\n",
+		// 	nodeIdx, node.IsLeaf(), node.LeftChild, node.RightChild, node.SplitFeature)
 
+		// Check if this is a leaf node
 		if node.IsLeaf() {
-			// Apply shrinkage and ensure precision
-			return p.ensurePrecision(node.LeafValue * tree.ShrinkageRate)
+			// Leaf value already has shrinkage applied (either from file or during training)
+			return p.ensurePrecision(node.LeafValue)
 		}
+
+		// Check if children are leaf nodes (negative indices in LightGBM format)
+		// Negative child index means it's a leaf, and the absolute value - 1 is the leaf index
+		// This is an internal node with leaf children - continue with decision logic
 
 		// Get feature value with bounds checking
 		if node.SplitFeature >= len(features) {
@@ -215,13 +243,14 @@ func (p *Predictor) predictTree(tree *Tree, features []float64) float64 {
 		}
 
 		// Make decision based on node type with numerical precision
+		var nextIdx int
 		switch node.NodeType {
 		case NumericalNode:
 			// Use precise comparison
 			if p.compareWithPrecision(featureValue, node.Threshold) <= 0 {
-				nodeIdx = node.LeftChild
+				nextIdx = node.LeftChild
 			} else {
-				nodeIdx = node.RightChild
+				nextIdx = node.RightChild
 			}
 		case CategoricalNode:
 			// Check if feature value is in categories list
@@ -234,16 +263,38 @@ func (p *Predictor) predictTree(tree *Tree, features []float64) float64 {
 				}
 			}
 			if inCategories {
-				nodeIdx = node.LeftChild
+				nextIdx = node.LeftChild
 			} else {
-				nodeIdx = node.RightChild
+				nextIdx = node.RightChild
 			}
+		case LeafNode:
+			// This is a leaf node
+			// Leaf value already has shrinkage applied (either from file or during training)
+			return p.ensurePrecision(node.LeafValue)
 		default:
-			// Unknown node type, return 0
+			nextIdx = node.LeftChild
+		}
+
+		// Check if next index is a leaf (negative value in LightGBM format)
+		if nextIdx < 0 {
+			// Negative index means leaf, convert to leaf array index
+			leafIdx := -nextIdx - 1
+			// fmt.Printf("Leaf index: %d (from %d), LeafValues length: %d\n", leafIdx, nextIdx, len(tree.LeafValues)
+			if leafIdx >= 0 && leafIdx < len(tree.LeafValues) {
+				leafValue := tree.LeafValues[leafIdx]
+				// Leaf value already has shrinkage applied (either from file or during training)
+				return p.ensurePrecision(leafValue)
+			}
+			// Fallback if leaf index is invalid
+			// fmt.Printf("Invalid leaf index %d, returning 0\n", leafIdx)
 			return 0.0
 		}
+
+		nodeIdx = nextIdx
 	}
 
+	// If we've reached here and nodeIdx is negative (leaf reference in another format)
+	// or we couldn't find a leaf, return 0
 	return 0.0
 }
 
@@ -398,6 +449,10 @@ func (p *Predictor) PredictProba(X mat.Matrix) (mat.Matrix, error) {
 		// Already returns probabilities
 		return predictions, nil
 
+	case MulticlassLogLoss:
+		// Apply Softmax transformation to convert logits to probabilities
+		return p.applySoftmax(predictions), nil
+
 	default:
 		// For regression, just return raw predictions
 		return predictions, nil
@@ -420,6 +475,45 @@ func (p *Predictor) PredictLeafIndex(X mat.Matrix) ([][]int, error) {
 	}
 
 	return leafIndices, nil
+}
+
+// applySoftmax applies the Softmax transformation to convert logits to probabilities
+// This is numerically stable implementation
+func (p *Predictor) applySoftmax(logits mat.Matrix) mat.Matrix {
+	rows, cols := logits.Dims()
+	probabilities := mat.NewDense(rows, cols, nil)
+
+	for i := 0; i < rows; i++ {
+		// Extract logits for this sample
+		sampleLogits := make([]float64, cols)
+		for j := 0; j < cols; j++ {
+			sampleLogits[j] = logits.At(i, j)
+		}
+
+		// Find max for numerical stability
+		maxLogit := sampleLogits[0]
+		for _, logit := range sampleLogits[1:] {
+			if logit > maxLogit {
+				maxLogit = logit
+			}
+		}
+
+		// Compute exp(x - max) and sum
+		expSum := 0.0
+		expValues := make([]float64, cols)
+		for j, logit := range sampleLogits {
+			expValues[j] = math.Exp(logit - maxLogit)
+			expSum += expValues[j]
+		}
+
+		// Normalize to get probabilities
+		for j, expVal := range expValues {
+			probability := expVal / expSum
+			probabilities.Set(i, j, p.ensurePrecision(probability))
+		}
+	}
+
+	return probabilities
 }
 
 // getLeafIndices returns the leaf index for each tree

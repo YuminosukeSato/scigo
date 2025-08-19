@@ -283,7 +283,12 @@ func (p *zerologProvider) GetLoggerWithName(name string) Logger {
 
 // SetLevel implements LoggerProvider.SetLevel.
 func (p *zerologProvider) SetLevel(level Level) {
-	zerologLevel := zerolog.Level(int(level))
+	// Safe conversion with range check
+	levelInt := int(level)
+	if levelInt < int(zerolog.TraceLevel) || levelInt > int(zerolog.Disabled) {
+		levelInt = int(zerolog.InfoLevel) // Default to info level
+	}
+	zerologLevel := zerolog.Level(int8(levelInt))
 	p.level = zerologLevel
 	zerolog.SetGlobalLevel(zerologLevel)
 	p.logger = p.logger.Level(zerologLevel)

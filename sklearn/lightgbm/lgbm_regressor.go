@@ -52,10 +52,10 @@ type LGBMRegressor struct {
 	ShowProgress bool // Show progress bar during training
 
 	// Internal state
-	// featureNames_ field reserved for future use
-	// featureNames_ []string // Feature names
-	nFeatures_ int // Number of features
-	nSamples_  int // Number of training samples
+	// featureNames field reserved for future use
+	// featureNames []string // Feature names
+	nFeatures int // Number of features
+	nSamples  int // Number of training samples
 }
 
 // NewLGBMRegressor creates a new LightGBM regressor with default parameters
@@ -143,6 +143,12 @@ func (lgb *LGBMRegressor) WithObjective(obj string) *LGBMRegressor {
 	return lgb
 }
 
+// WithTweedieVariancePower sets the Tweedie variance power parameter
+func (lgb *LGBMRegressor) WithTweedieVariancePower(power float64) *LGBMRegressor {
+	lgb.TweedieVariancePower = power
+	return lgb
+}
+
 // WithEarlyStopping sets early stopping rounds
 func (lgb *LGBMRegressor) WithEarlyStopping(rounds int) *LGBMRegressor {
 	lgb.EarlyStopping = rounds
@@ -165,8 +171,8 @@ func (lgb *LGBMRegressor) Fit(X, y mat.Matrix) (err error) {
 	}
 
 	// Store dimensions
-	lgb.nFeatures_ = cols
-	lgb.nSamples_ = rows
+	lgb.nFeatures = cols
+	lgb.nSamples = rows
 
 	// Log training start
 	logger := log.GetLoggerWithName("lightgbm.regressor")
@@ -180,30 +186,31 @@ func (lgb *LGBMRegressor) Fit(X, y mat.Matrix) (err error) {
 
 	// Create training parameters
 	params := TrainingParams{
-		NumIterations:       lgb.NumIterations,
-		LearningRate:        lgb.LearningRate,
-		NumLeaves:           lgb.NumLeaves,
-		MaxDepth:            lgb.MaxDepth,
-		MinDataInLeaf:       lgb.MinChildSamples,
-		Lambda:              lgb.RegLambda,
-		Alpha:               lgb.RegAlpha,
-		MinGainToSplit:      1e-7,
-		BaggingFraction:     lgb.Subsample,
-		BaggingFreq:         lgb.SubsampleFreq,
-		FeatureFraction:     lgb.ColsampleBytree,
-		MaxBin:              255,
-		MinDataInBin:        3,
-		Objective:           lgb.Objective,
-		NumClass:            1, // Regression always has 1 output
-		HuberDelta:          lgb.HuberAlpha,
-		QuantileAlpha:       lgb.Alpha,
-		FairC:               lgb.FairC,
-		CategoricalFeatures: lgb.CategoricalFeatures,
-		MaxCatToOnehot:      4, // Default value
-		Seed:                lgb.RandomState,
-		Deterministic:       lgb.Deterministic,
-		Verbosity:           lgb.Verbosity,
-		EarlyStopping:       lgb.EarlyStopping,
+		NumIterations:        lgb.NumIterations,
+		LearningRate:         lgb.LearningRate,
+		NumLeaves:            lgb.NumLeaves,
+		MaxDepth:             lgb.MaxDepth,
+		MinDataInLeaf:        lgb.MinChildSamples,
+		Lambda:               lgb.RegLambda,
+		Alpha:                lgb.RegAlpha,
+		MinGainToSplit:       1e-7,
+		BaggingFraction:      lgb.Subsample,
+		BaggingFreq:          lgb.SubsampleFreq,
+		FeatureFraction:      lgb.ColsampleBytree,
+		MaxBin:               255,
+		MinDataInBin:         3,
+		Objective:            lgb.Objective,
+		NumClass:             1, // Regression always has 1 output
+		HuberDelta:           lgb.HuberAlpha,
+		QuantileAlpha:        lgb.Alpha,
+		FairC:                lgb.FairC,
+		TweedieVariancePower: lgb.TweedieVariancePower,
+		CategoricalFeatures:  lgb.CategoricalFeatures,
+		MaxCatToOnehot:       4, // Default value
+		Seed:                 lgb.RandomState,
+		Deterministic:        lgb.Deterministic,
+		Verbosity:            lgb.Verbosity,
+		EarlyStopping:        lgb.EarlyStopping,
 	}
 
 	// Create and run trainer
@@ -232,6 +239,184 @@ func (lgb *LGBMRegressor) Fit(X, y mat.Matrix) (err error) {
 	return nil
 }
 
+// FitWeighted trains the LightGBM regressor with sample weights
+// FitWeighted trains the LightGBM regressor with sample weights
+// FitWeighted trains the LightGBM regressor with sample weights
+func (lgb *LGBMRegressor) FitWeighted(X, y mat.Matrix, sampleWeight []float64) (err error) {
+	defer scigoErrors.Recover(&err, "LGBMRegressor.FitWeighted")
+
+	rows, cols := X.Dims()
+	yRows, yCols := y.Dims()
+
+	// Validate input dimensions
+	if rows != yRows {
+		return scigoErrors.NewDimensionError("FitWeighted", rows, yRows, 0)
+	}
+	if yCols != 1 {
+		return scigoErrors.NewDimensionError("FitWeighted", 1, yCols, 1)
+	}
+	if sampleWeight != nil && len(sampleWeight) != rows {
+		return scigoErrors.NewDimensionError("FitWeighted", rows, len(sampleWeight), 0)
+	}
+
+	// Store feature information
+	lgb.nFeatures = cols
+	lgb.nSamples = rows
+
+	// Log training start
+	if lgb.ShowProgress {
+		lgb.logger.Info("Training LGBMRegressor with sample weights",
+			"samples", rows,
+			"features", cols,
+			"objective", lgb.Objective)
+	}
+
+	// Create training parameters
+	params := TrainingParams{
+		NumIterations:        lgb.NumIterations,
+		LearningRate:         lgb.LearningRate,
+		NumLeaves:            lgb.NumLeaves,
+		MaxDepth:             lgb.MaxDepth,
+		MinDataInLeaf:        lgb.MinChildSamples,
+		Lambda:               lgb.RegLambda,
+		Alpha:                lgb.RegAlpha,
+		MinGainToSplit:       1e-7,
+		BaggingFraction:      lgb.Subsample,
+		BaggingFreq:          lgb.SubsampleFreq,
+		FeatureFraction:      lgb.ColsampleBytree,
+		MaxBin:               255,
+		MinDataInBin:         3,
+		Objective:            lgb.Objective,
+		Seed:                 lgb.RandomState,
+		Deterministic:        lgb.Deterministic,
+		Verbosity:            lgb.Verbosity,
+		EarlyStopping:        lgb.EarlyStopping,
+		HuberDelta:           lgb.HuberAlpha,
+		QuantileAlpha:        lgb.Alpha,
+		FairC:                lgb.FairC,
+		TweedieVariancePower: lgb.TweedieVariancePower,
+		CategoricalFeatures:  lgb.CategoricalFeatures,
+		BoostingType:         lgb.BoostingType,
+	}
+
+	// Create and run trainer with sample weights
+	trainer := NewTrainer(params)
+	if sampleWeight != nil {
+		trainer.SetSampleWeight(sampleWeight)
+	}
+	if err := trainer.Fit(X, y); err != nil {
+		return fmt.Errorf("training failed: %w", err)
+	}
+
+	// Get trained model
+	lgb.Model = trainer.GetModel()
+
+	// Create predictor
+	lgb.Predictor = NewPredictor(lgb.Model)
+	if lgb.NumThreads > 0 {
+		lgb.Predictor.SetNumThreads(lgb.NumThreads)
+	}
+	lgb.Predictor.SetDeterministic(lgb.Deterministic)
+
+	// Mark as fitted
+	lgb.state.SetFitted()
+
+	if lgb.ShowProgress {
+		lgb.logger.Info("Training with sample weights completed successfully")
+	}
+
+	return nil
+}
+
+// FitWithInit trains the LightGBM regressor with initial score and optional sample weights
+func (lgb *LGBMRegressor) FitWithInit(X, y mat.Matrix, initScore float64, sampleWeight []float64) (err error) {
+	defer scigoErrors.Recover(&err, "LGBMRegressor.FitWithInit")
+
+	rows, cols := X.Dims()
+	yRows, yCols := y.Dims()
+
+	// Validate input dimensions
+	if rows != yRows {
+		return scigoErrors.NewDimensionError("FitWithInit", rows, yRows, 0)
+	}
+	if yCols != 1 {
+		return scigoErrors.NewDimensionError("FitWithInit", 1, yCols, 1)
+	}
+	if sampleWeight != nil && len(sampleWeight) != rows {
+		return scigoErrors.NewDimensionError("FitWithInit", rows, len(sampleWeight), 0)
+	}
+
+	// Store feature information
+	lgb.nFeatures = cols
+	lgb.nSamples = rows
+
+	// Log training start
+	if lgb.ShowProgress {
+		lgb.logger.Info("Training LGBMRegressor with init score",
+			"samples", rows,
+			"features", cols,
+			"objective", lgb.Objective,
+			"init_score", initScore)
+	}
+
+	// Create training parameters
+	params := TrainingParams{
+		NumIterations:        lgb.NumIterations,
+		LearningRate:         lgb.LearningRate,
+		NumLeaves:            lgb.NumLeaves,
+		MaxDepth:             lgb.MaxDepth,
+		MinDataInLeaf:        lgb.MinChildSamples,
+		Lambda:               lgb.RegLambda,
+		Alpha:                lgb.RegAlpha,
+		MinGainToSplit:       1e-7,
+		BaggingFraction:      lgb.Subsample,
+		BaggingFreq:          lgb.SubsampleFreq,
+		FeatureFraction:      lgb.ColsampleBytree,
+		MaxBin:               255,
+		MinDataInBin:         3,
+		Objective:            lgb.Objective,
+		Seed:                 lgb.RandomState,
+		Deterministic:        lgb.Deterministic,
+		Verbosity:            lgb.Verbosity,
+		EarlyStopping:        lgb.EarlyStopping,
+		HuberDelta:           lgb.HuberAlpha,
+		QuantileAlpha:        lgb.Alpha,
+		FairC:                lgb.FairC,
+		TweedieVariancePower: lgb.TweedieVariancePower,
+		CategoricalFeatures:  lgb.CategoricalFeatures,
+		BoostingType:         lgb.BoostingType,
+	}
+
+	// Create and run trainer with init score and sample weights
+	trainer := NewTrainer(params)
+	trainer.SetInitScore(initScore)
+	if sampleWeight != nil {
+		trainer.SetSampleWeight(sampleWeight)
+	}
+	if err := trainer.Fit(X, y); err != nil {
+		return fmt.Errorf("training failed: %w", err)
+	}
+
+	// Get trained model
+	lgb.Model = trainer.GetModel()
+
+	// Create predictor
+	lgb.Predictor = NewPredictor(lgb.Model)
+	if lgb.NumThreads > 0 {
+		lgb.Predictor.SetNumThreads(lgb.NumThreads)
+	}
+	lgb.Predictor.SetDeterministic(lgb.Deterministic)
+
+	// Mark as fitted
+	lgb.state.SetFitted()
+
+	if lgb.ShowProgress {
+		lgb.logger.Info("Training with init score completed successfully")
+	}
+
+	return nil
+}
+
 // Predict makes predictions for input samples
 func (lgb *LGBMRegressor) Predict(X mat.Matrix) (mat.Matrix, error) {
 	if !lgb.state.IsFitted() {
@@ -239,8 +424,8 @@ func (lgb *LGBMRegressor) Predict(X mat.Matrix) (mat.Matrix, error) {
 	}
 
 	_, cols := X.Dims()
-	if cols != lgb.nFeatures_ {
-		return nil, scigoErrors.NewDimensionError("Predict", lgb.nFeatures_, cols, 1)
+	if cols != lgb.nFeatures {
+		return nil, scigoErrors.NewDimensionError("Predict", lgb.nFeatures, cols, 1)
 	}
 
 	// Use predictor for predictions
@@ -280,7 +465,7 @@ func (lgb *LGBMRegressor) LoadModel(filepath string) error {
 	lgb.Predictor = NewPredictor(model)
 
 	// Set parameters from loaded model
-	lgb.nFeatures_ = model.NumFeatures
+	lgb.nFeatures = model.NumFeatures
 
 	// Extract objective
 	switch model.Objective {
@@ -317,7 +502,7 @@ func (lgb *LGBMRegressor) LoadModelFromString(modelStr string) error {
 
 	lgb.Model = model
 	lgb.Predictor = NewPredictor(model)
-	lgb.nFeatures_ = model.NumFeatures
+	lgb.nFeatures = model.NumFeatures
 
 	lgb.state.SetFitted()
 	return nil
@@ -332,7 +517,7 @@ func (lgb *LGBMRegressor) LoadModelFromJSON(jsonData []byte) error {
 
 	lgb.Model = model
 	lgb.Predictor = NewPredictor(model)
-	lgb.nFeatures_ = model.NumFeatures
+	lgb.nFeatures = model.NumFeatures
 
 	lgb.state.SetFitted()
 	return nil

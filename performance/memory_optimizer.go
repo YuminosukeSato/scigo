@@ -325,7 +325,13 @@ func (g *GCOptimizer) monitor() {
 		var ms runtime.MemStats
 		runtime.ReadMemStats(&ms)
 
-		if ms.HeapAlloc > uint64(g.memLimit)*9/10 { // 90% of limit
+		// Safe conversion with overflow check
+		limit := g.memLimit
+		if limit < 0 {
+			limit = 0
+		}
+		threshold := uint64(limit) * 9 / 10 // 90% of limit
+		if ms.HeapAlloc > threshold {
 			g.ForceGC()
 		}
 	}

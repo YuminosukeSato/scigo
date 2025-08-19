@@ -87,9 +87,11 @@ func (t *Trainer) getCategoriesForSplit(indices []int, feature int, splitInfo Sp
 
 	// Extract the left categories based on the split threshold (which stores the count)
 	numLeftCategories := int(splitInfo.Threshold)
-	if numLeftCategories == 1 {
-		// Single category split (one-hot)
-		return []int{int(splitInfo.Threshold)}
+	if numLeftCategories == 1 && len(categories) > 0 {
+		// Single category split - return the first category after sorting
+		// fmt.Printf("Single categorical split: feature %d, left category %d\n",
+		//	splitInfo.Feature, categories[0].Category)
+		return []int{categories[0].Category}
 	}
 
 	leftCategories := make([]int, numLeftCategories)
@@ -97,5 +99,7 @@ func (t *Trainer) getCategoriesForSplit(indices []int, feature int, splitInfo Sp
 		leftCategories[i] = categories[i].Category
 	}
 
+	// fmt.Printf("Multi categorical split: feature %d, left categories %v\n",
+	//	splitInfo.Feature, leftCategories)
 	return leftCategories
 }

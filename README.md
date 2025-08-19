@@ -436,3 +436,23 @@ SciGo is licensed under the MIT License. See [LICENSE](LICENSE) for details.
   <br><br>
   Made with ❤️ and lots of ☕ in Go
 </div>
+### Running scikit-learn parity tests
+
+Development-only parity tests compare the Go implementation against scikit-learn outputs.
+They are not part of the default `go test`; use the `parity` build tag explicitly.
+
+Steps
+
+1. Generate golden data
+   - Use `uv` instead of pip.
+   - Command: `uv run --with scikit-learn --with numpy --with scipy python scripts/golden/gen_logreg.py`
+2. Run parity tests
+   - Command: `go test ./sklearn/linear_model -tags=parity -run Parity -v`
+
+One-liner
+
+`make parity-linear`
+
+Notes
+- Current LogisticRegression uses simplified gradient descent. After implementing lbfgs/newton-cg, tolerances will be tightened.
+- Golden file is written to `tests/golden/logreg_case1.json`.

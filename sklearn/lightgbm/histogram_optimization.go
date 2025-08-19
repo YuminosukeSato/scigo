@@ -67,9 +67,19 @@ func NewHistogramBuilder(params *TrainingParams) *HistogramBuilder {
 	}
 }
 
+// isCategoricalFeature checks if a feature is categorical
+func isCategoricalFeature(featureIdx int, categoricalFeatures []int) bool {
+	for _, catIdx := range categoricalFeatures {
+		if catIdx == featureIdx {
+			return true
+		}
+	}
+	return false
+}
+
 // BuildHistograms builds histograms for all features
 func (hb *HistogramBuilder) BuildHistograms(X *mat.Dense, indices []int,
-	gradients, hessians []float64) []FeatureHistogram {
+	gradients, hessians []float64, categoricalFeatures []int) []FeatureHistogram {
 
 	_, cols := X.Dims()
 	histograms := make([]FeatureHistogram, cols)
@@ -84,8 +94,13 @@ func (hb *HistogramBuilder) BuildHistograms(X *mat.Dense, indices []int,
 		go func() {
 			defer wg.Done()
 			for featureIdx := range ch {
-				histograms[featureIdx] = hb.buildFeatureHistogram(
-					X, featureIdx, indices, gradients, hessians)
+				if isCategoricalFeature(featureIdx, categoricalFeatures) {
+					histograms[featureIdx] = hb.buildCategoricalHistogram(
+						X, featureIdx, indices, gradients, hessians)
+				} else {
+					histograms[featureIdx] = hb.buildContinuousHistogram(
+						X, featureIdx, indices, gradients, hessians)
+				}
 			}
 		}()
 	}
@@ -100,8 +115,8 @@ func (hb *HistogramBuilder) BuildHistograms(X *mat.Dense, indices []int,
 	return histograms
 }
 
-// buildFeatureHistogram builds histogram for a single feature
-func (hb *HistogramBuilder) buildFeatureHistogram(X *mat.Dense, featureIdx int,
+// buildContinuousHistogram builds histogram for a single continuous feature
+func (hb *HistogramBuilder) buildContinuousHistogram(X *mat.Dense, featureIdx int,
 	indices []int, gradients, hessians []float64) FeatureHistogram {
 
 	// Extract feature values for given indices
@@ -137,6 +152,59 @@ func (hb *HistogramBuilder) buildFeatureHistogram(X *mat.Dense, featureIdx int,
 			hist.Bins[binIdx].SumGrad += gradients[idx]
 			hist.Bins[binIdx].SumHess += hessians[idx]
 		}
+	}
+
+	return hist
+}
+
+// buildCategoricalHistogram builds histogram for a single categorical feature
+func (hb *HistogramBuilder) buildCategoricalHistogram(X *mat.Dense, featureIdx int,
+	indices []int, gradients, hessians []float64) FeatureHistogram {
+
+	// Collect statistics for each category
+	categoryStats := make(map[int]*CategoryInfo)
+	for _, idx := range indices {
+		category := int(X.At(idx, featureIdx))
+		if _, ok := categoryStats[category]; !ok {
+			categoryStats[category] = &CategoryInfo{
+				Category: category,
+			}
+		}
+		categoryStats[category].Count++
+		categoryStats[category].SumGrad += gradients[idx]
+		categoryStats[category].SumHess += hessians[idx]
+	}
+
+	// Convert to sorted slice by category value
+	categories := make([]*CategoryInfo, 0, len(categoryStats))
+	for _, stats := range categoryStats {
+		categories = append(categories, stats)
+	}
+	sort.Slice(categories, func(i, j int) bool {
+		return categories[i].Category < categories[j].Category
+	})
+
+	// Create histogram with one bin per category
+	hist := FeatureHistogram{
+		FeatureIndex: featureIdx,
+		Bins:         make([]HistogramBin, len(categories)),
+		BinBounds:    make([]float64, len(categories)+1),
+	}
+
+	// Set up bins and boundaries
+	for i, cat := range categories {
+		hist.Bins[i] = HistogramBin{
+			LowerBound: float64(cat.Category),
+			UpperBound: float64(cat.Category) + 1,
+			Count:      cat.Count,
+			SumGrad:    cat.SumGrad,
+			SumHess:    cat.SumHess,
+		}
+		hist.BinBounds[i] = float64(cat.Category)
+	}
+	// Set final boundary
+	if len(categories) > 0 {
+		hist.BinBounds[len(categories)] = float64(categories[len(categories)-1].Category) + 1
 	}
 
 	return hist
@@ -223,7 +291,7 @@ func (hb *HistogramBuilder) FindBestSplitFromHistogram(hist FeatureHistogram,
 
 	bestSplit := SplitInfo{
 		Feature: hist.FeatureIndex,
-		Gain:    -math.MaxFloat64,
+		Gain:    0.0, // Initialize with 0 instead of -MaxFloat64
 	}
 
 	// Cumulative sums from left
@@ -267,6 +335,90 @@ func (hb *HistogramBuilder) FindBestSplitFromHistogram(hist FeatureHistogram,
 	return bestSplit
 }
 
+// FindBestCategoricalSplitFromHistogram finds the best split using categorical histogram
+func (hb *HistogramBuilder) FindBestCategoricalSplitFromHistogram(hist FeatureHistogram,
+	totalGrad, totalHess float64, minDataInLeaf int) SplitInfo {
+
+	bestSplit := SplitInfo{
+		Feature: hist.FeatureIndex,
+		Gain:    0.0, // Initialize with 0 instead of -MaxFloat64
+	}
+
+	if len(hist.Bins) <= 1 {
+		return bestSplit
+	}
+
+	// Sort bins by gradient/hessian ratio for optimal categorical splits
+	type BinInfo struct {
+		Bin   HistogramBin
+		Index int
+		Ratio float64
+	}
+
+	binInfos := make([]BinInfo, len(hist.Bins))
+	for i, bin := range hist.Bins {
+		ratio := bin.SumGrad / (bin.SumHess + hb.Lambda)
+		binInfos[i] = BinInfo{
+			Bin:   bin,
+			Index: i,
+			Ratio: ratio,
+		}
+	}
+
+	sort.Slice(binInfos, func(i, j int) bool {
+		return binInfos[i].Ratio < binInfos[j].Ratio
+	})
+
+	// Try different split points based on sorted ratios
+	leftGrad := 0.0
+	leftHess := 0.0
+	leftCount := 0
+
+	for i := 0; i < len(binInfos)-1; i++ {
+		leftGrad += binInfos[i].Bin.SumGrad
+		leftHess += binInfos[i].Bin.SumHess
+		leftCount += binInfos[i].Bin.Count
+
+		rightGrad := totalGrad - leftGrad
+		rightHess := totalHess - leftHess
+		rightCount := 0
+		for j := i + 1; j < len(binInfos); j++ {
+			rightCount += binInfos[j].Bin.Count
+		}
+
+		// Check minimum data constraints
+		if leftCount < minDataInLeaf || rightCount < minDataInLeaf {
+			continue
+		}
+
+		// Calculate gain
+		gain := hb.calculateGain(leftGrad, leftHess, rightGrad, rightHess, totalGrad, totalHess)
+
+		if gain > bestSplit.Gain {
+			bestSplit.Gain = gain
+			bestSplit.LeftCount = leftCount
+			bestSplit.RightCount = rightCount
+			bestSplit.LeftGrad = leftGrad
+			bestSplit.RightGrad = rightGrad
+			bestSplit.LeftHess = leftHess
+			bestSplit.RightHess = rightHess
+			// Store number of categories going left as threshold
+			bestSplit.Threshold = float64(i + 1)
+
+			// Store the actual categories going left
+			bestSplit.LeftCategories = make([]int, i+1)
+			for j := 0; j <= i; j++ {
+				bestSplit.LeftCategories[j] = int(binInfos[j].Bin.LowerBound)
+			}
+
+			// fmt.Printf("Categorical split found: feature %d, gain %.4f, left categories %v\n",
+			//	hist.FeatureIndex, gain, bestSplit.LeftCategories)
+		}
+	}
+
+	return bestSplit
+}
+
 // calculateGain calculates the gain for a split
 func (hb *HistogramBuilder) calculateGain(leftGrad, leftHess, rightGrad, rightHess,
 	totalGrad, totalHess float64) float64 {
@@ -276,12 +428,23 @@ func (hb *HistogramBuilder) calculateGain(leftGrad, leftHess, rightGrad, rightHe
 	rightHess += hb.Lambda
 	totalHess += hb.Lambda
 
+	// Check for numerical stability
+	const minHess = 1e-16
+	if leftHess < minHess || rightHess < minHess || totalHess < minHess {
+		return 0.0 // Return zero gain for unstable cases
+	}
+
 	// Calculate gain using LightGBM formula
 	leftScore := leftGrad * leftGrad / leftHess
 	rightScore := rightGrad * rightGrad / rightHess
 	totalScore := totalGrad * totalGrad / totalHess
 
 	gain := 0.5 * (leftScore + rightScore - totalScore)
+
+	// Check for invalid gain values
+	if math.IsInf(gain, 0) || math.IsNaN(gain) {
+		return 0.0
+	}
 
 	// Apply L1 regularization if needed
 	if hb.Alpha > 0 {
@@ -335,7 +498,7 @@ func (osf *OptimizedSplitFinder) FindBestSplit(X *mat.Dense, indices []int,
 	gradients, hessians []float64, params *TrainingParams) SplitInfo {
 
 	// Build histograms for all features
-	osf.histograms = osf.builder.BuildHistograms(X, indices, gradients, hessians)
+	osf.histograms = osf.builder.BuildHistograms(X, indices, gradients, hessians, params.CategoricalFeatures)
 
 	// Calculate total gradient and hessian
 	totalGrad := 0.0
@@ -347,12 +510,19 @@ func (osf *OptimizedSplitFinder) FindBestSplit(X *mat.Dense, indices []int,
 
 	// Find best split across all features
 	bestSplit := SplitInfo{
-		Gain: -math.MaxFloat64,
+		Gain:    -1.0, // Initialize with negative value to indicate no valid split
+		Feature: -1,   // Initialize with -1 to indicate no feature selected
 	}
 
 	for _, hist := range osf.histograms {
-		split := osf.builder.FindBestSplitFromHistogram(
-			hist, totalGrad, totalHess, params.MinDataInLeaf)
+		var split SplitInfo
+		if isCategoricalFeature(hist.FeatureIndex, params.CategoricalFeatures) {
+			split = osf.builder.FindBestCategoricalSplitFromHistogram(
+				hist, totalGrad, totalHess, params.MinDataInLeaf)
+		} else {
+			split = osf.builder.FindBestSplitFromHistogram(
+				hist, totalGrad, totalHess, params.MinDataInLeaf)
+		}
 
 		if split.Gain > bestSplit.Gain {
 			bestSplit = split
@@ -361,7 +531,7 @@ func (osf *OptimizedSplitFinder) FindBestSplit(X *mat.Dense, indices []int,
 
 	// Check if gain meets threshold
 	if bestSplit.Gain < params.MinGainToSplit {
-		bestSplit.Gain = -math.MaxFloat64
+		bestSplit.Gain = 0.0 // Set to 0 instead of -MaxFloat64
 	}
 
 	return bestSplit

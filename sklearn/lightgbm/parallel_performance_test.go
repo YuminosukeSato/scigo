@@ -148,13 +148,16 @@ func TestParallelTraining(t *testing.T) {
 	for idx, threads := range threadCounts {
 		reg := NewLGBMRegressor()
 		reg.NumThreads = threads
-		reg.SetParams(map[string]interface{}{
+		err := reg.SetParams(map[string]interface{}{
 			"n_estimators": 10,
 			"num_leaves":   15,
 		})
+		if err != nil {
+			t.Fatalf("Failed to set params: %v", err)
+		}
 
 		start := time.Now()
-		err := reg.Fit(X, y)
+		err = reg.Fit(X, y)
 		require.NoError(t, err)
 		elapsed := time.Since(start)
 

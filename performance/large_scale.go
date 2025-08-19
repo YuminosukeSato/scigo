@@ -311,8 +311,20 @@ func (s *StreamingPipeline) updateMetrics(data mat.Matrix) {
 	defer s.metrics.mu.Unlock()
 
 	rows, cols := data.Dims()
+	// Safe conversion with overflow check
+	if rows < 0 || cols < 0 {
+		return
+	}
 	s.metrics.ProcessedSamples += uint64(rows)
-	s.metrics.ProcessedBytes += uint64(rows * cols * 8) // float64 size
+
+	// Check for multiplication overflow before conversion
+	bytes := int64(rows) * int64(cols) * 8 // float64 size
+	if bytes < 0 || bytes > int64(^uint64(0)>>1) {
+		// Handle overflow case
+		s.metrics.ProcessedBytes += ^uint64(0) >> 1 // Maximum safe uint64 value
+	} else {
+		s.metrics.ProcessedBytes += uint64(bytes)
+	}
 }
 
 // GetMetrics returns current pipeline metrics
@@ -352,9 +364,11 @@ func (m *MemoryMappedDataset) readElement(offset int) float64 {
 		bits := binary.LittleEndian.Uint32(m.mmap[offset : offset+4])
 		return float64(*(*float32)(unsafe.Pointer(&bits)))
 	case Int64:
-		return float64(int64(binary.LittleEndian.Uint64(m.mmap[offset : offset+8])))
+		val := binary.LittleEndian.Uint64(m.mmap[offset : offset+8])
+		return float64(int64(val))
 	case Int32:
-		return float64(int32(binary.LittleEndian.Uint32(m.mmap[offset : offset+4])))
+		val := binary.LittleEndian.Uint32(m.mmap[offset : offset+4])
+		return float64(int32(val))
 	default:
 		return 0
 	}
@@ -370,9 +384,11 @@ func (m *MemoryMappedDataset) writeElement(offset int, value float64) {
 		bits := *(*uint32)(unsafe.Pointer(&f32))
 		binary.LittleEndian.PutUint32(m.mmap[offset:offset+4], bits)
 	case Int64:
-		binary.LittleEndian.PutUint64(m.mmap[offset:offset+8], uint64(int64(value)))
+		intVal := int64(value)
+		binary.LittleEndian.PutUint64(m.mmap[offset:offset+8], uint64(intVal))
 	case Int32:
-		binary.LittleEndian.PutUint32(m.mmap[offset:offset+4], uint32(int32(value)))
+		intVal := int32(value)
+		binary.LittleEndian.PutUint32(m.mmap[offset:offset+4], uint32(intVal))
 	}
 }
 

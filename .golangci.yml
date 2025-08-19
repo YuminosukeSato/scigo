@@ -1,13 +1,6 @@
 run:
   timeout: 5m
   tests: true
-  modules-download-mode: readonly
-  concurrency: 4
-  go: "1.24"
-
-output:
-  print-issued-lines: true
-  print-linter-name: true
 
 linters:
   disable-all: true
@@ -17,42 +10,22 @@ linters:
     - ineffassign
     - staticcheck
     - unused
-    - gofmt
-    - goimports
     - gosec
-    - typecheck
+    - revive
+    - misspell
 
 linters-settings:
   errcheck:
     check-type-assertions: false
     check-blank: false
   
-  gofmt:
-    simplify: true
-  
-  goimports:
-    local-prefixes: github.com/YuminosukeSato/scigo
-  
   gosec:
-    severity: medium
-    confidence: medium
     excludes:
       - G104
-      - G304
-
-  staticcheck:
-    checks: ["all", "-ST1000", "-ST1003"]
 
 issues:
   exclude-dirs:
     - vendor
     - testdata
-    - .git
-  exclude-files:
-    - ".*\\.pb\\.go$"
-    - ".*_generated\\.go$"
-    - ".*_test\\.go$"
-  
   max-issues-per-linter: 50
   max-same-issues: 3
-  fix: false

@@ -2,6 +2,7 @@ package lightgbm
 
 import (
 	"math"
+	"sort"
 	"testing"
 
 	"gonum.org/v1/gonum/mat"
@@ -116,7 +117,22 @@ func TestGOSSSampling(t *testing.T) {
 	// Initialize trainer
 	trainer.X = X
 	trainer.y = y
-	err := trainer.initialize()
+
+	// Set objective function
+	objFunc, err := CreateObjectiveFunction(params.Objective, &params)
+	if err != nil {
+		t.Fatalf("Failed to create objective: %v", err)
+	}
+	trainer.objective = objFunc
+
+	// Calculate initial score
+	targets := make([]float64, 100)
+	for i := 0; i < 100; i++ {
+		targets[i] = y.At(i, 0)
+	}
+	trainer.initScore = trainer.objective.GetInitScore(targets)
+
+	err = trainer.initialize()
 	if err != nil {
 		t.Fatalf("Failed to initialize: %v", err)
 	}
@@ -139,6 +155,89 @@ func TestGOSSSampling(t *testing.T) {
 
 	t.Logf("GOSS sampling: selected %d samples from 1000 (top: %d, other: %d)",
 		len(sampledIndices), expectedTopCount, expectedOtherCount)
+}
+
+// TestGOSSSamplingAmplificationAndDeterminism checks amplification factor and determinism
+func TestGOSSSamplingAmplificationAndDeterminism(t *testing.T) {
+	// Build synthetic data
+	X := mat.NewDense(200, 4, nil)
+	y := mat.NewDense(200, 1, nil)
+	for i := 0; i < 200; i++ {
+		for j := 0; j < 4; j++ {
+			X.Set(i, j, float64(i+j))
+		}
+		y.Set(i, 0, float64(i%2))
+	}
+
+	params := TrainingParams{
+		BoostingType:  "goss",
+		TopRate:       0.2,
+		OtherRate:     0.1,
+		Seed:          42,
+		NumIterations: 1,
+		Objective:     "regression",
+	}
+	trainer := NewTrainer(params)
+	trainer.X = X
+	trainer.y = y
+	_ = trainer.initialize()
+	trainer.calculateGradients()
+
+	// Snapshot hessians before sampling
+	gBefore := append([]float64(nil), trainer.gradients...)
+	hBefore := append([]float64(nil), trainer.hessians...)
+
+	s1 := trainer.gosssampling()
+	// Determinism: same seed yields same selection next call
+	trainer.gradients = append([]float64(nil), gBefore...)
+	trainer.hessians = append([]float64(nil), hBefore...)
+	s2 := trainer.gosssampling()
+	if len(s1) != len(s2) {
+		t.Fatalf("non-deterministic selection length: %d vs %d", len(s1), len(s2))
+	}
+	for i := range s1 {
+		if s1[i] != s2[i] {
+			t.Fatalf("non-deterministic selection index at %d: %d vs %d", i, s1[i], s2[i])
+		}
+	}
+
+	// Amplification applied to the 'other' (non-top) sampled set only
+	topCount := int(float64(200) * trainer.gossTopRate)
+	amp := (1.0 - trainer.gossTopRate) / trainer.gossOtherRate
+
+	// Build a set for quick lookup
+	selected := make(map[int]bool)
+	for _, idx := range s1 {
+		selected[idx] = true
+	}
+
+	// Verify: any selected index beyond topCount should be amplified
+	// Note: we don't know exact partition of s1, so we recompute top set by grads
+	type pair struct {
+		idx int
+		val float64
+	}
+	abs := make([]pair, 200)
+	for i := 0; i < 200; i++ {
+		abs[i] = pair{i, math.Abs(gBefore[i])}
+	}
+	sort.Slice(abs, func(i, j int) bool { return abs[i].val > abs[j].val })
+	topSet := make(map[int]bool)
+	for i := 0; i < topCount && i < len(abs); i++ {
+		topSet[abs[i].idx] = true
+	}
+
+	for i := 0; i < 200; i++ {
+		if selected[i] && !topSet[i] {
+			// amplified
+			if math.Abs(trainer.gradients[i]-gBefore[i]*amp) > 1e-12 {
+				t.Fatalf("grad not amplified for %d", i)
+			}
+			if math.Abs(trainer.hessians[i]-hBefore[i]*amp) > 1e-12 {
+				t.Fatalf("hess not amplified for %d", i)
+			}
+		}
+	}
 }
 
 // TestParallelHistogramConstruction tests parallel histogram building

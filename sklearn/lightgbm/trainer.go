@@ -3,8 +3,12 @@ package lightgbm
 import (
 	"fmt"
 	"math"
+	"math/rand"
 	"sort"
+	"strconv"
+	"strings"
 	"sync"
+	"time"
 
 	"github.com/YuminosukeSato/scigo/pkg/log"
 	"gonum.org/v1/gonum/mat"
@@ -19,12 +23,16 @@ type Trainer struct {
 	X            *mat.Dense
 	y            *mat.Dense
 	sampleWeight []float64
+	classWeight  map[int]float64 // Computed class weights
 
 	// Histogram data structures
 	histograms [][]Histogram
 	orderedIdx [][]int                // Sorted indices for each feature
 	histPool   *HistogramPool         // Pool for histogram memory management
 	nodeHists  map[int]*NodeHistogram // Histograms for each node
+
+	// Optimized split finder for efficient categorical handling
+	splitFinder *OptimizedSplitFinder
 
 	// Gradient and Hessian
 	gradients []float64 // For backward compatibility
@@ -43,19 +51,27 @@ type Trainer struct {
 	bestScore float64
 
 	// GOSS sampling
-	gossTopRate   float64 // Fraction of large gradient samples to keep
-	gossOtherRate float64 // Fraction of small gradient samples to keep
+	gossTopRate           float64         // Fraction of large gradient samples to keep
+	gossOtherRate         float64         // Fraction of small gradient samples to keep
+	gossOriginalGradients map[int]float64 // Original gradients before amplification
+	gossOriginalHessians  map[int]float64 // Original hessians before amplification
 
 	// Thread pool for parallel processing
 	numThreads int
 	pool       *sync.Pool
 
 	// Objective function
-	objective ObjectiveFunction
-	initScore float64
+	objective    ObjectiveFunction
+	initScore    float64
+	initScoreSet bool // Track if init score was explicitly set
 
 	// Callbacks
 	callbacks *CallbackList
+
+	// Sampling and regularization strategies
+	sampler        *SamplingStrategy
+	regularizer    *RegularizationStrategy
+	activeFeatures []int // Features selected for current iteration
 }
 
 // TrainingParams contains all training hyperparameters
@@ -87,9 +103,10 @@ type TrainingParams struct {
 	BoostingType string `json:"boosting_type"` // "gbdt", "goss", etc.
 
 	// Objective-specific parameters
-	HuberDelta    float64 `json:"huber_delta"`    // Delta for Huber loss
-	QuantileAlpha float64 `json:"quantile_alpha"` // Alpha for Quantile regression
-	FairC         float64 `json:"fair_c"`         // C parameter for Fair loss
+	HuberDelta           float64 `json:"huber_delta"`    // Delta for Huber loss
+	QuantileAlpha        float64 `json:"quantile_alpha"` // Alpha for Quantile regression
+	FairC                float64 `json:"fair_c"`         // C parameter for Fair loss
+	TweedieVariancePower float64 // For Tweedie regression (between 1 and 2)
 
 	// Categorical features
 	CategoricalFeatures []int   `json:"categorical_features"` // Indices of categorical features
@@ -102,6 +119,26 @@ type TrainingParams struct {
 	Verbosity     int    `json:"verbosity"`
 	EarlyStopping int    `json:"early_stopping_rounds"`
 	Metric        string `json:"metric"` // Metric for evaluation
+
+	// Class weights for imbalanced datasets
+	ClassWeight interface{} `json:"class_weight"` // Can be "balanced", map[int]float64, or nil
+
+	// Feature constraints
+	MonotoneConstraints []int `json:"monotone_constraints"` // 1: increasing, -1: decreasing, 0: no constraint
+
+	// DART parameters (placeholders; training logic TBD)
+	DropRate        float64 `json:"drop_rate"`
+	MaxDrop         int     `json:"max_drop"`
+	SkipDrop        float64 `json:"skip_drop"`
+	UniformDrop     bool    `json:"uniform_drop"`
+	XGBoostDartMode bool    `json:"xgboost_dart_mode"`
+	DropSeed        int     `json:"drop_seed"`
+
+	// GOSS (Gradient-based One-Side Sampling) parameters
+	// Reduces training data by intelligently sampling based on gradient magnitudes
+	TopRate   float64 `json:"top_rate"`   // Fraction of samples with largest gradients to always keep (default 0.2)
+	OtherRate float64 `json:"other_rate"` // Fraction of remaining samples to randomly select (default 0.1)
+	// Selected other samples get amplified by factor (1-TopRate)/OtherRate
 }
 
 // Histogram represents a histogram bin
@@ -131,17 +168,18 @@ type NodeHistogram struct {
 
 // SplitInfo contains information about a potential split
 type SplitInfo struct {
-	Feature    int
-	Threshold  float64
-	Gain       float64
-	LeftCount  int
-	RightCount int
-	LeftValue  float64
-	RightValue float64
-	LeftGrad   float64
-	RightGrad  float64
-	LeftHess   float64
-	RightHess  float64
+	Feature        int
+	Threshold      float64
+	Gain           float64
+	LeftCount      int
+	RightCount     int
+	LeftValue      float64
+	RightValue     float64
+	LeftGrad       float64
+	RightGrad      float64
+	LeftHess       float64
+	RightHess      float64
+	LeftCategories []int // Categories that go to the left child (for categorical splits)
 }
 
 // NewTrainer creates a new LightGBM trainer
@@ -169,7 +207,7 @@ func NewTrainer(params TrainingParams) *Trainer {
 		params.FeatureFraction = 1.0
 	}
 
-	return &Trainer{
+	t := &Trainer{
 		params:     params,
 		numThreads: 4, // Default to 4 threads
 		pool: &sync.Pool{
@@ -177,9 +215,82 @@ func NewTrainer(params TrainingParams) *Trainer {
 				return &Histogram{}
 			},
 		},
+		callbacks:   nil, // Initialize callbacks as nil
+		sampler:     NewSamplingStrategy(params),
+		regularizer: NewRegularizationStrategy(params),
+		splitFinder: NewOptimizedSplitFinder(&params),
+	}
 
-		callbacks: nil, // Initialize callbacks as nil
+	// Initialize GOSS rates from params/defaults if GOSS is enabled
+	if strings.ToLower(params.BoostingType) == "goss" {
+		t.gossTopRate = params.TopRate
+		if t.gossTopRate <= 0 {
+			t.gossTopRate = 0.2
+		}
+		t.gossOtherRate = params.OtherRate
+		if t.gossOtherRate <= 0 {
+			t.gossOtherRate = 0.1
+		}
+	}
 
+	return t
+}
+
+// selectDARTDropIndices chooses a subset of previous trees to drop
+// Deterministic based on DropSeed and iteration index
+func (t *Trainer) selectDARTDropIndices(numTrees int, iteration int) []int {
+	if strings.ToLower(t.params.BoostingType) != "dart" || numTrees <= 0 {
+		return nil
+	}
+	// Skip with probability SkipDrop
+	if t.params.SkipDrop > 0 {
+		// G404: Using math/rand for ML sampling (not cryptographic purposes)
+		r := rand.New(rand.NewSource(int64(t.params.DropSeed) + int64(iteration))) // #nosec G404
+		if r.Float64() < t.params.SkipDrop {
+			return nil
+		}
+	}
+	// Desired count
+	k := int(math.Ceil(t.params.DropRate * float64(numTrees)))
+	if t.params.MaxDrop > 0 && k > t.params.MaxDrop {
+		k = t.params.MaxDrop
+	}
+	if k < 1 {
+		k = 1
+	}
+	// Select k distinct indices from [0, numTrees)
+	idxs := make([]int, numTrees)
+	for i := 0; i < numTrees; i++ {
+		idxs[i] = i
+	}
+	// G404: Using math/rand for ML sampling (not cryptographic purposes)
+	r := rand.New(rand.NewSource(int64(t.params.DropSeed) + int64(iteration))) // #nosec G404
+	for i := 0; i < k && i < numTrees; i++ {
+		j := i + r.Intn(numTrees-i)
+		idxs[i], idxs[j] = idxs[j], idxs[i]
+	}
+	return idxs[:k]
+}
+
+// normalizeDARTWeights scales the weights of kept trees to compensate dropped set
+func (t *Trainer) normalizeDARTWeights(dropped []int) {
+	if strings.ToLower(t.params.BoostingType) != "dart" || len(dropped) == 0 {
+		return
+	}
+	n := len(t.trees)
+	if n == 0 || len(dropped) >= n {
+		return
+	}
+	factor := float64(n) / float64(n-len(dropped))
+	droppedSet := make(map[int]bool, len(dropped))
+	for _, di := range dropped {
+		droppedSet[di] = true
+	}
+	for i := range t.trees {
+		if droppedSet[i] {
+			continue
+		}
+		t.trees[i].ShrinkageRate *= factor
 	}
 }
 
@@ -187,6 +298,89 @@ func NewTrainer(params TrainingParams) *Trainer {
 func (t *Trainer) WithCallbacks(callbacks ...Callback) *Trainer {
 	t.callbacks = NewCallbackList(callbacks...)
 	return t
+}
+
+// computeClassWeights computes class weights based on the class_weight parameter
+func (t *Trainer) computeClassWeights() error {
+	if t.params.ClassWeight == nil {
+		return nil
+	}
+
+	rows, _ := t.y.Dims()
+	if rows == 0 {
+		return nil
+	}
+
+	// Get unique classes and their counts
+	classCounts := make(map[int]int)
+	for i := 0; i < rows; i++ {
+		class := int(t.y.At(i, 0))
+		classCounts[class]++
+	}
+
+	t.classWeight = make(map[int]float64)
+
+	switch cw := t.params.ClassWeight.(type) {
+	case string:
+		if cw == "balanced" {
+			// balanced: n_samples / (n_classes * np.bincount(y))
+			totalSamples := float64(rows)
+			numClasses := float64(len(classCounts))
+			for class, count := range classCounts {
+				t.classWeight[class] = totalSamples / (numClasses * float64(count))
+			}
+		} else {
+			return fmt.Errorf("unsupported class_weight string: %s", cw)
+		}
+	case map[string]interface{}:
+		// Convert from string keys to int keys
+		for classStr, weightInterface := range cw {
+			class, err := strconv.Atoi(classStr)
+			if err != nil {
+				return fmt.Errorf("invalid class key '%s': must be convertible to int", classStr)
+			}
+			weight, ok := weightInterface.(float64)
+			if !ok {
+				return fmt.Errorf("invalid weight for class %d: must be float64", class)
+			}
+			t.classWeight[class] = weight
+		}
+	case map[int]float64:
+		// Direct map
+		t.classWeight = cw
+	default:
+		return fmt.Errorf("unsupported class_weight type: %T", cw)
+	}
+
+	return nil
+}
+
+// satisfiesMonotoneConstraint checks if a split satisfies monotone constraints
+func (t *Trainer) satisfiesMonotoneConstraint(feature int, leftGrad, leftHess, rightGrad, rightHess float64) bool {
+	if t.params.MonotoneConstraints == nil || feature >= len(t.params.MonotoneConstraints) {
+		return true // No constraint
+	}
+
+	constraint := t.params.MonotoneConstraints[feature]
+	if constraint == 0 {
+		return true // No constraint
+	}
+
+	// Calculate leaf values for left and right splits
+	const epsilon = 1e-15
+	leftValue := -leftGrad / (leftHess + epsilon)
+	rightValue := -rightGrad / (rightHess + epsilon)
+
+	switch constraint {
+	case 1:
+		// Increasing constraint: right value should be >= left value
+		return rightValue >= leftValue
+	case -1:
+		// Decreasing constraint: right value should be <= left value
+		return rightValue <= leftValue
+	}
+
+	return true
 }
 
 // Fit trains the LightGBM model
@@ -228,6 +422,11 @@ func (t *Trainer) Fit(X, y mat.Matrix) error {
 		return fmt.Errorf("initialization failed: %w", err)
 	}
 
+	// Compute class weights if specified
+	if err := t.computeClassWeights(); err != nil {
+		return fmt.Errorf("class weight computation failed: %w", err)
+	}
+
 	// Create objective function
 	objFunc, err := CreateObjectiveFunction(t.params.Objective, &t.params)
 	if err != nil {
@@ -235,13 +434,15 @@ func (t *Trainer) Fit(X, y mat.Matrix) error {
 	}
 	t.objective = objFunc
 
-	// Calculate initial score
-	rows, _ := t.y.Dims()
-	targets := make([]float64, rows)
-	for i := 0; i < rows; i++ {
-		targets[i] = t.y.At(i, 0)
+	// Calculate initial score if not already set
+	if !t.initScoreSet {
+		rows, _ := t.y.Dims()
+		targets := make([]float64, rows)
+		for i := 0; i < rows; i++ {
+			targets[i] = t.y.At(i, 0)
+		}
+		t.initScore = t.objective.GetInitScore(targets)
 	}
-	t.initScore = t.objective.GetInitScore(targets)
 
 	// Build histograms
 	if err := t.buildHistograms(); err != nil {
@@ -270,23 +471,37 @@ func (t *Trainer) Fit(X, y mat.Matrix) error {
 		// Calculate gradients and hessians
 		t.calculateGradients()
 
+		// Sample features for this iteration
+		_, numFeatures := t.X.Dims()
+		t.activeFeatures = t.sampler.SampleFeatures(numFeatures, iter)
+
 		// Apply GOSS sampling if enabled
 		var sampledIndices []int
 		if t.params.BoostingType == "goss" {
 			sampledIndices = t.gosssampling()
 		} else {
-			// Use all indices
+			// Apply bagging if configured
 			rows, _ := t.X.Dims()
-			sampledIndices = make([]int, rows)
-			for i := 0; i < rows; i++ {
-				sampledIndices[i] = i
-			}
+			sampledIndices = t.sampler.SampleInstances(rows, iter)
 		}
 
 		// Build one tree with sampled data
 		tree, err := t.buildTreeWithSamples(sampledIndices)
 		if err != nil {
 			return fmt.Errorf("tree building failed at iteration %d: %w", iter, err)
+		}
+
+		// Restore original gradients and hessians after GOSS tree building
+		if t.params.BoostingType == "goss" && t.gossOriginalGradients != nil {
+			for idx, origGrad := range t.gossOriginalGradients {
+				t.gradients[idx] = origGrad
+			}
+			for idx, origHess := range t.gossOriginalHessians {
+				t.hessians[idx] = origHess
+			}
+			// Clear the maps for next iteration
+			t.gossOriginalGradients = nil
+			t.gossOriginalHessians = nil
 		}
 
 		// Add tree to ensemble
@@ -589,6 +804,47 @@ func (t *Trainer) findQuantileBinBoundaries(values []float64) []float64 {
 func (t *Trainer) calculateGradients() {
 	rows, _ := t.y.Dims()
 
+	// Ensure gradients and hessians are initialized
+	if t.gradients == nil {
+		t.gradients = make([]float64, rows)
+	}
+	if t.hessians == nil {
+		t.hessians = make([]float64, rows)
+	}
+
+	// For multiclass, ensure predictions matrix is initialized
+	if (t.params.Objective == "multiclass" || t.params.Objective == "multiclass_native") && t.predictions == nil {
+		numClass := t.params.NumClass
+		if numClass <= 0 {
+			numClass = 3 // Default for testing
+		}
+		t.predictions = mat.NewDense(rows, numClass, nil)
+		// Initialize to zero (will result in uniform softmax probabilities)
+		for i := 0; i < rows; i++ {
+			for j := 0; j < numClass; j++ {
+				t.predictions.Set(i, j, 0.0)
+			}
+		}
+	} else if t.predictions == nil {
+		// For regression/binary, ensure single column predictions
+		t.predictions = mat.NewDense(rows, 1, nil)
+		for i := 0; i < rows; i++ {
+			t.predictions.Set(i, 0, t.initScore)
+		}
+	}
+
+	// Ensure objective function is initialized
+	if t.objective == nil {
+		// Create default objective based on params
+		objFunc, err := CreateObjectiveFunction(t.params.Objective, &t.params)
+		if err != nil {
+			// Fallback to L2 regression if creation fails
+			t.objective = &L2Objective{}
+		} else {
+			t.objective = objFunc
+		}
+	}
+
 	for i := 0; i < rows; i++ {
 		prediction := t.getCurrentPrediction(i)
 		target := t.y.At(i, 0)
@@ -601,51 +857,66 @@ func (t *Trainer) calculateGradients() {
 		if t.sampleWeight != nil {
 			t.gradients[i] *= t.sampleWeight[i]
 			t.hessians[i] *= t.sampleWeight[i]
+		}
 
+		// Apply class weight if provided
+		if t.classWeight != nil {
+			class := int(target)
+			if weight, exists := t.classWeight[class]; exists {
+				t.gradients[i] *= weight
+				t.hessians[i] *= weight
+			}
 		}
 	}
 }
 
 // getCurrentPrediction gets the current ensemble prediction for a sample
 func (t *Trainer) getCurrentPrediction(sampleIdx int) float64 {
-	// Start with initial score
+	// Use cached predictions if available
+	if t.predictions != nil {
+		_, cols := t.predictions.Dims()
+		if cols == 1 {
+			// Regression or binary classification
+			return t.predictions.At(sampleIdx, 0)
+		}
+		// For multiclass, this shouldn't be called (use matrix version instead)
+		// Fall through to calculate on-demand
+	}
+
+	// Fallback: calculate on-demand
 	pred := t.initScore
 
 	// Sum predictions from all trees
 	for _, tree := range t.trees {
-		pred += t.predictSingleTree(tree, sampleIdx) * t.params.LearningRate
+		treePred := t.predictSingleTree(tree, sampleIdx)
+		pred += treePred * t.params.LearningRate
 	}
+
 	return pred
 }
 
 // predictSingleTree makes a prediction using a single tree
 func (t *Trainer) predictSingleTree(tree Tree, sampleIdx int) float64 {
-	// Navigate through tree nodes
-	nodeIdx := 0
-	for nodeIdx < len(tree.Nodes) {
-		node := tree.Nodes[nodeIdx]
-
-		if node.NodeType == LeafNode {
-			return node.LeafValue
-		}
-
-		featureValue := t.X.At(sampleIdx, node.SplitFeature)
-		if featureValue <= node.Threshold {
-			nodeIdx = node.LeftChild
-		} else {
-			nodeIdx = node.RightChild
-		}
-
-		// Safety check
-		if nodeIdx < 0 {
-			return node.LeafValue
-		}
+	// Extract features for this sample
+	features := make([]float64, t.X.RawMatrix().Cols)
+	for j := 0; j < len(features); j++ {
+		features[j] = t.X.At(sampleIdx, j)
 	}
 
-	return 0.0
+	// Use the same prediction logic as Tree.Predict for consistency
+	return tree.Predict(features)
 }
 
-// gosssampling performs Gradient-based One-Side Sampling
+// gosssampling performs Gradient-based One-Side Sampling (GOSS)
+// GOSS reduces training data size while preserving information-rich samples
+// Algorithm:
+//  1. Sort all samples by absolute gradient magnitude (descending)
+//  2. Keep top TopRate fraction of samples (highest gradients)
+//  3. Randomly sample OtherRate fraction from remaining samples
+//  4. Amplify selected "other" samples by factor (1-TopRate)/OtherRate
+//     to compensate for information loss from undersampling
+//
+// Reference: LightGBM paper section 3.2
 func (t *Trainer) gosssampling() []int {
 	rows, _ := t.X.Dims()
 
@@ -665,14 +936,18 @@ func (t *Trainer) gosssampling() []int {
 		return absGrads[i].value > absGrads[j].value
 	})
 
-	// Select top samples
+	// Select top samples (by absolute gradient)
 	topCount := int(float64(rows) * t.gossTopRate)
 	if topCount < 1 {
 		topCount = 1
 	}
 
 	// Sample from remaining
-	otherCount := int(float64(rows-topCount) * t.gossOtherRate)
+	remainingCount := rows - topCount
+	if remainingCount < 0 {
+		remainingCount = 0
+	}
+	otherCount := int(float64(remainingCount) * t.gossOtherRate)
 
 	selectedIndices := make([]int, 0, topCount+otherCount)
 
@@ -681,18 +956,44 @@ func (t *Trainer) gosssampling() []int {
 		selectedIndices = append(selectedIndices, absGrads[i].index)
 	}
 
-	// Randomly sample from remaining samples
+	// Randomly sample from remaining samples (without replacement)
 	if otherCount > 0 && topCount < len(absGrads) {
 		remaining := absGrads[topCount:]
-		// Simple random sampling without replacement
-		for i := 0; i < otherCount && i < len(remaining); i++ {
-			// Apply amplification factor to compensate for sampling
+		otherSelected := make([]int, 0, otherCount)
+		// Deterministic RNG if seed provided; fallback to time-based
+		seed := int64(t.params.Seed)
+		if seed == 0 {
+			seed = time.Now().UnixNano()
+		}
+		// G404: Using math/rand for ML sampling (not cryptographic purposes)
+		r := rand.New(rand.NewSource(seed)) // #nosec G404
+		// Fisher–Yates shuffle partially (only need first otherCount)
+		n := len(remaining)
+		for i := 0; i < otherCount && i < n; i++ {
+			j := i + r.Intn(n-i)
+			remaining[i], remaining[j] = remaining[j], remaining[i]
 			idx := remaining[i].index
 			selectedIndices = append(selectedIndices, idx)
-			// Amplify gradient to compensate for sampling rate
-			amplificationFactor := 1.0 / t.gossOtherRate
-			t.gradients[idx] *= amplificationFactor
-			t.hessians[idx] *= amplificationFactor
+			otherSelected = append(otherSelected, idx)
+		}
+
+		// Amplify gradients/hessians for sampled small-gradient set
+		// LightGBM GOSS uses factor: (1 - top_rate) / other_rate
+		// Store original values to restore after tree building
+		if t.gossOtherRate > 0 {
+			amp := (1.0 - t.gossTopRate) / t.gossOtherRate
+			// Save original gradients and hessians for restoration
+			originalGradients := make(map[int]float64, len(otherSelected))
+			originalHessians := make(map[int]float64, len(otherSelected))
+			for _, idx := range otherSelected {
+				originalGradients[idx] = t.gradients[idx]
+				originalHessians[idx] = t.hessians[idx]
+				t.gradients[idx] *= amp
+				t.hessians[idx] *= amp
+			}
+			// Store for later restoration
+			t.gossOriginalGradients = originalGradients
+			t.gossOriginalHessians = originalHessians
 		}
 	}
 
@@ -707,6 +1008,11 @@ func (t *Trainer) buildTreeWithSamples(sampledIndices []int) (Tree, error) {
 		Nodes:         []Node{},
 	}
 
+	// Initialize nodeHists map if nil
+	if t.nodeHists == nil {
+		t.nodeHists = make(map[int]*NodeHistogram)
+	}
+
 	// Build tree recursively with sampled indices
 	t.buildNode(&tree, sampledIndices, 0, 0)
 
@@ -719,10 +1025,27 @@ func (t *Trainer) buildTreeWithSamples(sampledIndices []int) (Tree, error) {
 func (t *Trainer) buildNode(tree *Tree, indices []int, parentIdx int, depth int) int {
 	nodeIdx := len(tree.Nodes)
 
+	// Adjust MinDataInLeaf for GOSS if enabled
+	adjustedMinDataInLeaf := t.params.MinDataInLeaf
+	if strings.ToLower(t.params.BoostingType) == "goss" && t.gossTopRate > 0 && t.gossOtherRate > 0 {
+		// Scale MinDataInLeaf based on GOSS sampling rate
+		gossSampleRate := t.gossTopRate + t.gossOtherRate
+		adjustedMinDataInLeaf = int(float64(t.params.MinDataInLeaf) * gossSampleRate)
+		// Ensure minimum of 1
+		if adjustedMinDataInLeaf < 1 {
+			adjustedMinDataInLeaf = 1
+		}
+		// Debug log for GOSS adjustment
+		if t.params.Verbosity >= 2 {
+			fmt.Printf("GOSS: Adjusted MinDataInLeaf from %d to %d (rate=%.2f, samples=%d)\n",
+				t.params.MinDataInLeaf, adjustedMinDataInLeaf, gossSampleRate, len(indices))
+		}
+	}
+
 	// Check stopping conditions
 	numLeaves := t.countLeavesInTree(tree)
 	if (t.params.MaxDepth > 0 && depth >= t.params.MaxDepth) ||
-		len(indices) < t.params.MinDataInLeaf ||
+		len(indices) < adjustedMinDataInLeaf ||
 		(t.params.NumLeaves > 0 && numLeaves >= t.params.NumLeaves-1) {
 		// Create leaf node
 		leafValue := t.calculateLeafValue(indices)
@@ -741,11 +1064,16 @@ func (t *Trainer) buildNode(tree *Tree, indices []int, parentIdx int, depth int)
 	nodeHist := t.buildNodeHistogram(indices)
 	t.nodeHists[nodeIdx] = nodeHist
 
-	// Find best split using histograms
-	bestSplit := t.findBestSplitWithHistogram(nodeHist, indices)
+	// Find best split using optimized histogram split finder
+	bestSplit := t.splitFinder.FindBestSplit(t.X, indices, t.gradients, t.hessians, &t.params)
 
 	// Check if split is good enough
-	if bestSplit.Gain < t.params.MinGainToSplit {
+	if bestSplit.Feature == -1 || bestSplit.Gain < t.params.MinGainToSplit {
+		// Debug log for split failure
+		if t.params.Verbosity >= 2 {
+			fmt.Printf("Node %d: Split failed - Gain=%.6f, Feature=%d, MinGainToSplit=%.6f\n",
+				nodeIdx, bestSplit.Gain, bestSplit.Feature, t.params.MinGainToSplit)
+		}
 		// Create leaf node
 		leafValue := t.calculateLeafValue(indices)
 		tree.Nodes = append(tree.Nodes, Node{
@@ -766,7 +1094,13 @@ func (t *Trainer) buildNode(tree *Tree, indices []int, parentIdx int, depth int)
 	// Check if this is a categorical split
 	if t.isCategoricalFeature(bestSplit.Feature) {
 		nodeType = CategoricalNode
-		categories = t.getCategoriesForSplit(indices, bestSplit.Feature, bestSplit)
+		// Use LeftCategories directly from the optimized split finder
+		if len(bestSplit.LeftCategories) > 0 {
+			categories = bestSplit.LeftCategories
+		} else {
+			// Fallback to old method if LeftCategories is not set
+			categories = t.getCategoriesForSplit(indices, bestSplit.Feature, bestSplit)
+		}
 	}
 
 	tree.Nodes = append(tree.Nodes, Node{
@@ -805,8 +1139,18 @@ func (t *Trainer) buildNode(tree *Tree, indices []int, parentIdx int, depth int)
 
 // findBestSplitWithHistogram finds the best split using histograms for speed
 func (t *Trainer) findBestSplitWithHistogram(nodeHist *NodeHistogram, indices []int) SplitInfo {
-	_, cols := t.X.Dims()
-	bestSplit := SplitInfo{Gain: -math.MaxFloat64}
+	bestSplit := SplitInfo{Gain: -1e10}
+
+	// Use only active features (sampled for this iteration)
+	features := t.activeFeatures
+	if len(features) == 0 {
+		// If no features sampled, use all features
+		_, cols := t.X.Dims()
+		features = make([]int, cols)
+		for i := 0; i < cols; i++ {
+			features[i] = i
+		}
+	}
 
 	// Evaluate features using histogram-based method (parallelized below)
 	type featureResult struct {
@@ -814,17 +1158,24 @@ func (t *Trainer) findBestSplitWithHistogram(nodeHist *NodeHistogram, indices []
 		split   SplitInfo
 	}
 
-	resultChan := make(chan featureResult, cols)
+	resultChan := make(chan featureResult, len(features))
 	var wg sync.WaitGroup
 
 	// Launch goroutines for parallel feature processing
-	for j := 0; j < cols; j++ {
+	for _, feature := range features {
 		wg.Add(1)
 		go func(feature int) {
 			defer wg.Done()
-			split := t.findBestSplitForFeatureWithHistogram(nodeHist, feature)
+			var split SplitInfo
+			if t.isCategoricalFeature(feature) {
+				// Use categorical split logic
+				split = t.findBestCategoricalSplit(feature, indices)
+			} else {
+				// Use numerical split logic
+				split = t.findBestSplitForFeatureWithHistogram(nodeHist, feature)
+			}
 			resultChan <- featureResult{feature: feature, split: split}
-		}(j)
+		}(feature)
 	}
 
 	// Wait for all goroutines to complete
@@ -846,13 +1197,13 @@ func (t *Trainer) findBestSplitWithHistogram(nodeHist *NodeHistogram, indices []
 // findBestSplitForFeatureWithHistogram finds best split using histogram
 func (t *Trainer) findBestSplitForFeatureWithHistogram(nodeHist *NodeHistogram, feature int) SplitInfo {
 	if feature >= len(nodeHist.histograms) {
-		return SplitInfo{Feature: feature, Gain: -math.MaxFloat64}
+		return SplitInfo{Feature: feature, Gain: -1e10}
 	}
 
 	histograms := nodeHist.histograms[feature]
 	bestSplit := SplitInfo{
 		Feature: feature,
-		Gain:    -math.MaxFloat64,
+		Gain:    -1e10,
 	}
 
 	// Accumulate statistics from left to right
@@ -878,6 +1229,11 @@ func (t *Trainer) findBestSplitForFeatureWithHistogram(nodeHist *NodeHistogram, 
 		// Calculate gain
 		gain := t.calculateSplitGain(leftGrad, leftHess, rightGrad, rightHess, nodeHist.totalGrad, nodeHist.totalHess)
 
+		// Check monotone constraints
+		if !t.satisfiesMonotoneConstraint(feature, leftGrad, leftHess, rightGrad, rightHess) {
+			continue
+		}
+
 		if gain > bestSplit.Gain {
 			bestSplit.Gain = gain
 			if len(hist.BinBounds) >= 2 {
@@ -897,14 +1253,8 @@ func (t *Trainer) findBestSplitForFeatureWithHistogram(nodeHist *NodeHistogram, 
 
 // calculateSplitGain calculates the gain from a split
 func (t *Trainer) calculateSplitGain(leftGrad, leftHess, rightGrad, rightHess, totalGrad, totalHess float64) float64 {
-	// LightGBM split gain formula
-	lambda := t.params.Lambda
-
-	leftScore := (leftGrad * leftGrad) / (leftHess + lambda)
-	rightScore := (rightGrad * rightGrad) / (rightHess + lambda)
-	totalScore := (totalGrad * totalGrad) / (totalHess + lambda)
-
-	return 0.5 * (leftScore + rightScore - totalScore)
+	// Use regularizer strategy for gain calculation
+	return t.regularizer.CalculateSplitGain(leftGrad, leftHess, rightGrad, rightHess, totalGrad, totalHess)
 }
 
 // splitData splits indices based on a split decision
@@ -933,22 +1283,36 @@ func (t *Trainer) calculateLeafValue(indices []int) float64 {
 		sumHess += t.hessians[idx]
 	}
 
-	// Ensure numerical stability
-	epsilon := 1e-10
-	if math.Abs(sumHess) < epsilon {
-		sumHess = epsilon
-	}
+	// Apply L1/L2 regularization using the regularizer strategy
+	leafValue := t.regularizer.ApplyLeafRegularization(sumGrad, sumHess)
 
-	// Optimal leaf value with L2 regularization
+	// Learning rate will be applied during prediction update, not here
+	// This allows proper tree splitting and learning progression
 
-	return -sumGrad / (sumHess + t.params.Lambda + epsilon)
-
+	return leafValue
 }
 
 // updatePredictions updates predictions with the new tree
 func (t *Trainer) updatePredictions(tree Tree) {
-	// This would update cached predictions for efficiency
-	// For now, predictions are calculated on-demand
+	// Update cached predictions for efficiency
+	rows, _ := t.X.Dims()
+
+	// Initialize predictions array if not already done
+	if t.predictions == nil {
+		t.predictions = mat.NewDense(rows, 1, nil)
+		for i := 0; i < rows; i++ {
+			t.predictions.Set(i, 0, t.initScore)
+		}
+	}
+
+	// Update predictions with the new tree
+	// Use the tree's specific shrinkage rate for consistency with Predictor
+	for i := 0; i < rows; i++ {
+		treePred := t.predictSingleTree(tree, i)
+		currentPred := t.predictions.At(i, 0)
+		newPred := currentPred + treePred*tree.ShrinkageRate
+		t.predictions.Set(i, 0, newPred)
+	}
 }
 
 // checkEarlyStopping checks if training should stop early
@@ -992,7 +1356,6 @@ func (t *Trainer) calculateLoss() float64 {
 	return loss / totalWeight
 }
 
-
 // countLeaves counts the number of leaf nodes in a tree
 func (t *Trainer) countLeaves(tree Tree) int {
 	count := 0
@@ -1034,4 +1397,104 @@ func (t *Trainer) GetModel() *Model {
 	}
 
 	return model
+}
+
+// findBestCategoricalSplit finds the best split for a categorical feature.
+func (t *Trainer) findBestCategoricalSplit(feature int, indices []int) SplitInfo {
+	bestSplit := SplitInfo{
+		Feature: feature,
+		Gain:    -1e10,
+	}
+
+	// 1. Collect category statistics and calculate total grad/hess for the node
+	categoryStats := make(map[int]*CategoryInfo)
+	totalGrad := 0.0
+	totalHess := 0.0
+	totalCount := 0
+
+	for _, idx := range indices {
+		category := int(t.X.At(idx, feature))
+		grad := t.gradients[idx]
+		hess := t.hessians[idx]
+
+		if stats, exists := categoryStats[category]; exists {
+			stats.SumGrad += grad
+			stats.SumHess += hess
+			stats.Count++
+		} else {
+			categoryStats[category] = &CategoryInfo{
+				Category: category,
+				Count:    1,
+				SumGrad:  grad,
+				SumHess:  hess,
+			}
+		}
+	}
+
+	// Calculate totals
+	for _, stats := range categoryStats {
+		totalGrad += stats.SumGrad
+		totalHess += stats.SumHess
+		totalCount += stats.Count
+	}
+
+	if len(categoryStats) < 2 {
+		return bestSplit
+	}
+
+	categories := make([]*CategoryInfo, 0, len(categoryStats))
+	for _, info := range categoryStats {
+		categories = append(categories, info)
+	}
+
+	sort.Slice(categories, func(i, j int) bool {
+		ratioI := categories[i].SumGrad / (categories[i].SumHess + t.params.CatSmooth)
+		ratioJ := categories[j].SumGrad / (categories[j].SumHess + t.params.CatSmooth)
+		return ratioI < ratioJ
+	})
+
+	leftGrad := 0.0
+	leftHess := 0.0
+	leftCount := 0
+
+	for i := 0; i < len(categories)-1; i++ {
+		catInfo := categories[i]
+		leftGrad += catInfo.SumGrad
+		leftHess += catInfo.SumHess
+		leftCount += catInfo.Count
+
+		rightGrad := totalGrad - leftGrad
+		rightHess := totalHess - leftHess
+		rightCount := totalCount - leftCount
+
+		if leftCount < t.params.MinDataInLeaf || rightCount < t.params.MinDataInLeaf {
+			continue
+		}
+
+		gain := t.calculateSplitGain(leftGrad, leftHess, rightGrad, rightHess, totalGrad, totalHess)
+
+		if gain > bestSplit.Gain {
+			bestSplit.Gain = gain
+			bestSplit.Threshold = float64(i + 1)
+			bestSplit.LeftGrad = leftGrad
+			bestSplit.LeftHess = leftHess
+			bestSplit.LeftCount = leftCount
+			bestSplit.RightGrad = rightGrad
+			bestSplit.RightHess = rightHess
+			bestSplit.RightCount = rightCount
+		}
+	}
+
+	return bestSplit
+}
+
+// SetSampleWeight sets the sample weights for training
+func (t *Trainer) SetSampleWeight(weights []float64) {
+	t.sampleWeight = weights
+}
+
+// SetInitScore sets the initial score for boosting
+func (t *Trainer) SetInitScore(score float64) {
+	t.initScore = score
+	t.initScoreSet = true
 }

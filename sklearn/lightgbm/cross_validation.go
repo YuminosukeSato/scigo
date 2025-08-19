@@ -47,7 +47,7 @@ func (kf *KFold) GetNSplits() int {
 }
 
 // Split generates train/test indices for each fold
-func (kf *KFold) Split(X, y mat.Matrix) []CVFold {
+func (kf *KFold) Split(X, _ mat.Matrix) []CVFold {
 	nSamples, _ := X.Dims()
 
 	// Create indices
@@ -255,11 +255,12 @@ func CrossValidate(params TrainingParams, X, y mat.Matrix, splitter KFoldSplitte
 
 	// Set metric if not specified
 	if metric == "" {
-		if params.Objective == "regression" || params.Objective == "regression_l2" {
+		switch params.Objective {
+		case "regression", "regression_l2":
 			metric = "l2"
-		} else if params.Objective == "binary" {
+		case "binary":
 			metric = "binary_logloss"
-		} else {
+		default:
 			metric = "l2"
 		}
 	}
@@ -397,7 +398,7 @@ func extractSubset(X, y mat.Matrix, indices []int) (mat.Matrix, mat.Matrix) {
 }
 
 // evaluateMetric calculates the specified metric
-func evaluateMetric(yTrue, yPred mat.Matrix, metric, objective string) float64 {
+func evaluateMetric(yTrue, yPred mat.Matrix, metric, _ string) float64 {
 	rows, _ := yTrue.Dims()
 
 	switch metric {
