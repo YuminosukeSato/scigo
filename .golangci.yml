@@ -24,14 +24,13 @@ linters:
 
 linters-settings:
   staticcheck:
-
     # 原則はデフォルトで十分。スタイル系だけ弱めたいなら例:
     # checks: ["all", "-ST1000", "-ST1020", "-ST1021", "-ST1022"]
+    checks: ["all"]
   tagliatelle:
     case:
       rules:
         json: camel   # API 仕様に合わせて固定（例）
     use-field-name: true
-
   lll:
     line-length: 120
