@@ -85,7 +85,7 @@ func (cb *PrintEvaluationCallback) AfterIteration(env *CallbackEnv) error {
 }
 
 // Finalize is called after training
-func (cb *PrintEvaluationCallback) Finalize(_ *CallbackEnv) error {
+func (cb *PrintEvaluationCallback) Finalize(env *CallbackEnv) error {
 	// Print final results if not already printed
 	if cb.lastTime < env.Iteration-1 && env.Iteration > 0 {
 		output := fmt.Sprintf("[%d]", env.Iteration)
@@ -131,7 +131,7 @@ func NewEarlyStoppingCallback(stoppingRounds int, verbose bool) *EarlyStoppingCa
 }
 
 // Init initializes the callback
-func (cb *EarlyStoppingCallback) Init(_ *CallbackEnv) error {
+func (cb *EarlyStoppingCallback) Init(env *CallbackEnv) error {
 	// Determine metric direction based on objective
 	if objective, ok := env.Params["objective"].(string); ok {
 		switch objective {
