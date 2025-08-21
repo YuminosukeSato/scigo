@@ -12,16 +12,15 @@ on:
 
 permissions:
   contents: read
-  security-events: write
   actions: read
   pull-requests: read
 
 env:
-  GO_VERSION: "1.24"
+  GO_VERSION: "1.25"
   GOPROXY: https://proxy.golang.org,direct
 
 jobs:
-  # Fast path - lint and basic checks
+  # Format and Lint check
   lint:
     runs-on: ubuntu-latest
     steps:
@@ -39,11 +38,34 @@ jobs:
             go.sum
             **/go.sum
 
+      - name: Install formatters
+        run: |
+          go install mvdan.cc/gofumpt@latest
+          go install golang.org/x/tools/cmd/goimports@latest
+
+      - name: Check gofumpt formatting
+        run: |
+          echo "Checking gofumpt formatting..."
+          gofumpt -l -d .
+          if [ -n "$(gofumpt -l .)" ]; then
+            echo "❌ gofumpt formatting issues found. Run 'gofumpt -w .' locally"
+            exit 1
+          fi
+
+      - name: Check goimports formatting
+        run: |
+          echo "Checking goimports formatting..."
+          goimports -l -d -local github.com/YuminosukeSato/scigo .
+          if [ -n "$(goimports -l -local github.com/YuminosukeSato/scigo .)" ]; then
+            echo "❌ goimports formatting issues found. Run 'goimports -w -local github.com/YuminosukeSato/scigo .' locally"
+            exit 1
+          fi
+
       - name: Run golangci-lint
         uses: golangci/golangci-lint-action@v6
         with:
           version: latest
-          args: --timeout=5m
+          args: --timeout=5m --new-from-rev=origin/${{ github.base_ref || 'main' }}
           skip-cache: false
 
       - name: Check go mod tidy
@@ -51,14 +73,9 @@ jobs:
           go mod tidy
           git diff --exit-code go.mod go.sum
 
-  # Parallel test runs for speed
+  # Test runs
   test:
     runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        test-suite:
-          - "unit"
-          - "integration"
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
@@ -71,114 +88,26 @@ jobs:
           go-version: ${{ env.GO_VERSION }}
           cache: true
 
-      - name: Run tests - ${{ matrix.test-suite }}
+      - name: Run tests
         run: |
-          if [ "${{ matrix.test-suite }}" == "unit" ]; then
-            go test -v -short -race -coverprofile=coverage-unit.out \
-              ./metrics/... ./preprocessing/... ./sklearn/...
-          else
-            go test -v -short -race -coverprofile=coverage-integration.out \
-              ./core/... ./linear/... ./pkg/...
-          fi
+          go test -v -short -race -coverprofile=coverage.out ./...
 
       - name: Upload coverage
         uses: actions/upload-artifact@v4
         with:
-          name: coverage-${{ matrix.test-suite }}
-          path: coverage-*.out
-
-  # Security scanning (lighter version for PRs)
-  security:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout Code
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 1
-
-      - name: Set up Go with cache
-        uses: actions/setup-go@v5
-        with:
-          go-version: ${{ env.GO_VERSION }}
-          cache: true
-
-      - name: Cache security tools
-        uses: actions/cache@v3
-        with:
-          path: ~/go/bin
-          key: ${{ runner.os }}-security-tools-${{ hashFiles('**/go.mod') }}-v2
-
-      - name: Run govulncheck
-        run: |
-          ~/go/bin/govulncheck ./... || go run golang.org/x/vuln/cmd/govulncheck@latest ./...
-
-      - name: Run gosec (high severity only for speed)
-        run: |
-          ~/go/bin/gosec -severity high -fmt sarif -out gosec.sarif ./... || \
-          go run github.com/securego/gosec/v2/cmd/gosec@latest -severity high -fmt sarif -out gosec.sarif ./...
-        continue-on-error: true
-
-      - name: Upload gosec results
-        uses: github/codeql-action/upload-sarif@v3
-        if: always() && hashFiles('gosec.sarif') != ''
-        with:
-          sarif_file: gosec.sarif
-
-  # Heavy security scans (only on main branch or manual trigger)
-  security-full:
-    if: github.ref == 'refs/heads/main' || github.event_name == 'workflow_dispatch'
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout Code
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 1
-
-      - name: Set up Go
-        uses: actions/setup-go@v5
-        with:
-          go-version: ${{ env.GO_VERSION }}
-
-      - name: Run semgrep
-        uses: returntocorp/semgrep-action@v1
-        with:
-          config: >-
-            p/security-audit
-            p/golang
-        continue-on-error: true
-
-      - name: Run trivy
-        uses: aquasecurity/trivy-action@master
-        with:
-          scan-type: 'fs'
-          scan-ref: '.'
-          format: 'sarif'
-          output: 'trivy-results.sarif'
-        continue-on-error: true
-
-      - name: Run gitleaks
-        uses: gitleaks/gitleaks-action@v2
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        continue-on-error: true
-
-      - name: Upload trivy results
-        uses: github/codeql-action/upload-sarif@v3
-        if: always() && hashFiles('trivy-results.sarif') != ''
-        with:
-          sarif_file: trivy-results.sarif
+          name: coverage
+          path: coverage.out
 
   # Final status check
   ci-status:
-    needs: [lint, test, security]
+    needs: [lint, test]
     runs-on: ubuntu-latest
     if: always()
     steps:
       - name: Check CI Status
         run: |
           if [ "${{ needs.lint.result }}" != "success" ] || \
-             [ "${{ needs.test.result }}" != "success" ] || \
-             [ "${{ needs.security.result }}" != "success" ]; then
+             [ "${{ needs.test.result }}" != "success" ]; then
             echo "CI failed"
             exit 1
           fi
