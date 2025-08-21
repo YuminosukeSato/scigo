@@ -58,49 +58,52 @@ func (ts *TreeSHAP) calculateBaseValue() float64 {
 		return 0.0
 	}
 
-	// For regression, base value is the initial score
-	baseValue := ts.model.InitScore
-
-	// Add average leaf values weighted by coverage
-	for _, tree := range ts.model.Trees {
-		if len(tree.Nodes) > 0 {
-			baseValue += ts.getAverageLeafValue(&tree.Nodes[0], tree) * ts.model.LearningRate
-		}
-	}
-
-	return baseValue
+	// Base value should be just the initial score
+	// The tree contributions are handled separately in SHAP values calculation
+	// Adding tree average values here would double-count the tree contributions
+	return ts.model.InitScore
 }
 
-// getAverageLeafValue recursively calculates average leaf value
-func (ts *TreeSHAP) getAverageLeafValue(node *Node, tree Tree) float64 {
-	if node.NodeType == LeafNode {
-		return node.LeafValue
-	}
-
-	// Recursively calculate for children
-	leftValue := 0.0
-	rightValue := 0.0
-	leftCount := 0.0
-	rightCount := 0.0
-
-	if node.LeftChild >= 0 && node.LeftChild < len(tree.Nodes) {
-		leftChild := &tree.Nodes[node.LeftChild]
-		leftValue = ts.getAverageLeafValue(leftChild, tree)
-		leftCount = float64(leftChild.InternalCount)
-	}
-
-	if node.RightChild >= 0 && node.RightChild < len(tree.Nodes) {
-		rightChild := &tree.Nodes[node.RightChild]
-		rightValue = ts.getAverageLeafValue(rightChild, tree)
-		rightCount = float64(rightChild.InternalCount)
-	}
-
-	totalCount := leftCount + rightCount
-	if totalCount == 0 {
+// getTreeBaseline calculates the baseline (average) prediction of a tree
+func (ts *TreeSHAP) getTreeBaseline(tree Tree) float64 {
+	if len(tree.Nodes) == 0 {
 		return 0.0
 	}
 
-	return (leftValue*leftCount + rightValue*rightCount) / totalCount
+	// Collect all leaf values
+	var leafValues []float64
+	ts.collectLeafValues(&tree.Nodes[0], tree, &leafValues)
+
+	// Calculate simple average (in practice, this should be weighted by sample count)
+	if len(leafValues) == 0 {
+		return 0.0
+	}
+
+	sum := 0.0
+	for _, value := range leafValues {
+		sum += value
+	}
+	return sum / float64(len(leafValues))
+}
+
+// collectLeafValues recursively collects all leaf values from a tree
+func (ts *TreeSHAP) collectLeafValues(node *Node, tree Tree, leafValues *[]float64) {
+	if node == nil {
+		return
+	}
+
+	if node.NodeType == LeafNode {
+		*leafValues = append(*leafValues, node.LeafValue)
+		return
+	}
+
+	// Recursively collect from children
+	if node.LeftChild >= 0 && node.LeftChild < len(tree.Nodes) {
+		ts.collectLeafValues(&tree.Nodes[node.LeftChild], tree, leafValues)
+	}
+	if node.RightChild >= 0 && node.RightChild < len(tree.Nodes) {
+		ts.collectLeafValues(&tree.Nodes[node.RightChild], tree, leafValues)
+	}
 }
 
 // calculateSampleSHAP calculates SHAP values for a single sample
@@ -137,20 +140,39 @@ func (ts *TreeSHAP) simpleTreeShap(tree Tree, sample []float64) []float64 {
 
 	// Get the prediction path through the tree
 	path := ts.getTreePath(tree, sample)
+	if len(path) == 0 {
+		return shapValues
+	}
 
-	// Calculate SHAP values based on the path
-	for _, nodeIdx := range path {
+	// Get the leaf value for this sample
+	lastNodeIdx := path[len(path)-1]
+	if lastNodeIdx < 0 || lastNodeIdx >= len(tree.Nodes) {
+		return shapValues
+	}
+	leafValue := tree.Nodes[lastNodeIdx].LeafValue
+
+	// Calculate average leaf value of the tree (baseline)
+	baselineValue := ts.getTreeBaseline(tree)
+
+	// Total contribution of this tree
+	treeContribution := leafValue - baselineValue
+
+	// Distribute the contribution among features in the path
+	featureCounts := make(map[int]int)
+	for i := 0; i < len(path)-1; i++ { // Exclude leaf node
+		nodeIdx := path[i]
 		if nodeIdx >= 0 && nodeIdx < len(tree.Nodes) {
 			node := &tree.Nodes[nodeIdx]
-			if node.NodeType != LeafNode {
-				// This is a split node, calculate contribution
-				featureIdx := node.SplitFeature
-				if featureIdx >= 0 && featureIdx < nFeatures {
-					// Simple attribution: split gain divided by number of features in path
-					gain := node.Gain
-					shapValues[featureIdx] += gain / float64(len(path))
-				}
+			if node.NodeType != LeafNode && node.SplitFeature >= 0 && node.SplitFeature < nFeatures {
+				featureCounts[node.SplitFeature]++
 			}
+		}
+	}
+
+	// Distribute contribution proportionally to feature usage in path
+	if len(featureCounts) > 0 {
+		for featureIdx, count := range featureCounts {
+			shapValues[featureIdx] += treeContribution * float64(count) / float64(len(featureCounts))
 		}
 	}
 
