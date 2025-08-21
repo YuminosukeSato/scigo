@@ -361,7 +361,7 @@ func (o *BinaryLogLossObjective) CalculateHessian(prediction, target float64) fl
 func (o *BinaryLogLossObjective) CalculateLoss(prediction, target float64) float64 {
 	// Clamp prediction to prevent overflow
 	clampedPred := math.Max(-o.maxOutputExp, math.Min(prediction, o.maxOutputExp))
-	
+
 	// Use log-sum-exp trick for numerical stability
 	if clampedPred >= 0 {
 		exp_neg_pred := math.Exp(-clampedPred)
@@ -378,18 +378,18 @@ func (o *BinaryLogLossObjective) GetInitScore(targets []float64) float64 {
 	if len(targets) == 0 {
 		return 0.0
 	}
-	
+
 	// Calculate mean of targets (proportion of positive class)
 	sum := 0.0
 	for _, t := range targets {
 		sum += t
 	}
 	mean := sum / float64(len(targets))
-	
+
 	// Clamp mean to avoid log(0) or log(inf)
 	epsilon := 1e-15
 	mean = math.Max(epsilon, math.Min(1.0-epsilon, mean))
-	
+
 	// Return logit: log(p / (1-p))
 	return math.Log(mean / (1.0 - mean))
 }
@@ -913,14 +913,14 @@ func (a *MulticlassLogLossAdapter) CalculateGradient(prediction, target float64)
 	// For multiclass, use softmax gradient calculation
 	// In LightGBM's one-vs-rest approach, gradient = sigmoid(prediction) - target_indicator
 	// where target_indicator is 1 if this is the true class, 0 otherwise
-	
+
 	// Clamp prediction to prevent overflow
 	maxOutputExp := 700.0
 	clampedPred := math.Max(-maxOutputExp, math.Min(prediction, maxOutputExp))
-	
+
 	// Calculate sigmoid(prediction)
 	sigmoid := 1.0 / (1.0 + math.Exp(-clampedPred))
-	
+
 	// For multiclass one-vs-rest: gradient = sigmoid - target_binary
 	return sigmoid - target
 }
@@ -928,17 +928,17 @@ func (a *MulticlassLogLossAdapter) CalculateGradient(prediction, target float64)
 func (a *MulticlassLogLossAdapter) CalculateHessian(prediction, target float64) float64 {
 	// For multiclass, use softmax hessian calculation
 	// In LightGBM's one-vs-rest approach, hessian = sigmoid(prediction) * (1 - sigmoid(prediction))
-	
+
 	// Clamp prediction to prevent overflow
 	maxOutputExp := 700.0
 	clampedPred := math.Max(-maxOutputExp, math.Min(prediction, maxOutputExp))
-	
+
 	// Calculate sigmoid(prediction)
 	sigmoid := 1.0 / (1.0 + math.Exp(-clampedPred))
-	
+
 	// Hessian for logistic: sigmoid * (1 - sigmoid)
 	hessian := sigmoid * (1.0 - sigmoid)
-	
+
 	// Ensure numerical stability
 	return math.Max(1e-16, hessian)
 }

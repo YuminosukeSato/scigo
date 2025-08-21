@@ -288,7 +288,7 @@ func (b *Booster) saveJSON(filename string) error {
 		return fmt.Errorf("failed to marshal model: %w", err)
 	}
 
-	return os.WriteFile(filename, jsonData, 0600)
+	return os.WriteFile(filename, jsonData, 0o600)
 }
 
 // saveText saves the model in text format

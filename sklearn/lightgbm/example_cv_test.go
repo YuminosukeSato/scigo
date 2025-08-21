@@ -66,7 +66,7 @@ func testExampleTrainer_WithCallbacks() {
 	X := mat.NewDense(n, 2, nil)
 	y := mat.NewDense(n, 1, nil)
 
-	// Use fixed seed for consistent output in examples  
+	// Use fixed seed for consistent output in examples
 	rng := rand.New(rand.NewPCG(42, 42))
 	for i := 0; i < n; i++ {
 		X.Set(i, 0, rng.Float64()*10)

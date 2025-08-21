@@ -274,8 +274,7 @@ func (kmeans *MiniBatchKMeans) PartialFit(X, y mat.Matrix, classes []int) error 
 		eta := 1.0 / float64(kmeans.counts_[nearestCluster])
 
 		for j := 0; j < cols; j++ {
-			kmeans.clusterCenters_[nearestCluster][j] =
-				(1-eta)*kmeans.clusterCenters_[nearestCluster][j] + eta*sample[j]
+			kmeans.clusterCenters_[nearestCluster][j] = (1-eta)*kmeans.clusterCenters_[nearestCluster][j] + eta*sample[j]
 		}
 	}
 

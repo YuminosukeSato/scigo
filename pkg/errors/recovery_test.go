@@ -52,7 +52,6 @@ func TestRecover_WithoutPanic(t *testing.T) {
 	}
 
 	err := testFunc()
-
 	if err != nil {
 		t.Fatalf("Expected no error when no panic occurs, got: %v", err)
 	}
@@ -95,7 +94,6 @@ func TestSafeExecute_Success(t *testing.T) {
 	err := SafeExecute("test operation", func() error {
 		return nil // Success case
 	})
-
 	if err != nil {
 		t.Fatalf("Expected no error for successful operation, got: %v", err)
 	}

@@ -79,8 +79,8 @@ func isCategoricalFeature(featureIdx int, categoricalFeatures []int) bool {
 
 // BuildHistograms builds histograms for all features
 func (hb *HistogramBuilder) BuildHistograms(X *mat.Dense, indices []int,
-	gradients, hessians []float64, categoricalFeatures []int) []FeatureHistogram {
-
+	gradients, hessians []float64, categoricalFeatures []int,
+) []FeatureHistogram {
 	_, cols := X.Dims()
 	histograms := make([]FeatureHistogram, cols)
 
@@ -117,8 +117,8 @@ func (hb *HistogramBuilder) BuildHistograms(X *mat.Dense, indices []int,
 
 // buildContinuousHistogram builds histogram for a single continuous feature
 func (hb *HistogramBuilder) buildContinuousHistogram(X *mat.Dense, featureIdx int,
-	indices []int, gradients, hessians []float64) FeatureHistogram {
-
+	indices []int, gradients, hessians []float64,
+) FeatureHistogram {
 	// Extract feature values for given indices
 	values := make([]float64, len(indices))
 	for i, idx := range indices {
@@ -159,8 +159,8 @@ func (hb *HistogramBuilder) buildContinuousHistogram(X *mat.Dense, featureIdx in
 
 // buildCategoricalHistogram builds histogram for a single categorical feature
 func (hb *HistogramBuilder) buildCategoricalHistogram(X *mat.Dense, featureIdx int,
-	indices []int, gradients, hessians []float64) FeatureHistogram {
-
+	indices []int, gradients, hessians []float64,
+) FeatureHistogram {
 	// Collect statistics for each category
 	categoryStats := make(map[int]*CategoryInfo)
 	for _, idx := range indices {
@@ -287,8 +287,8 @@ func (hb *HistogramBuilder) findBinIndex(value float64, binBounds []float64) int
 
 // FindBestSplitFromHistogram finds the best split using histogram
 func (hb *HistogramBuilder) FindBestSplitFromHistogram(hist FeatureHistogram,
-	totalGrad, totalHess float64, minDataInLeaf int) SplitInfo {
-
+	totalGrad, totalHess float64, minDataInLeaf int,
+) SplitInfo {
 	bestSplit := SplitInfo{
 		Feature: hist.FeatureIndex,
 		Gain:    0.0, // Initialize with 0 instead of -MaxFloat64
@@ -337,8 +337,8 @@ func (hb *HistogramBuilder) FindBestSplitFromHistogram(hist FeatureHistogram,
 
 // FindBestCategoricalSplitFromHistogram finds the best split using categorical histogram
 func (hb *HistogramBuilder) FindBestCategoricalSplitFromHistogram(hist FeatureHistogram,
-	totalGrad, totalHess float64, minDataInLeaf int) SplitInfo {
-
+	totalGrad, totalHess float64, minDataInLeaf int,
+) SplitInfo {
 	bestSplit := SplitInfo{
 		Feature: hist.FeatureIndex,
 		Gain:    0.0, // Initialize with 0 instead of -MaxFloat64
@@ -421,8 +421,8 @@ func (hb *HistogramBuilder) FindBestCategoricalSplitFromHistogram(hist FeatureHi
 
 // calculateGain calculates the gain for a split
 func (hb *HistogramBuilder) calculateGain(leftGrad, leftHess, rightGrad, rightHess,
-	totalGrad, totalHess float64) float64 {
-
+	totalGrad, totalHess float64,
+) float64 {
 	// Add regularization to hessians
 	leftHess += hb.Lambda
 	rightHess += hb.Lambda
@@ -495,8 +495,8 @@ func NewOptimizedSplitFinder(params *TrainingParams) *OptimizedSplitFinder {
 
 // FindBestSplit finds the best split across all features using histograms
 func (osf *OptimizedSplitFinder) FindBestSplit(X *mat.Dense, indices []int,
-	gradients, hessians []float64, params *TrainingParams) SplitInfo {
-
+	gradients, hessians []float64, params *TrainingParams,
+) SplitInfo {
 	// Build histograms for all features
 	osf.histograms = osf.builder.BuildHistograms(X, indices, gradients, hessians, params.CategoricalFeatures)
 
@@ -539,8 +539,8 @@ func (osf *OptimizedSplitFinder) FindBestSplit(X *mat.Dense, indices []int,
 
 // GetCachedFeatureValues returns cached sorted feature values
 func (osf *OptimizedSplitFinder) GetCachedFeatureValues(X *mat.Dense,
-	featureIdx int, indices []int) []float64 {
-
+	featureIdx int, indices []int,
+) []float64 {
 	osf.cacheMutex.RLock()
 	if cached, exists := osf.featureCache[featureIdx]; exists {
 		osf.cacheMutex.RUnlock()

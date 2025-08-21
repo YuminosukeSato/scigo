@@ -116,7 +116,6 @@ func main() {
 		api.WithEarlyStopping(10),
 		api.WithVerboseEval(true, 10),
 	)
-
 	if err != nil {
 		slog.Error("Training failed", "error", err)
 		os.Exit(1)

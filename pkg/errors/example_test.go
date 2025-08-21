@@ -56,7 +56,7 @@ func Example_errorComparison() {
 	valueErr := scigoErrors.NewValueError("StandardScaler", "negative values not supported")
 
 	// Create a sentinel error for comparison
-	var customErr = errors.New("custom processing error")
+	customErr := errors.New("custom processing error")
 	wrappedCustom := fmt.Errorf("operation failed: %w", customErr)
 
 	// Use errors.Is for sentinel error checking

@@ -209,7 +209,7 @@ func (p *Predictor) predictTree(tree *Tree, features []float64) float64 {
 	// Debug logging
 	// fmt.Printf("predictTree: %d nodes, %d leaf values, ShrinkageRate: %f\n", len(tree.Nodes), len(tree.LeafValues), tree.ShrinkageRate)
 
-	nodeIdx := 0 // Start from root
+	nodeIdx := 0                         // Start from root
 	maxIterations := len(tree.Nodes) * 2 // Prevent infinite loops
 	iteration := 0
 

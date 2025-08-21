@@ -159,8 +159,8 @@ func (r *RegularizationStrategy) ApplyLeafRegularization(sumGrad, sumHess float6
 
 // CalculateSplitGain calculates the gain for a split with regularization
 func (r *RegularizationStrategy) CalculateSplitGain(
-	leftGrad, leftHess, rightGrad, rightHess, parentGrad, parentHess float64) float64 {
-
+	leftGrad, leftHess, rightGrad, rightHess, parentGrad, parentHess float64,
+) float64 {
 	// Calculate scores with L2 regularization
 	leftScore := r.calculateScore(leftGrad, leftHess)
 	rightScore := r.calculateScore(rightGrad, rightHess)

@@ -240,8 +240,8 @@ func (cv *CVResult) GetStdScore() float64 {
 
 // CrossValidate performs cross-validation for LightGBM
 func CrossValidate(params TrainingParams, X, y mat.Matrix, splitter KFoldSplitter,
-	metric string, earlyStopping int, verbose bool) (*CVResult, error) {
-
+	metric string, earlyStopping int, verbose bool,
+) (*CVResult, error) {
 	folds := splitter.Split(X, y)
 	nFolds := len(folds)
 
@@ -480,8 +480,8 @@ func isLossMetric(metric string) bool {
 
 // CrossValidateRegressor performs cross-validation for LGBMRegressor
 func CrossValidateRegressor(regressor *LGBMRegressor, X, y mat.Matrix,
-	cv KFoldSplitter, scoring string, verbose bool) (*CVResult, error) {
-
+	cv KFoldSplitter, scoring string, verbose bool,
+) (*CVResult, error) {
 	// Convert regressor parameters to TrainingParams
 	params := TrainingParams{
 		NumIterations:       regressor.NumIterations,
@@ -513,8 +513,8 @@ func CrossValidateRegressor(regressor *LGBMRegressor, X, y mat.Matrix,
 
 // CrossValidateClassifier performs cross-validation for LGBMClassifier
 func CrossValidateClassifier(classifier *LGBMClassifier, X, y mat.Matrix,
-	cv KFoldSplitter, scoring string, verbose bool) (*CVResult, error) {
-
+	cv KFoldSplitter, scoring string, verbose bool,
+) (*CVResult, error) {
 	// Convert classifier parameters to TrainingParams
 	params := TrainingParams{
 		NumIterations:       classifier.NumIterations,

@@ -40,7 +40,6 @@ import (
 	"fmt"
 	"io"
 	"os"
-
 	"time"
 
 	"github.com/YuminosukeSato/scigo/core/model"

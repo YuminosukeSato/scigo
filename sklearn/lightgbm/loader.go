@@ -459,7 +459,7 @@ func (m *Model) SaveToJSON(filepath string) error {
 	if err != nil {
 		return err
 	}
-	return os.WriteFile(filepath, jsonData, 0600)
+	return os.WriteFile(filepath, jsonData, 0o600)
 }
 
 // SaveToJSONString returns the model as a JSON string

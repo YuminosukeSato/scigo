@@ -111,7 +111,6 @@ func benchmarkChunkedProcessing(b *testing.B, samples, features int) {
 
 			return nil
 		})
-
 		if err != nil {
 			b.Fatal(err)
 		}

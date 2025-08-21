@@ -96,7 +96,6 @@ func TestPythonStyleAPI(t *testing.T) {
 		bst, err := api.Train(params, trainData, 20, []*api.Dataset{validData},
 			api.WithVerboseEval(false, 1),
 		)
-
 		if err != nil {
 			t.Fatalf("Training failed: %v", err)
 		}
@@ -293,7 +292,6 @@ func TestPythonOutputFormat(t *testing.T) {
 		api.WithValidNames([]string{"train"}),
 		api.WithVerboseEval(true, 1),
 	)
-
 	if err != nil {
 		t.Fatalf("Training failed: %v", err)
 	}

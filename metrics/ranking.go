@@ -150,7 +150,8 @@ func NDCG(yTrue, yPred *mat.VecDense, k int) (float64, error) {
 func dcg(pairs []struct {
 	score     float64
 	relevance float64
-}, k int) float64 {
+}, k int,
+) float64 {
 	if k > len(pairs) {
 		k = len(pairs)
 	}

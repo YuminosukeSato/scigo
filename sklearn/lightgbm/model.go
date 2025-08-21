@@ -459,7 +459,7 @@ func (m *Model) SaveToText(filename string) error {
 	}
 
 	// Write to file with secure permissions (owner read/write only)
-	return os.WriteFile(filename, []byte(sb.String()), 0600)
+	return os.WriteFile(filename, []byte(sb.String()), 0o600)
 }
 
 // Helper functions
@@ -555,5 +555,5 @@ func (m *Model) SaveToFile(filepath string) error {
 	}
 
 	// Write to file
-	return os.WriteFile(filepath, []byte(sb.String()), 0600)
+	return os.WriteFile(filepath, []byte(sb.String()), 0o600)
 }

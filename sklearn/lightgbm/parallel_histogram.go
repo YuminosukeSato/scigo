@@ -33,8 +33,8 @@ func NewParallelHistogramBuilder(maxBins int) *ParallelHistogramBuilder {
 
 // BuildHistogramsParallel builds histograms with enhanced parallelization
 func (phb *ParallelHistogramBuilder) BuildHistogramsParallel(X *mat.Dense, indices []int,
-	gradients, hessians []float64, categoricalFeatures []int) []FeatureHistogram {
-
+	gradients, hessians []float64, categoricalFeatures []int,
+) []FeatureHistogram {
 	_, cols := X.Dims()
 	histograms := make([]FeatureHistogram, cols)
 
@@ -54,8 +54,8 @@ func (phb *ParallelHistogramBuilder) BuildHistogramsParallel(X *mat.Dense, indic
 
 // buildWithFeatureParallelization parallelizes across features
 func (phb *ParallelHistogramBuilder) buildWithFeatureParallelization(X *mat.Dense, indices []int,
-	gradients, hessians []float64, categoricalFeatures []int, histograms []FeatureHistogram) {
-
+	gradients, hessians []float64, categoricalFeatures []int, histograms []FeatureHistogram,
+) {
 	_, cols := X.Dims()
 	var wg sync.WaitGroup
 	ch := make(chan int, cols)
@@ -96,8 +96,8 @@ func (phb *ParallelHistogramBuilder) buildWithFeatureParallelization(X *mat.Dens
 
 // buildWithSampleParallelization parallelizes within each feature
 func (phb *ParallelHistogramBuilder) buildWithSampleParallelization(X *mat.Dense, indices []int,
-	gradients, hessians []float64, categoricalFeatures []int, histograms []FeatureHistogram) {
-
+	gradients, hessians []float64, categoricalFeatures []int, histograms []FeatureHistogram,
+) {
 	_, cols := X.Dims()
 
 	// Create a simple params for histogram builder
@@ -121,8 +121,8 @@ func (phb *ParallelHistogramBuilder) buildWithSampleParallelization(X *mat.Dense
 
 // buildContinuousHistogramOptimized builds histogram with optimizations
 func (phb *ParallelHistogramBuilder) buildContinuousHistogramOptimized(X *mat.Dense, featureIdx int,
-	indices []int, gradients, hessians []float64) FeatureHistogram {
-
+	indices []int, gradients, hessians []float64,
+) FeatureHistogram {
 	// Extract feature values with pre-allocation
 	values := make([]float64, len(indices))
 	for i, idx := range indices {
@@ -163,8 +163,8 @@ func (phb *ParallelHistogramBuilder) buildContinuousHistogramOptimized(X *mat.De
 
 // buildContinuousHistogramParallelSamples builds histogram with parallel sample processing
 func (phb *ParallelHistogramBuilder) buildContinuousHistogramParallelSamples(X *mat.Dense,
-	featureIdx int, indices []int, gradients, hessians []float64) FeatureHistogram {
-
+	featureIdx int, indices []int, gradients, hessians []float64,
+) FeatureHistogram {
 	// Extract feature values
 	values := make([]float64, len(indices))
 	for i, idx := range indices {

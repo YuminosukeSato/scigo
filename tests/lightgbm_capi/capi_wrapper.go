@@ -27,6 +27,7 @@ void freeCharArray(char** array, int size) {
 }
 */
 import "C"
+
 import (
 	"fmt"
 	"unsafe"
