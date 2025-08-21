@@ -3,8 +3,9 @@ package linear_test
 import (
 	"fmt"
 
-	"github.com/YuminosukeSato/scigo/linear"
 	"gonum.org/v1/gonum/mat"
+
+	"github.com/YuminosukeSato/scigo/linear"
 )
 
 // ExampleLinearRegression demonstrates basic linear regression usage

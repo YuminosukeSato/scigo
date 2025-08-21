@@ -7,10 +7,11 @@ import (
 	"testing"
 	"time"
 
+	"gonum.org/v1/gonum/mat"
+
 	"github.com/YuminosukeSato/scigo/linear"
 	"github.com/YuminosukeSato/scigo/performance"
 	"github.com/YuminosukeSato/scigo/sklearn/linear_model"
-	"gonum.org/v1/gonum/mat"
 )
 
 // BenchmarkTBScale tests performance with TB-scale datasets

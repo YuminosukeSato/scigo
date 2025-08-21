@@ -10,8 +10,9 @@ import (
 	"sync"
 	"time"
 
-	"github.com/YuminosukeSato/scigo/pkg/log"
 	"gonum.org/v1/gonum/mat"
+
+	"github.com/YuminosukeSato/scigo/pkg/log"
 )
 
 // Trainer implements the LightGBM training algorithm

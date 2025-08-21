@@ -5,8 +5,9 @@ package main
 import (
 	"fmt"
 
-	"github.com/YuminosukeSato/scigo/sklearn/lightgbm"
 	"gonum.org/v1/gonum/mat"
+
+	"github.com/YuminosukeSato/scigo/sklearn/lightgbm"
 )
 
 func main() {

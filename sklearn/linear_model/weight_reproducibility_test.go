@@ -5,8 +5,9 @@ import (
 	"math"
 	"testing"
 
-	"github.com/YuminosukeSato/scigo/core/model"
 	"gonum.org/v1/gonum/mat"
+
+	"github.com/YuminosukeSato/scigo/core/model"
 )
 
 // TestLinearRegressionWeightReproducibility tests complete weight reproducibility

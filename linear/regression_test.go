@@ -4,8 +4,9 @@ import (
 	"math"
 	"testing"
 
-	"github.com/YuminosukeSato/scigo/metrics"
 	"gonum.org/v1/gonum/mat"
+
+	"github.com/YuminosukeSato/scigo/metrics"
 )
 
 func TestLinearRegression_Fit(t *testing.T) {

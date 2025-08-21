@@ -3,8 +3,9 @@ package api
 import (
 	"fmt"
 
-	scigoErrors "github.com/YuminosukeSato/scigo/pkg/errors"
 	"gonum.org/v1/gonum/mat"
+
+	scigoErrors "github.com/YuminosukeSato/scigo/pkg/errors"
 )
 
 // Dataset represents a LightGBM dataset, similar to Python's lgb.Dataset

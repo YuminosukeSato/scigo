@@ -7,11 +7,12 @@ import (
 	"os"
 	"strconv"
 
-	"github.com/YuminosukeSato/scigo/linear"
 	"gonum.org/v1/gonum/mat"
 	"gonum.org/v1/plot"
 	"gonum.org/v1/plot/plotter"
 	"gonum.org/v1/plot/vg"
+
+	"github.com/YuminosukeSato/scigo/linear"
 )
 
 // loadIrisData はCSVファイルからirisデータを読み込む

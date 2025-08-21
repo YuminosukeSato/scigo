@@ -4,8 +4,9 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/YuminosukeSato/scigo/pkg/log"
 	"gonum.org/v1/gonum/mat"
+
+	"github.com/YuminosukeSato/scigo/pkg/log"
 )
 
 // QuickResult holds the result of a quick training session

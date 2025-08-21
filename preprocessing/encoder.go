@@ -4,9 +4,10 @@ import (
 	"fmt"
 	"sort"
 
+	"gonum.org/v1/gonum/mat"
+
 	"github.com/YuminosukeSato/scigo/core/model"
 	scigoErrors "github.com/YuminosukeSato/scigo/pkg/errors"
-	"gonum.org/v1/gonum/mat"
 )
 
 // OneHotEncoder はscikit-learn互換のOne-Hotエンコーダー

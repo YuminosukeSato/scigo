@@ -5,9 +5,10 @@ import (
 	"math"
 	"sync"
 
+	"gonum.org/v1/gonum/mat"
+
 	"github.com/YuminosukeSato/scigo/core/model"
 	"github.com/YuminosukeSato/scigo/pkg/errors"
-	"gonum.org/v1/gonum/mat"
 )
 
 // PassiveAggressiveRegressor is a passive aggressive regression model

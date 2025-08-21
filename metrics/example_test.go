@@ -4,8 +4,9 @@ import (
 	"fmt"
 	"log/slog"
 
-	"github.com/YuminosukeSato/scigo/metrics"
 	"gonum.org/v1/gonum/mat"
+
+	"github.com/YuminosukeSato/scigo/metrics"
 )
 
 // ExampleMSE demonstrates Mean Squared Error calculation

@@ -5,8 +5,9 @@ import (
 	"math"
 	"sort"
 
-	scigoErrors "github.com/YuminosukeSato/scigo/pkg/errors"
 	"gonum.org/v1/gonum/mat"
+
+	scigoErrors "github.com/YuminosukeSato/scigo/pkg/errors"
 )
 
 // AUC calculates the Area Under the ROC Curve for binary classification.

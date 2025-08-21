@@ -4,8 +4,9 @@ import (
 	"math"
 	"testing"
 
-	"github.com/YuminosukeSato/scigo/preprocessing"
 	"gonum.org/v1/gonum/mat"
+
+	"github.com/YuminosukeSato/scigo/preprocessing"
 )
 
 const epsilon = 1e-10 // Tolerance for floating-point comparisons

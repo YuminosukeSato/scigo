@@ -8,8 +8,9 @@ import (
 	"math/rand/v2"
 	"os"
 
-	"github.com/YuminosukeSato/scigo/sklearn/lightgbm/api"
 	"gonum.org/v1/gonum/mat"
+
+	"github.com/YuminosukeSato/scigo/sklearn/lightgbm/api"
 )
 
 const (

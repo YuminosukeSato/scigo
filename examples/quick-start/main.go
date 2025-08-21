@@ -6,9 +6,10 @@ import (
 	"fmt"
 	"log/slog"
 
+	"gonum.org/v1/gonum/mat"
+
 	"github.com/YuminosukeSato/scigo/linear"
 	"github.com/YuminosukeSato/scigo/preprocessing"
-	"gonum.org/v1/gonum/mat"
 )
 
 func main() {

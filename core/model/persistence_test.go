@@ -5,9 +5,10 @@ import (
 	"os"
 	"testing"
 
+	"gonum.org/v1/gonum/mat"
+
 	"github.com/YuminosukeSato/scigo/core/model"
 	"github.com/YuminosukeSato/scigo/linear"
-	"gonum.org/v1/gonum/mat"
 )
 
 func TestSaveLoadModel(t *testing.T) {

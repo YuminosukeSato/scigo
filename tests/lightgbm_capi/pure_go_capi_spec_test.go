@@ -7,8 +7,9 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/YuminosukeSato/scigo/sklearn/lightgbm"
 	"gonum.org/v1/gonum/mat"
+
+	"github.com/YuminosukeSato/scigo/sklearn/lightgbm"
 )
 
 // TestPureGoCAPISpec_PredictModes_Regression

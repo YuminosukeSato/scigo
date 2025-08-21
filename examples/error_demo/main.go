@@ -3,10 +3,11 @@ package main
 import (
 	"fmt"
 
+	"gonum.org/v1/gonum/mat"
+
 	"github.com/YuminosukeSato/scigo/linear"
 	"github.com/YuminosukeSato/scigo/pkg/errors"
 	"github.com/YuminosukeSato/scigo/pkg/log"
-	"gonum.org/v1/gonum/mat"
 )
 
 func main() {

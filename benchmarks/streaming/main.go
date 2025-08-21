@@ -8,11 +8,12 @@ import (
 	"runtime"
 	"time"
 
+	"gonum.org/v1/gonum/mat"
+
 	"github.com/YuminosukeSato/scigo/core/model"
 	"github.com/YuminosukeSato/scigo/sklearn/cluster"
 	"github.com/YuminosukeSato/scigo/sklearn/drift"
 	"github.com/YuminosukeSato/scigo/sklearn/linear_model"
-	"gonum.org/v1/gonum/mat"
 )
 
 // BenchmarkResult はベンチマーク結果

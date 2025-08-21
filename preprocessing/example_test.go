@@ -3,8 +3,9 @@ package preprocessing_test
 import (
 	"fmt"
 
-	"github.com/YuminosukeSato/scigo/preprocessing"
 	"gonum.org/v1/gonum/mat"
+
+	"github.com/YuminosukeSato/scigo/preprocessing"
 )
 
 // ExampleStandardScaler demonstrates basic usage of StandardScaler

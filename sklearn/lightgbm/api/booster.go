@@ -5,8 +5,9 @@ import (
 	"fmt"
 	"os"
 
-	lgb "github.com/YuminosukeSato/scigo/sklearn/lightgbm"
 	"gonum.org/v1/gonum/mat"
+
+	lgb "github.com/YuminosukeSato/scigo/sklearn/lightgbm"
 )
 
 // Booster represents a trained LightGBM model, similar to Python's Booster class

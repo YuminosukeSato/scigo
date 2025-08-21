@@ -1,8 +1,9 @@
 package tensor
 
 import (
-	"github.com/YuminosukeSato/scigo/pkg/errors"
 	"gonum.org/v1/gonum/mat"
+
+	"github.com/YuminosukeSato/scigo/pkg/errors"
 )
 
 // Tensor is a multidimensional array structure wrapping gonum/mat.Dense

@@ -10,8 +10,9 @@ import (
 	"strconv"
 	"testing"
 
-	"github.com/YuminosukeSato/scigo/sklearn/lightgbm"
 	"gonum.org/v1/gonum/mat"
+
+	"github.com/YuminosukeSato/scigo/sklearn/lightgbm"
 )
 
 // TestDataSimple holds test data for comparison (without C API functions)

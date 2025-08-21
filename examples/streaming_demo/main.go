@@ -9,9 +9,10 @@ import (
 	"strings"
 	"time"
 
+	"gonum.org/v1/gonum/mat"
+
 	"github.com/YuminosukeSato/scigo/core/model"
 	"github.com/YuminosukeSato/scigo/sklearn/linear_model"
-	"gonum.org/v1/gonum/mat"
 )
 
 func main() {

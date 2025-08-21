@@ -27,9 +27,10 @@ import (
 	"fmt"
 	"math"
 
+	"gonum.org/v1/gonum/mat"
+
 	"github.com/YuminosukeSato/scigo/core/model"
 	scigoErrors "github.com/YuminosukeSato/scigo/pkg/errors"
-	"gonum.org/v1/gonum/mat"
 )
 
 // StandardScaler はscikit-learn互換の標準化スケーラー
