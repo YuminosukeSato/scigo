@@ -142,6 +142,14 @@ func (p *Predictor) predictParallel(X, predictions *mat.Dense) {
 
 // predictSingleSample makes a prediction for a single sample with numerical precision
 func (p *Predictor) predictSingleSample(features []float64) []float64 {
+	// Check for NaN values in features and handle them
+	for i, val := range features {
+		if math.IsNaN(val) {
+			// Replace NaN with 0.0 or handle according to model's missing value policy
+			features[i] = 0.0
+		}
+	}
+
 	// Initialize predictions
 	// Note: LightGBM's text format already includes init_score in the first tree's leaf values
 	// However, for models created programmatically, we need to add InitScore explicitly
@@ -202,9 +210,11 @@ func (p *Predictor) predictTree(tree *Tree, features []float64) float64 {
 	// fmt.Printf("predictTree: %d nodes, %d leaf values, ShrinkageRate: %f\n", len(tree.Nodes), len(tree.LeafValues), tree.ShrinkageRate)
 
 	nodeIdx := 0 // Start from root
+	maxIterations := len(tree.Nodes) * 2 // Prevent infinite loops
+	iteration := 0
 
-	// Continue until we reach a leaf
-	for nodeIdx >= 0 && nodeIdx < len(tree.Nodes) {
+	// Continue until we reach a leaf with loop protection
+	for nodeIdx >= 0 && nodeIdx < len(tree.Nodes) && iteration < maxIterations {
 		node := &tree.Nodes[nodeIdx]
 		// fmt.Printf("  Node %d: IsLeaf=%v, LeftChild=%d, RightChild=%d, SplitFeature=%d\n",
 		// 	nodeIdx, node.IsLeaf(), node.LeftChild, node.RightChild, node.SplitFeature)
@@ -291,10 +301,15 @@ func (p *Predictor) predictTree(tree *Tree, features []float64) float64 {
 		}
 
 		nodeIdx = nextIdx
+		iteration++
 	}
 
 	// If we've reached here and nodeIdx is negative (leaf reference in another format)
 	// or we couldn't find a leaf, return 0
+	if iteration >= maxIterations {
+		// Infinite loop detected, return 0
+		return 0.0
+	}
 	return 0.0
 }
 
