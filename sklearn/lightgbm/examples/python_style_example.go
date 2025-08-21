@@ -4,11 +4,17 @@ package main
 
 import (
 	"fmt"
-	"log"
-	"math/rand"
+	"log/slog"
+	"math/rand/v2"
+	"os"
 
 	"github.com/YuminosukeSato/scigo/sklearn/lightgbm/api"
 	"gonum.org/v1/gonum/mat"
+)
+
+const (
+	// defaultRandomSeed is the default seed for reproducible random number generation.
+	defaultRandomSeed = 42
 )
 
 // This example demonstrates how to use the Python-style API for LightGBM in Go
@@ -49,7 +55,7 @@ func main() {
 
 	// Set random seed for reproducibility
 	// #nosec G404 - This is example code for deterministic testing
-	_ = rand.New(rand.NewSource(42))
+	_ = rand.New(rand.NewPCG(defaultRandomSeed, defaultRandomSeed))
 
 	// Create training data
 	fmt.Println("Creating dataset...")
@@ -65,14 +71,16 @@ func main() {
 		api.WithFeatureNames([]string{"f0", "f1", "f2", "f3", "f4", "f5", "f6", "f7", "f8", "f9"}),
 	)
 	if err != nil {
-		log.Fatal("Failed to create training dataset:", err)
+		slog.Error("Failed to create training dataset", "error", err)
+		os.Exit(1)
 	}
 
 	validData, err := api.NewDataset(XValid, yValid,
 		api.WithReference(trainData), // Use same binning as training data
 	)
 	if err != nil {
-		log.Fatal("Failed to create validation dataset:", err)
+		slog.Error("Failed to create validation dataset", "error", err)
+		os.Exit(1)
 	}
 
 	// Set parameters (similar to Python params dict)
@@ -110,7 +118,8 @@ func main() {
 	)
 
 	if err != nil {
-		log.Fatal("Training failed:", err)
+		slog.Error("Training failed", "error", err)
+		os.Exit(1)
 	}
 
 	fmt.Println("=" + repeatStr("=", 50))
@@ -143,7 +152,8 @@ func main() {
 	fmt.Println("Making predictions on validation set...")
 	predictions, err := bst.Predict(XValid)
 	if err != nil {
-		log.Fatal("Prediction failed:", err)
+		slog.Error("Prediction failed", "error", err)
+		os.Exit(1)
 	}
 
 	// Calculate accuracy
@@ -156,20 +166,23 @@ func main() {
 	fmt.Printf("Saving model to %s...\n", modelFile)
 	err = bst.SaveModel(modelFile, api.WithSaveType("json"))
 	if err != nil {
-		log.Fatal("Failed to save model:", err)
+		slog.Error("Failed to save model", "error", err)
+		os.Exit(1)
 	}
 
 	// Load model (similar to lgb.Booster(model_file=...))
 	fmt.Printf("Loading model from %s...\n", modelFile)
 	loadedBst, err := api.LoadModel(modelFile)
 	if err != nil {
-		log.Fatal("Failed to load model:", err)
+		slog.Error("Failed to load model", "error", err)
+		os.Exit(1)
 	}
 
 	// Verify loaded model works
 	loadedPreds, err := loadedBst.Predict(XValid)
 	if err != nil {
-		log.Fatal("Prediction with loaded model failed:", err)
+		slog.Error("Prediction with loaded model failed", "error", err)
+		os.Exit(1)
 	}
 
 	// Check predictions match
@@ -191,7 +204,7 @@ func main() {
 func generateRandomMatrix(rows, cols int) *mat.Dense {
 	data := make([]float64, rows*cols)
 	// #nosec G404 -- Using math/rand for reproducible ML examples, not cryptographic purposes
-	rng := rand.New(rand.NewSource(42))
+	rng := rand.New(rand.NewPCG(defaultRandomSeed, defaultRandomSeed))
 	for i := range data {
 		data[i] = rng.NormFloat64() // Deterministic random for consistent demo results
 	}
@@ -204,7 +217,7 @@ func generateRandomMatrix(rows, cols int) *mat.Dense {
 func generateBinaryLabels(n int) *mat.Dense {
 	data := make([]float64, n)
 	// #nosec G404 -- Using math/rand for reproducible ML examples, not cryptographic purposes
-	rng := rand.New(rand.NewSource(42))
+	rng := rand.New(rand.NewPCG(defaultRandomSeed, defaultRandomSeed))
 	for i := range data {
 		if rng.Float64() > 0.5 { // Deterministic random for consistent demo results
 			data[i] = 1.0

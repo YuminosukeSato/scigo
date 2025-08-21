@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 	"math"
-	"math/rand"
+	"math/rand/v2"
 	"sync"
 	"time"
 
@@ -88,9 +88,9 @@ func NewSGDClassifier(options ...ClassifierOption) *SGDClassifier {
 	}
 
 	if sgd.randomState >= 0 {
-		sgd.rng = rand.New(rand.NewSource(sgd.randomState))
+		sgd.rng = rand.New(rand.NewPCG(uint64(sgd.randomState), uint64(sgd.randomState)))
 	} else {
-		sgd.rng = rand.New(rand.NewSource(time.Now().UnixNano()))
+		sgd.rng = rand.New(rand.NewPCG(uint64(time.Now().UnixNano()), uint64(time.Now().UnixNano())^0xdeadbeef))
 	}
 
 	return sgd
@@ -146,7 +146,7 @@ func WithClassifierRandomState(seed int64) ClassifierOption {
 	return func(sgd *SGDClassifier) {
 		sgd.randomState = seed
 		if seed >= 0 {
-			sgd.rng = rand.New(rand.NewSource(seed))
+			sgd.rng = rand.New(rand.NewPCG(uint64(seed), uint64(seed)))
 		}
 	}
 }

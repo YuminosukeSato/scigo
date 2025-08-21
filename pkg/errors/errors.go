@@ -4,7 +4,7 @@ package errors
 
 import (
 	"fmt"
-	"log"
+	"log/slog"
 	"sync"
 
 	"github.com/cockroachdb/errors"
@@ -20,7 +20,7 @@ var (
 	warningMutex   sync.Mutex
 	warningHandler = func(w error) {
 		// Default handler logs to standard error output
-		log.Printf("GoML-Warning: %v\n", w)
+		slog.Warn("GoML-Warning", "error", w)
 	}
 	// zerolog logger (lazy initialization to avoid circular import)
 	zerologWarnFunc func(warning error)

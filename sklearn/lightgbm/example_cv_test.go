@@ -2,7 +2,7 @@ package lightgbm
 
 import (
 	"fmt"
-	"math/rand"
+	"math/rand/v2"
 	"testing"
 
 	"gonum.org/v1/gonum/mat"
@@ -16,17 +16,17 @@ func testExampleCrossValidate() {
 	y := mat.NewDense(n, 1, nil)
 
 	// Use fixed seed for consistent output in examples
-	rng := rand.New(rand.NewSource(42))
+	rng := rand.New(rand.NewPCG(42, 42))
 	for i := 0; i < n; i++ {
-		x1 := rng.Float64() * 10 // #nosec G404 - test data generation
-		x2 := rng.Float64() * 5 // #nosec G404 - test data generation  
-		x3 := rng.Float64() * 2 // #nosec G404 - test data generation
+		x1 := rng.Float64() * 10
+		x2 := rng.Float64() * 5
+		x3 := rng.Float64() * 2
 		X.Set(i, 0, x1)
 		X.Set(i, 1, x2)
 		X.Set(i, 2, x3)
 
 		// y = 0.5*x1 + 0.3*x2 + 0.1*x3 + noise
-		y.Set(i, 0, 0.5*x1+0.3*x2+0.1*x3+rng.NormFloat64()*0.5) // #nosec G404 - test data generation
+		y.Set(i, 0, 0.5*x1+0.3*x2+0.1*x3+rng.NormFloat64()*0.5)
 	}
 
 	// Setup LightGBM parameters
@@ -67,11 +67,11 @@ func testExampleTrainer_WithCallbacks() {
 	y := mat.NewDense(n, 1, nil)
 
 	// Use fixed seed for consistent output in examples  
-	rng := rand.New(rand.NewSource(42))
+	rng := rand.New(rand.NewPCG(42, 42))
 	for i := 0; i < n; i++ {
-		X.Set(i, 0, rng.Float64()*10) // #nosec G404 - test data generation
-		X.Set(i, 1, rng.Float64()*5) // #nosec G404 - test data generation
-		y.Set(i, 0, X.At(i, 0)*0.5+X.At(i, 1)*0.3+rng.NormFloat64()*0.1) // #nosec G404 - test data generation
+		X.Set(i, 0, rng.Float64()*10)
+		X.Set(i, 1, rng.Float64()*5)
+		y.Set(i, 0, X.At(i, 0)*0.5+X.At(i, 1)*0.3+rng.NormFloat64()*0.1)
 	}
 
 	// Setup parameters
@@ -112,7 +112,7 @@ func ExampleStratifiedKFold() {
 	y := mat.NewDense(n, 1, nil)
 
 	// Create imbalanced dataset (70% class 0, 30% class 1)
-	rng := rand.New(rand.NewSource(42))
+	rng := rand.New(rand.NewPCG(42, 42))
 	for i := 0; i < n; i++ {
 		X.Set(i, 0, rng.Float64()*10)
 		X.Set(i, 1, rng.Float64()*5)

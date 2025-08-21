@@ -4,7 +4,7 @@ package main
 
 import (
 	"fmt"
-	"log"
+	"log/slog"
 
 	"github.com/YuminosukeSato/scigo/linear"
 	"github.com/YuminosukeSato/scigo/preprocessing"
@@ -33,12 +33,14 @@ func main() {
 	fmt.Println("\n📋 Step 1: Data Preprocessing")
 	scaler := preprocessing.NewStandardScaler(true, true) // withMean=true, withStd=true
 	if err := scaler.Fit(X); err != nil {
-		log.Fatalf("Failed to fit scaler: %v", err)
+		slog.Error("Failed to fit scaler", "error", err)
+		return
 	}
 
 	XScaled, err := scaler.Transform(X)
 	if err != nil {
-		log.Fatalf("Failed to transform data: %v", err)
+		slog.Error("Failed to transform data", "error", err)
+		return
 	}
 	fmt.Printf("✅ Data standardized with mean=0 and std=1\n")
 
@@ -46,7 +48,8 @@ func main() {
 	fmt.Println("\n🧠 Step 2: Model Training")
 	model := linear.NewLinearRegression()
 	if err := model.Fit(XScaled, y); err != nil {
-		log.Fatalf("Failed to fit model: %v", err)
+		slog.Error("Failed to fit model", "error", err)
+		return
 	}
 	fmt.Printf("✅ Linear Regression model trained\n")
 
@@ -54,7 +57,8 @@ func main() {
 	fmt.Println("\n🔮 Step 3: Making Predictions")
 	predictions, err := model.Predict(XScaled)
 	if err != nil {
-		log.Fatalf("Failed to make predictions: %v", err)
+		slog.Error("Failed to make predictions", "error", err)
+		return
 	}
 
 	fmt.Printf("Predictions vs Actual:\n")
@@ -69,7 +73,8 @@ func main() {
 	fmt.Println("\n📈 Step 4: Model Evaluation")
 	score, err := model.Score(XScaled, y)
 	if err != nil {
-		log.Fatalf("Failed to calculate score: %v", err)
+		slog.Error("Failed to calculate score", "error", err)
+		return
 	}
 	fmt.Printf("✅ R² Score: %.4f\n", score)
 

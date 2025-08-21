@@ -19,6 +19,7 @@ issues:
   # Set to 0 to disable.
   # Default: 3
   max-same-issues: 50
+  
 
 formatters:
   enable:
@@ -44,6 +45,11 @@ formatters:
       # Target maximum line length.
       # Default: 100
       max-len: 120
+
+    gosec:
+      # Exclude G404 for ML algorithms using math/rand
+      excludes:
+        - G404
 
 linters:
   enable:
@@ -105,7 +111,7 @@ linters:
     - recvcheck # checks for receiver type consistency
     - revive # fast, configurable, extensible, flexible, and beautiful linter for Go, drop-in replacement of golint
     - rowserrcheck # checks whether Err of rows is checked successfully
-    - sloglint # ensure consistent code style when using log/slog
+    # - sloglint # disabled: examples and tests can use global logger for simplicity
     - spancheck # checks for mistakes with OpenTelemetry/Census spans
     - sqlclosecheck # checks that sql.Rows and sql.Stmt are closed
     - staticcheck # is a go vet on steroids, applying a ton of static analysis checks
@@ -218,6 +224,11 @@ linters:
           deny:
             - pkg: log$
               desc: Use log/slog instead, see https://go.dev/blog/slog
+
+    gosec:
+      excludes:
+        - G404  # Allow math/rand for ML algorithms
+        - G115  # Allow int to uint64 conversion for seeding
 
     embeddedstructfieldcheck:
       # Checks that sync.Mutex and sync.RWMutex are not used as embedded fields.
@@ -352,6 +363,11 @@ linters:
         - os.WriteFile
         - prometheus.ExponentialBuckets.*
         - prometheus.LinearBuckets
+        # ML/Random number generation functions
+        - rand.New
+        - rand.NewPCG
+        - rand.NewChaCha8
+        - time.Now.*
 
     nakedret:
       # Make an issue if func has more lines of code than this setting, and it has naked returns.

@@ -2,7 +2,7 @@ package lightgbm
 
 import (
 	"fmt"
-	"math/rand"
+	"math/rand/v2"
 	"runtime"
 	"testing"
 	"time"
@@ -15,7 +15,7 @@ import (
 // TestParallelHistogramBuilder tests the parallel histogram builder
 func TestParallelHistogramBuilder(t *testing.T) {
 	// Set random seed for reproducibility
-	rng := rand.New(rand.NewSource(42))
+	rng := rand.New(rand.NewPCG(42, 42))
 
 	// Create test data
 	nSamples := 1000
@@ -61,7 +61,7 @@ func TestParallelHistogramBuilder(t *testing.T) {
 // TestParallelVsSequentialConsistency tests that parallel and sequential give same results
 func TestParallelVsSequentialConsistency(t *testing.T) {
 	// Set random seed for reproducibility
-	rng := rand.New(rand.NewSource(42))
+	rng := rand.New(rand.NewPCG(42, 42))
 
 	// Create test data
 	nSamples := 500
@@ -126,7 +126,7 @@ func TestParallelPerformance(t *testing.T) {
 	}
 
 	// Set random seed for reproducibility
-	rng := rand.New(rand.NewSource(42))
+	rng := rand.New(rand.NewPCG(42, 42))
 
 	// Large dataset for performance testing
 	nSamples := 10000
@@ -178,7 +178,7 @@ func TestParallelPerformance(t *testing.T) {
 // TestSampleParallelization tests the sample-level parallelization
 func TestSampleParallelization(t *testing.T) {
 	// Set random seed for reproducibility
-	rng := rand.New(rand.NewSource(42))
+	rng := rand.New(rand.NewPCG(42, 42))
 
 	// Large samples, few features (triggers sample parallelization)
 	nSamples := 15000
@@ -238,7 +238,7 @@ func TestSampleParallelization(t *testing.T) {
 // TestFeatureParallelization tests the feature-level parallelization
 func TestFeatureParallelization(t *testing.T) {
 	// Set random seed for reproducibility
-	rng := rand.New(rand.NewSource(42))
+	rng := rand.New(rand.NewPCG(42, 42))
 
 	// Few samples, many features (triggers feature parallelization)
 	nSamples := 100
@@ -276,7 +276,7 @@ func TestFeatureParallelization(t *testing.T) {
 // TestWithCategoricalFeatures tests parallel histogram with categorical features
 func TestWithCategoricalFeatures(t *testing.T) {
 	// Set random seed for reproducibility
-	rng := rand.New(rand.NewSource(42))
+	rng := rand.New(rand.NewPCG(42, 42))
 
 	nSamples := 500
 	nFeatures := 10
@@ -287,7 +287,7 @@ func TestWithCategoricalFeatures(t *testing.T) {
 		for j := 0; j < nFeatures; j++ {
 			if isCategoricalFeature(j, categoricalFeatures) {
 				// Categorical values (0, 1, 2, 3)
-				X.Set(i, j, float64(rand.Intn(4)))
+				X.Set(i, j, float64(rand.IntN(4)))
 			} else {
 				// Continuous values
 				X.Set(i, j, rng.NormFloat64())
@@ -322,7 +322,7 @@ func TestWithCategoricalFeatures(t *testing.T) {
 // BenchmarkParallelHistogramBuilding benchmarks parallel histogram building
 func BenchmarkParallelHistogramBuilding(b *testing.B) {
 	// Set random seed for reproducibility
-	rng := rand.New(rand.NewSource(42))
+	rng := rand.New(rand.NewPCG(42, 42))
 
 	sizes := []struct {
 		samples  int

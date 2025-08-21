@@ -3,9 +3,9 @@ package main
 import (
 	"context"
 	"fmt"
-	"log"
+	"log/slog"
 	"math"
-	"math/rand"
+	"math/rand/v2"
 	"strings"
 	"time"
 
@@ -45,7 +45,7 @@ func compareBatchVsOnline() {
 	X := mat.NewDense(nSamples, 2, nil)
 	y := mat.NewDense(nSamples, 1, nil)
 
-	rng := rand.New(rand.NewSource(42))
+	rng := rand.New(rand.NewPCG(42, 42))
 	for i := 0; i < nSamples; i++ {
 		x1 := rng.NormFloat64()
 		x2 := rng.NormFloat64()
@@ -64,7 +64,8 @@ func compareBatchVsOnline() {
 	startTime := time.Now()
 	err := batchModel.Fit(X, y)
 	if err != nil {
-		log.Fatalf("Batch learning failed: %v", err)
+		slog.Error("Batch learning failed", "error", err)
+		return
 	}
 	batchTime := time.Since(startTime)
 
@@ -86,7 +87,8 @@ func compareBatchVsOnline() {
 
 		err := onlineModel.PartialFit(XBatch, yBatch, nil)
 		if err != nil {
-			log.Fatalf("Online learning failed: %v", err)
+			slog.Error("Online learning failed", "error", err)
+			return
 		}
 	}
 	onlineTime := time.Since(startTime)
@@ -120,7 +122,7 @@ func demonstrateStreamingLearning() {
 
 	go func() {
 		defer close(dataChan)
-		rng := rand.New(rand.NewSource(42))
+		rng := rand.New(rand.NewPCG(42, 42))
 
 		for i := 0; i < 100; i++ {
 			// ミニバッチを生成
@@ -156,7 +158,7 @@ func demonstrateStreamingLearning() {
 	fmt.Println("Starting streaming learning...")
 	err := sgd.FitStream(ctx, dataChan)
 	if err != nil && err != context.DeadlineExceeded {
-		log.Printf("Streaming learning error: %v", err)
+		slog.Error("Streaming learning error", "error", err)
 	}
 
 	fmt.Printf("\nFinal model:\n")
@@ -174,7 +176,7 @@ func demonstrateConceptDrift() {
 		linear_model.WithRandomState(42),
 	)
 
-	rng := rand.New(rand.NewSource(42))
+	rng := rand.New(rand.NewPCG(42, 42))
 	fmt.Println("Simulating concept drift...")
 
 	// フェーズ1: y = 2*x + 1
@@ -242,7 +244,7 @@ func demonstrateTestThenTrain() {
 	// データ生成
 	go func() {
 		defer close(dataChan)
-		rng := rand.New(rand.NewSource(42))
+		rng := rand.New(rand.NewPCG(42, 42))
 
 		for i := 0; i < 20; i++ {
 			X := mat.NewDense(5, 2, nil)

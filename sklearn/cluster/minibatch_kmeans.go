@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 	"math"
-	"math/rand"
+	"math/rand/v2"
 	"sync"
 	"time"
 
@@ -78,9 +78,9 @@ func NewMiniBatchKMeans(options ...KMeansOption) *MiniBatchKMeans {
 	}
 
 	if kmeans.randomState >= 0 {
-		kmeans.rng = rand.New(rand.NewSource(kmeans.randomState))
+		kmeans.rng = rand.New(rand.NewPCG(uint64(kmeans.randomState), uint64(kmeans.randomState)))
 	} else {
-		kmeans.rng = rand.New(rand.NewSource(time.Now().UnixNano()))
+		kmeans.rng = rand.New(rand.NewPCG(uint64(time.Now().UnixNano()), uint64(time.Now().UnixNano())^0xdeadbeef))
 	}
 
 	// Initialize state manager and logger
@@ -130,7 +130,7 @@ func WithKMeansRandomState(seed int64) KMeansOption {
 	return func(kmeans *MiniBatchKMeans) {
 		kmeans.randomState = seed
 		if seed >= 0 {
-			kmeans.rng = rand.New(rand.NewSource(seed))
+			kmeans.rng = rand.New(rand.NewPCG(uint64(seed), uint64(seed)))
 		}
 	}
 }
@@ -462,7 +462,7 @@ func (kmeans *MiniBatchKMeans) initializeCenters(X mat.Matrix) [][]float64 {
 	case "random":
 		for i := 0; i < kmeans.nClusters; i++ {
 			centers[i] = make([]float64, cols)
-			idx := kmeans.rng.Intn(rows)
+			idx := kmeans.rng.IntN(rows)
 			sample := mat.Row(nil, idx, X)
 			copy(centers[i], sample)
 		}
@@ -481,7 +481,7 @@ func (kmeans *MiniBatchKMeans) initKMeansPlusPlus(X mat.Matrix) [][]float64 {
 
 	// Randomly select the first cluster center
 	centers[0] = make([]float64, cols)
-	idx := kmeans.rng.Intn(rows)
+	idx := kmeans.rng.IntN(rows)
 	sample := mat.Row(nil, idx, X)
 	copy(centers[0], sample)
 
@@ -542,7 +542,7 @@ func (kmeans *MiniBatchKMeans) selectMiniBatch(nSamples int) []int {
 
 	// Fisher-Yates shuffle
 	for i := nSamples - 1; i > 0; i-- {
-		j := kmeans.rng.Intn(i + 1)
+		j := kmeans.rng.IntN(i + 1)
 		indices[i], indices[j] = indices[j], indices[i]
 	}
 

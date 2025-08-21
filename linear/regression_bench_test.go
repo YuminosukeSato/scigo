@@ -1,7 +1,7 @@
 package linear
 
 import (
-	"math/rand"
+	"math/rand/v2"
 	"testing"
 
 	"gonum.org/v1/gonum/mat"
@@ -10,7 +10,7 @@ import (
 // createBenchmarkData はベンチマーク用のデータを生成する
 func createBenchmarkData(rows, cols int) (*mat.Dense, *mat.Dense) {
 	// シードを固定して再現性を確保
-	rng := rand.New(rand.NewSource(42))
+	rng := rand.New(rand.NewPCG(42, 42))
 
 	// X: rows x cols の行列（ランダムな値を生成）
 	X := mat.NewDense(rows, cols, nil)

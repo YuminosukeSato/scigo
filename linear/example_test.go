@@ -2,7 +2,6 @@ package linear_test
 
 import (
 	"fmt"
-	"log"
 
 	"github.com/YuminosukeSato/scigo/linear"
 	"gonum.org/v1/gonum/mat"
@@ -18,14 +17,16 @@ func ExampleLinearRegression() {
 	lr := linear.NewLinearRegression()
 	err := lr.Fit(X, y)
 	if err != nil {
-		log.Fatal(err)
+		// Skip this example if error occurs
+		return
 	}
 
 	// Make predictions
 	testX := mat.NewDense(2, 1, []float64{5.0, 6.0})
 	predictions, err := lr.Predict(testX)
 	if err != nil {
-		log.Fatal(err)
+		// Skip this example if error occurs
+		return
 	}
 
 	// Print predictions
@@ -53,7 +54,8 @@ func ExampleLinearRegression_multipleFeatures() {
 	lr := linear.NewLinearRegression()
 	err := lr.Fit(X, y)
 	if err != nil {
-		log.Fatal(err)
+		// Skip this example if error occurs
+		return
 	}
 
 	// Get model parameters
@@ -77,13 +79,15 @@ func ExampleLinearRegression_modelEvaluation() {
 	lr := linear.NewLinearRegression()
 	err := lr.Fit(X, y)
 	if err != nil {
-		log.Fatal(err)
+		// Skip this example if error occurs
+		return
 	}
 
 	// Evaluate on training data
 	score, err := lr.Score(X, y)
 	if err != nil {
-		log.Fatal(err)
+		// Skip this example if error occurs
+		return
 	}
 
 	// Check if model is fitted
@@ -103,7 +107,8 @@ func ExampleLinearRegression_persistence() {
 	lr := linear.NewLinearRegression()
 	err := lr.Fit(X, y)
 	if err != nil {
-		log.Fatal(err)
+		// Skip this example if error occurs
+		return
 	}
 
 	// Get weights before export

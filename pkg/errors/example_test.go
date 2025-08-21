@@ -3,7 +3,6 @@ package errors_test
 import (
 	"errors"
 	"fmt"
-	"log"
 
 	scigoErrors "github.com/YuminosukeSato/scigo/pkg/errors"
 )
@@ -127,9 +126,9 @@ func Example_errorLogging() {
 	// Wrap with operation context
 	opErr := fmt.Errorf("online learning iteration 150: %w", baseErr)
 
-	// Log different levels of detail
-	log.Printf("Simple: %v", opErr)
-	log.Printf("Detailed: %+v", opErr) // This would show stack trace with cockroachdb/errors
+	// Would log different levels of detail in production
+	// slog.Error("Simple error", "error", opErr)
+	// slog.Error("Detailed error", "error", fmt.Sprintf("%+v", opErr)) // Stack trace with cockroachdb/errors
 
 	// For production, you'd use structured logging
 	fmt.Printf("Error occurred in online learning: %v\n", opErr)

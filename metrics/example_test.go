@@ -2,7 +2,7 @@ package metrics_test
 
 import (
 	"fmt"
-	"log"
+	"log/slog"
 
 	"github.com/YuminosukeSato/scigo/metrics"
 	"gonum.org/v1/gonum/mat"
@@ -17,7 +17,8 @@ func ExampleMSE() {
 	// Calculate MSE
 	mse, err := metrics.MSE(yTrue, yPred)
 	if err != nil {
-		log.Fatal(err)
+		slog.Error("Test failed", "error", err)
+		return
 	}
 
 	fmt.Printf("MSE: %.3f\n", mse)
@@ -34,7 +35,8 @@ func ExampleRMSE() {
 	// Calculate RMSE
 	rmse, err := metrics.RMSE(yTrue, yPred)
 	if err != nil {
-		log.Fatal(err)
+		slog.Error("Test failed", "error", err)
+		return
 	}
 
 	fmt.Printf("RMSE: %.2f\n", rmse)
@@ -51,7 +53,8 @@ func ExampleMAE() {
 	// Calculate MAE
 	mae, err := metrics.MAE(yTrue, yPred)
 	if err != nil {
-		log.Fatal(err)
+		slog.Error("Test failed", "error", err)
+		return
 	}
 
 	fmt.Printf("MAE: %.2f\n", mae)
@@ -68,7 +71,8 @@ func ExampleR2Score() {
 	// Calculate R² score
 	r2, err := metrics.R2Score(yTrue, yPred)
 	if err != nil {
-		log.Fatal(err)
+		slog.Error("Test failed", "error", err)
+		return
 	}
 
 	fmt.Printf("R² Score: %.1f\n", r2)
@@ -85,7 +89,8 @@ func ExampleR2Score_imperfectPredictions() {
 	// Calculate R² score
 	r2, err := metrics.R2Score(yTrue, yPred)
 	if err != nil {
-		log.Fatal(err)
+		slog.Error("Test failed", "error", err)
+		return
 	}
 
 	fmt.Printf("R² Score: %.3f\n", r2)
@@ -102,7 +107,8 @@ func ExampleMAPE() {
 	// Calculate MAPE
 	mape, err := metrics.MAPE(yTrue, yPred)
 	if err != nil {
-		log.Fatal(err)
+		slog.Error("Test failed", "error", err)
+		return
 	}
 
 	fmt.Printf("MAPE: %.1f%%\n", mape)
@@ -119,7 +125,8 @@ func ExampleExplainedVarianceScore() {
 	// Calculate explained variance score
 	evs, err := metrics.ExplainedVarianceScore(yTrue, yPred)
 	if err != nil {
-		log.Fatal(err)
+		slog.Error("Test failed", "error", err)
+		return
 	}
 
 	fmt.Printf("Explained Variance Score: %.3f\n", evs)
@@ -136,7 +143,8 @@ func ExampleMSEMatrix() {
 	// Calculate MSE using matrix inputs
 	mse, err := metrics.MSEMatrix(yTrue, yPred)
 	if err != nil {
-		log.Fatal(err)
+		slog.Error("Test failed", "error", err)
+		return
 	}
 
 	fmt.Printf("MSE (matrix input): %.3f\n", mse)

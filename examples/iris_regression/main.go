@@ -3,7 +3,7 @@ package main
 import (
 	"encoding/csv"
 	"fmt"
-	"log"
+	"log/slog"
 	"os"
 	"strconv"
 
@@ -100,7 +100,8 @@ func main() {
 	// irisデータを読み込む
 	sepalLengths, sepalWidths, err := loadIrisData("datasets/iris.csv")
 	if err != nil {
-		log.Fatalf("Failed to load iris data: %v", err)
+		slog.Error("Failed to load iris data", "error", err)
+		os.Exit(1)
 	}
 
 	fmt.Printf("Loaded %d data points\n", len(sepalLengths))
@@ -119,7 +120,8 @@ func main() {
 	lr := linear.NewLinearRegression()
 	err = lr.Fit(X, y)
 	if err != nil {
-		log.Fatalf("Failed to fit linear regression: %v", err)
+		slog.Error("Failed to fit linear regression", "error", err)
+		os.Exit(1)
 	}
 
 	// 回帰係数を表示
@@ -129,7 +131,8 @@ func main() {
 	// R²スコアを計算
 	r2, err := lr.Score(X, y)
 	if err != nil {
-		log.Fatalf("Failed to calculate R² score: %v", err)
+		slog.Error("Failed to calculate R² score", "error", err)
+		os.Exit(1)
 	}
 	fmt.Printf("R² score: %.4f\n", r2)
 
@@ -142,7 +145,8 @@ func main() {
 	// 散布図を追加
 	scatter, err := createScatterPlot(sepalLengths, sepalWidths)
 	if err != nil {
-		log.Fatalf("Failed to create scatter plot: %v", err)
+		slog.Error("Failed to create scatter plot", "error", err)
+		os.Exit(1)
 	}
 	scatter.Color = plotter.DefaultLineStyle.Color
 	p.Add(scatter)
@@ -151,7 +155,8 @@ func main() {
 	// 回帰直線を追加
 	line, err := createRegressionLine(sepalLengths, lr)
 	if err != nil {
-		log.Fatalf("Failed to create regression line: %v", err)
+		slog.Error("Failed to create regression line", "error", err)
+		os.Exit(1)
 	}
 	line.Width = vg.Points(2)
 	line.Dashes = []vg.Length{}
@@ -160,7 +165,8 @@ func main() {
 
 	// PNGファイルとして保存
 	if err := p.Save(8*vg.Inch, 6*vg.Inch, "iris_regression.png"); err != nil {
-		log.Fatalf("Failed to save plot: %v", err)
+		slog.Error("Failed to save plot", "error", err)
+		os.Exit(1)
 	}
 
 	fmt.Println("Plot saved as iris_regression.png")

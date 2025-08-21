@@ -2,7 +2,7 @@ package lightgbm
 
 import (
 	"math"
-	"math/rand"
+	"math/rand/v2"
 )
 
 // SamplingStrategy handles data and feature sampling for training
@@ -18,11 +18,11 @@ type SamplingStrategy struct {
 func NewSamplingStrategy(params TrainingParams) *SamplingStrategy {
 	seed := params.Seed
 	if seed == 0 && !params.Deterministic {
-		seed = int(rand.Int31()) // #nosec G404 - ML sampling seed generation
+		seed = int(rand.Uint32())
 	}
 
 	return &SamplingStrategy{
-		rng:             rand.New(rand.NewSource(int64(seed))), // #nosec G404 - ML sampling RNG
+		rng:             rand.New(rand.NewPCG(uint64(seed), uint64(seed))),
 		featureFraction: params.FeatureFraction,
 		baggingFraction: params.BaggingFraction,
 		baggingFreq:     params.BaggingFreq,
@@ -53,7 +53,8 @@ func (s *SamplingStrategy) SampleFeatures(numFeatures int, iteration int) []int 
 	// Create permutation with deterministic seed if needed
 	if s.deterministic {
 		// Use iteration as additional seed component for deterministic behavior
-		s.rng.Seed(int64(s.rng.Int31() + int32(iteration))) // nolint:gosec // Safe conversion: iteration is bounded
+		// Create new RNG with iteration-specific seed for deterministic behavior
+		s.rng = rand.New(rand.NewPCG(s.rng.Uint64()+uint64(iteration), uint64(iteration)))
 	}
 
 	// Fisher-Yates shuffle to sample features
@@ -63,7 +64,7 @@ func (s *SamplingStrategy) SampleFeatures(numFeatures int, iteration int) []int 
 	}
 
 	for i := 0; i < numSample; i++ {
-		j := i + s.rng.Intn(numFeatures-i)
+		j := i + s.rng.IntN(numFeatures-i)
 		perm[i], perm[j] = perm[j], perm[i]
 	}
 
@@ -103,7 +104,8 @@ func (s *SamplingStrategy) SampleInstances(numInstances int, iteration int) []in
 	// Create permutation with deterministic seed if needed
 	if s.deterministic {
 		// Use iteration as additional seed component for deterministic behavior
-		s.rng.Seed(int64(s.rng.Int31() + int32(iteration))) // nolint:gosec // Safe conversion: iteration is bounded
+		// Create new RNG with iteration-specific seed for deterministic behavior
+		s.rng = rand.New(rand.NewPCG(s.rng.Uint64()+uint64(iteration), uint64(iteration)))
 	}
 
 	// Sample without replacement
@@ -113,7 +115,7 @@ func (s *SamplingStrategy) SampleInstances(numInstances int, iteration int) []in
 	}
 
 	for i := 0; i < numSample; i++ {
-		j := i + s.rng.Intn(numInstances-i)
+		j := i + s.rng.IntN(numInstances-i)
 		perm[i], perm[j] = perm[j], perm[i]
 	}
 

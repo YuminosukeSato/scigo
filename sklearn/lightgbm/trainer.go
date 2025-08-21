@@ -3,7 +3,7 @@ package lightgbm
 import (
 	"fmt"
 	"math"
-	"math/rand"
+	"math/rand/v2"
 	"sort"
 	"strconv"
 	"strings"
@@ -245,7 +245,7 @@ func (t *Trainer) selectDARTDropIndices(numTrees int, iteration int) []int {
 	// Skip with probability SkipDrop
 	if t.params.SkipDrop > 0 {
 		// G404: Using math/rand for ML sampling (not cryptographic purposes)
-		r := rand.New(rand.NewSource(int64(t.params.DropSeed) + int64(iteration))) // #nosec G404
+		r := rand.New(rand.NewPCG(uint64(t.params.DropSeed), uint64(t.params.DropSeed+iteration)))
 		if r.Float64() < t.params.SkipDrop {
 			return nil
 		}
@@ -264,9 +264,9 @@ func (t *Trainer) selectDARTDropIndices(numTrees int, iteration int) []int {
 		idxs[i] = i
 	}
 	// G404: Using math/rand for ML sampling (not cryptographic purposes)
-	r := rand.New(rand.NewSource(int64(t.params.DropSeed) + int64(iteration))) // #nosec G404
+	r := rand.New(rand.NewPCG(uint64(t.params.DropSeed), uint64(t.params.DropSeed+iteration)))
 	for i := 0; i < k && i < numTrees; i++ {
-		j := i + r.Intn(numTrees-i)
+		j := i + r.IntN(numTrees-i)
 		idxs[i], idxs[j] = idxs[j], idxs[i]
 	}
 	return idxs[:k]
@@ -966,11 +966,11 @@ func (t *Trainer) gosssampling() []int {
 			seed = time.Now().UnixNano()
 		}
 		// G404: Using math/rand for ML sampling (not cryptographic purposes)
-		r := rand.New(rand.NewSource(seed)) // #nosec G404
+		r := rand.New(rand.NewPCG(uint64(seed), uint64(seed)))
 		// Fisher–Yates shuffle partially (only need first otherCount)
 		n := len(remaining)
 		for i := 0; i < otherCount && i < n; i++ {
-			j := i + r.Intn(n-i)
+			j := i + r.IntN(n-i)
 			remaining[i], remaining[j] = remaining[j], remaining[i]
 			idx := remaining[i].index
 			selectedIndices = append(selectedIndices, idx)

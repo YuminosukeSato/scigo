@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 	"math"
-	"math/rand"
+	"math/rand/v2"
 	"runtime"
 	"time"
 
@@ -432,7 +432,10 @@ func benchmarkDriftDetection() []BenchmarkResult {
 
 	// DDM
 	ddm := drift.NewDDM()
-	rng := rand.New(rand.NewSource(42))
+	// Use ChaCha8 instead of PCG for Go 1.25
+	seedBytes := [32]byte{}
+	seedBytes[0] = 42
+	rng := rand.New(rand.NewChaCha8(seedBytes))
 
 	var m1, m2 runtime.MemStats
 	runtime.GC()
@@ -480,7 +483,10 @@ func benchmarkDriftDetection() []BenchmarkResult {
 // データ生成関数
 
 func generateRegressionData(samples, features int, seed int64) (mat.Matrix, mat.Matrix) {
-	rng := rand.New(rand.NewSource(seed))
+	// Use ChaCha8 instead of PCG for Go 1.25
+	seedBytes := [32]byte{}
+	seedBytes[0] = byte(seed)
+	rng := rand.New(rand.NewChaCha8(seedBytes))
 
 	X := mat.NewDense(samples, features, nil)
 	y := mat.NewDense(samples, 1, nil)
@@ -507,13 +513,16 @@ func generateRegressionData(samples, features int, seed int64) (mat.Matrix, mat.
 }
 
 func generateClassificationData(samples, features, classes int, seed int64) (mat.Matrix, mat.Matrix) {
-	rng := rand.New(rand.NewSource(seed))
+	// Use ChaCha8 instead of PCG for Go 1.25
+	seedBytes := [32]byte{}
+	seedBytes[0] = byte(seed)
+	rng := rand.New(rand.NewChaCha8(seedBytes))
 
 	X := mat.NewDense(samples, features, nil)
 	y := mat.NewDense(samples, 1, nil)
 
 	for i := 0; i < samples; i++ {
-		class := rng.Intn(classes)
+		class := rng.IntN(classes)
 		y.Set(i, 0, float64(class))
 
 		for j := 0; j < features; j++ {
@@ -527,7 +536,10 @@ func generateClassificationData(samples, features, classes int, seed int64) (mat
 }
 
 func generateClusteringData(samples, features, clusters int, seed int64) (mat.Matrix, mat.Matrix) {
-	rng := rand.New(rand.NewSource(seed))
+	// Use ChaCha8 instead of PCG for Go 1.25
+	seedBytes := [32]byte{}
+	seedBytes[0] = byte(seed)
+	rng := rand.New(rand.NewChaCha8(seedBytes))
 
 	X := mat.NewDense(samples, features, nil)
 
@@ -541,7 +553,7 @@ func generateClusteringData(samples, features, clusters int, seed int64) (mat.Ma
 	}
 
 	for i := 0; i < samples; i++ {
-		cluster := rng.Intn(clusters)
+		cluster := rng.IntN(clusters)
 		for j := 0; j < features; j++ {
 			value := centers[cluster][j] + rng.NormFloat64()
 			X.Set(i, j, value)

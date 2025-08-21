@@ -2,7 +2,6 @@ package preprocessing_test
 
 import (
 	"fmt"
-	"log"
 
 	"github.com/YuminosukeSato/scigo/preprocessing"
 	"gonum.org/v1/gonum/mat"
@@ -23,13 +22,15 @@ func ExampleStandardScaler() {
 	scaler := preprocessing.NewStandardScaler(true, true)
 	err := scaler.Fit(X)
 	if err != nil {
-		log.Fatal(err)
+		// Skip this example if error occurs
+		return
 	}
 
 	// Transform the data
 	scaled, err := scaler.Transform(X)
 	if err != nil {
-		log.Fatal(err)
+		// Skip this example if error occurs
+		return
 	}
 
 	// Print first row of scaled data
@@ -52,7 +53,8 @@ func ExampleStandardScaler_fitTransform() {
 	scaler := preprocessing.NewStandardScaler(true, true)
 	scaled, err := scaler.FitTransform(X)
 	if err != nil {
-		log.Fatal(err)
+		// Skip this example if error occurs
+		return
 	}
 
 	// Check that scaler is now fitted
@@ -85,7 +87,8 @@ func ExampleMinMaxScaler() {
 	// Fit and transform
 	scaled, err := scaler.FitTransform(X)
 	if err != nil {
-		log.Fatal(err)
+		// Skip this example if error occurs
+		return
 	}
 
 	// Print first and last values (should be 0.0 and 1.0)
@@ -110,7 +113,8 @@ func ExampleMinMaxScaler_customRange() {
 	scaler := preprocessing.NewMinMaxScaler([2]float64{-1.0, 1.0})
 	scaled, err := scaler.FitTransform(X)
 	if err != nil {
-		log.Fatal(err)
+		// Skip this example if error occurs
+		return
 	}
 
 	// Print scaled values
@@ -137,13 +141,15 @@ func ExampleOneHotEncoder() {
 	encoder := preprocessing.NewOneHotEncoder()
 	err := encoder.Fit(data)
 	if err != nil {
-		log.Fatal(err)
+		// Skip this example if error occurs
+		return
 	}
 
 	// Transform the data
 	encoded, err := encoder.Transform(data)
 	if err != nil {
-		log.Fatal(err)
+		// Skip this example if error occurs
+		return
 	}
 
 	// Print feature names
@@ -171,13 +177,15 @@ func ExampleStandardScaler_inverseTransform() {
 	scaler := preprocessing.NewStandardScaler(true, true)
 	scaled, err := scaler.FitTransform(X)
 	if err != nil {
-		log.Fatal(err)
+		// Skip this example if error occurs
+		return
 	}
 
 	// Inverse transform back to original scale
 	restored, err := scaler.InverseTransform(scaled)
 	if err != nil {
-		log.Fatal(err)
+		// Skip this example if error occurs
+		return
 	}
 
 	// Check if values match original (within floating point precision)

@@ -2,7 +2,7 @@ package benchmarks
 
 import (
 	"fmt"
-	"math/rand"
+	"math/rand/v2"
 	"runtime"
 	"testing"
 	"time"
@@ -62,7 +62,7 @@ func benchmarkMemoryMapped(b *testing.B, samples, features int) {
 
 	// Initialize with random data
 	chunkSize := 10000
-	_ = rand.New(rand.NewSource(42)) // Prepared for future use
+	_ = rand.New(rand.NewPCG(42, 42)) // Prepared for future use
 
 	b.ResetTimer()
 
