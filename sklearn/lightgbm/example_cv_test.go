@@ -15,17 +15,18 @@ func testExampleCrossValidate() {
 	X := mat.NewDense(n, 3, nil)
 	y := mat.NewDense(n, 1, nil)
 
-	// Removed deprecated rand.Seed - using default random source
+	// Use fixed seed for consistent output in examples
+	rng := rand.New(rand.NewSource(42))
 	for i := 0; i < n; i++ {
-		x1 := rand.Float64() * 10 // #nosec G404 - test data generation
-		x2 := rand.Float64() * 5 // #nosec G404 - test data generation
-		x3 := rand.Float64() * 2 // #nosec G404 - test data generation
+		x1 := rng.Float64() * 10 // #nosec G404 - test data generation
+		x2 := rng.Float64() * 5 // #nosec G404 - test data generation  
+		x3 := rng.Float64() * 2 // #nosec G404 - test data generation
 		X.Set(i, 0, x1)
 		X.Set(i, 1, x2)
 		X.Set(i, 2, x3)
 
 		// y = 0.5*x1 + 0.3*x2 + 0.1*x3 + noise
-		y.Set(i, 0, 0.5*x1+0.3*x2+0.1*x3+rand.NormFloat64()*0.5) // #nosec G404 - test data generation
+		y.Set(i, 0, 0.5*x1+0.3*x2+0.1*x3+rng.NormFloat64()*0.5) // #nosec G404 - test data generation
 	}
 
 	// Setup LightGBM parameters
@@ -65,11 +66,12 @@ func testExampleTrainer_WithCallbacks() {
 	X := mat.NewDense(n, 2, nil)
 	y := mat.NewDense(n, 1, nil)
 
-	// Removed deprecated rand.Seed - using default random source
+	// Use fixed seed for consistent output in examples  
+	rng := rand.New(rand.NewSource(42))
 	for i := 0; i < n; i++ {
-		X.Set(i, 0, rand.Float64()*10) // #nosec G404 - test data generation
-		X.Set(i, 1, rand.Float64()*5) // #nosec G404 - test data generation
-		y.Set(i, 0, X.At(i, 0)*0.5+X.At(i, 1)*0.3+rand.NormFloat64()*0.1) // #nosec G404 - test data generation
+		X.Set(i, 0, rng.Float64()*10) // #nosec G404 - test data generation
+		X.Set(i, 1, rng.Float64()*5) // #nosec G404 - test data generation
+		y.Set(i, 0, X.At(i, 0)*0.5+X.At(i, 1)*0.3+rng.NormFloat64()*0.1) // #nosec G404 - test data generation
 	}
 
 	// Setup parameters
@@ -110,9 +112,10 @@ func ExampleStratifiedKFold() {
 	y := mat.NewDense(n, 1, nil)
 
 	// Create imbalanced dataset (70% class 0, 30% class 1)
+	rng := rand.New(rand.NewSource(42))
 	for i := 0; i < n; i++ {
-		X.Set(i, 0, rand.Float64()*10)
-		X.Set(i, 1, rand.Float64()*5)
+		X.Set(i, 0, rng.Float64()*10)
+		X.Set(i, 1, rng.Float64()*5)
 
 		if i < 70 {
 			y.Set(i, 0, 0.0)
