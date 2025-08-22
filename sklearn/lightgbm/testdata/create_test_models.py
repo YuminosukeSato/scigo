@@ -11,8 +11,11 @@ from sklearn.model_selection import train_test_split
 import json
 import os
 
-# Create testdata directory if it doesn't exist
-os.makedirs('testdata', exist_ok=True)
+# Output directory configuration
+OUTPUT_DIR = 'testdata/compatibility'
+
+# Create output directory if it doesn't exist
+os.makedirs(OUTPUT_DIR, exist_ok=True)
 
 def create_binary_classification_model():
     """Create a binary classification model using Iris dataset (2 classes)."""
@@ -46,10 +49,10 @@ def create_binary_classification_model():
     model = lgb.train(params, train_data, num_boost_round=10)
     
     # Save model
-    model.save_model('testdata/binary_model.txt')
+    model.save_model(os.path.join(OUTPUT_DIR, 'binary_model.txt'))
     
     # Save model as JSON for inspection
-    with open('testdata/binary_model.json', 'w') as f:
+    with open(os.path.join(OUTPUT_DIR, 'binary_model.json'), 'w') as f:
         json.dump(model.dump_model(), f, indent=2)
     
     # Make predictions on test samples for verification
@@ -73,7 +76,7 @@ def create_binary_classification_model():
         'model_params': params,
     }
     
-    with open('testdata/binary_test_data.json', 'w') as f:
+    with open(os.path.join(OUTPUT_DIR, 'binary_test_data.json'), 'w') as f:
         json.dump(test_data, f, indent=2)
     
     return model, test_samples, predictions
@@ -114,10 +117,10 @@ def create_regression_model():
     model = lgb.train(params, train_data, num_boost_round=10)
     
     # Save model
-    model.save_model('testdata/regression_model.txt')
+    model.save_model(os.path.join(OUTPUT_DIR, 'regression_model.txt'))
     
     # Save model as JSON
-    with open('testdata/regression_model.json', 'w') as f:
+    with open(os.path.join(OUTPUT_DIR, 'regression_model.json'), 'w') as f:
         json.dump(model.dump_model(), f, indent=2)
     
     # Make predictions on test samples
@@ -140,7 +143,7 @@ def create_regression_model():
         'model_params': params,
     }
     
-    with open('testdata/regression_test_data.json', 'w') as f:
+    with open(os.path.join(OUTPUT_DIR, 'regression_test_data.json'), 'w') as f:
         json.dump(test_data, f, indent=2)
     
     return model, test_samples, predictions
@@ -178,10 +181,10 @@ def create_multiclass_model():
     model = lgb.train(params, train_data, num_boost_round=10)
     
     # Save model
-    model.save_model('testdata/multiclass_model.txt')
+    model.save_model(os.path.join(OUTPUT_DIR, 'multiclass_model.txt'))
     
     # Save model as JSON
-    with open('testdata/multiclass_model.json', 'w') as f:
+    with open(os.path.join(OUTPUT_DIR, 'multiclass_model.json'), 'w') as f:
         json.dump(model.dump_model(), f, indent=2)
     
     # Make predictions on test samples
@@ -205,7 +208,7 @@ def create_multiclass_model():
         'model_params': params,
     }
     
-    with open('testdata/multiclass_test_data.json', 'w') as f:
+    with open(os.path.join(OUTPUT_DIR, 'multiclass_test_data.json'), 'w') as f:
         json.dump(test_data, f, indent=2)
     
     return model, test_samples, predictions
@@ -215,8 +218,8 @@ def verify_model_loading():
     print("\nVerifying model loading...")
     
     # Load and test binary model
-    binary_model = lgb.Booster(model_file='testdata/binary_model.txt')
-    with open('testdata/binary_test_data.json', 'r') as f:
+    binary_model = lgb.Booster(model_file=os.path.join(OUTPUT_DIR, 'binary_model.txt'))
+    with open(os.path.join(OUTPUT_DIR, 'binary_test_data.json'), 'r') as f:
         binary_data = json.load(f)
     
     binary_preds = binary_model.predict(np.array(binary_data['test_samples']))
@@ -226,8 +229,8 @@ def verify_model_loading():
         print(f"  Sample {i}: pred={pred:.10f}, expected={expected:.10f}, diff={diff:.2e}")
     
     # Load and test regression model
-    reg_model = lgb.Booster(model_file='testdata/regression_model.txt')
-    with open('testdata/regression_test_data.json', 'r') as f:
+    reg_model = lgb.Booster(model_file=os.path.join(OUTPUT_DIR, 'regression_model.txt'))
+    with open(os.path.join(OUTPUT_DIR, 'regression_test_data.json'), 'r') as f:
         reg_data = json.load(f)
     
     reg_preds = reg_model.predict(np.array(reg_data['test_samples']))
@@ -256,7 +259,7 @@ def main():
     
     print("\n" + "=" * 60)
     print("Test models created successfully!")
-    print("Files created in testdata/ directory:")
+    print(f"Files created in {OUTPUT_DIR} directory:")
     print("  - binary_model.txt/json")
     print("  - regression_model.txt/json")
     print("  - multiclass_model.txt/json")
