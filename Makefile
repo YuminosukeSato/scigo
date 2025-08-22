@@ -52,6 +52,10 @@ test-short: ## Run short tests
 	@echo -e "$(GREEN)Running short tests...$(NC)"
 	$(GOTEST) -v -short ./...
 
+test-ci: ## Run tests with CI options (-v -short -race -coverprofile)
+	@echo -e "$(GREEN)Running CI tests...$(NC)"
+	$(GOTEST) -v -short -race -coverprofile=coverage.out ./...
+
 coverage: ## Run tests with coverage report
 	@echo -e "$(GREEN)Running tests with coverage...$(NC)"
 	$(GOTEST) -v -race -coverprofile=coverage.out ./...
@@ -83,9 +87,21 @@ bench: ## Run benchmarks
 
 ##@ Code Quality
 
+# Install formatters for CI
+install-formatters: ## Install gofumpt and goimports
+	@echo -e "$(GREEN)Installing formatters...$(NC)"
+	@go install mvdan.cc/gofumpt@latest
+	@go install golang.org/x/tools/cmd/goimports@latest
+	@echo -e "$(GREEN)Formatters installed$(NC)"
+
 fmt: ## Format code
 	@echo -e "$(GREEN)Formatting code...$(NC)"
 	$(GO) fmt ./...
+
+fmt-ci: install-formatters ## Format code with gofumpt and goimports (CI-compatible)
+	@echo -e "$(GREEN)Formatting code with gofumpt and goimports...$(NC)"
+	@gofumpt -w .
+	@goimports -w -local github.com/YuminosukeSato/scigo .
 
 fmt-check: ## Check if code is formatted
 	@echo -e "$(GREEN)Checking code formatting...$(NC)"
@@ -97,6 +113,21 @@ fmt-check: ## Check if code is formatted
 	else \
 		echo -e "$(GREEN)All files are properly formatted$(NC)"; \
 	fi
+
+check-fmt: install-formatters ## Check formatting with gofumpt and goimports (CI-compatible)
+	@echo -e "$(GREEN)Checking gofumpt formatting...$(NC)"
+	@gofumpt -l -d .
+	@if [ -n "$$(gofumpt -l .)" ]; then \
+		echo -e "$(RED)❌ gofumpt formatting issues found. Run 'make fmt-ci' locally$(NC)"; \
+		exit 1; \
+	fi
+	@echo -e "$(GREEN)Checking goimports formatting...$(NC)"
+	@goimports -l -d -local github.com/YuminosukeSato/scigo .
+	@if [ -n "$$(goimports -l -local github.com/YuminosukeSato/scigo .)" ]; then \
+		echo -e "$(RED)❌ goimports formatting issues found. Run 'make fmt-ci' locally$(NC)"; \
+		exit 1; \
+	fi
+	@echo -e "$(GREEN)✅ All formatting checks passed$(NC)"
 
 lint: ## Run go vet
 	@echo -e "$(GREEN)Running go vet...$(NC)"
@@ -118,7 +149,43 @@ lint-check: ## Check linting issues
 		echo -e "$(YELLOW)golangci-lint not installed. Install with: go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest$(NC)"; \
 	fi
 
+lint-ci: ## Run golangci-lint on changed files only (CI-compatible)
+	@echo -e "$(GREEN)Running golangci-lint on changed files...$(NC)"
+	@if command -v golangci-lint &> /dev/null; then \
+		if git diff --quiet HEAD~1 2>/dev/null; then \
+			echo -e "$(YELLOW)No changes detected from HEAD~1, running on all files$(NC)"; \
+			$(GOLANGCI_LINT) run --timeout=5m ./...; \
+		else \
+			$(GOLANGCI_LINT) run --timeout=5m --new-from-rev=HEAD~1 ./...; \
+		fi \
+	else \
+		echo -e "$(YELLOW)golangci-lint not installed. Install with: go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest$(NC)"; \
+		exit 1; \
+	fi
+
 ##@ CI Local Execution
+
+# Main CI target that mirrors GitHub Actions workflow exactly
+ci: ## Run complete CI workflow (mirrors GitHub Actions)
+	@echo -e "$(GREEN)========================================$(NC)"
+	@echo -e "$(GREEN)Running CI Workflow (GitHub Actions Compatible)$(NC)"
+	@echo -e "$(GREEN)========================================$(NC)"
+	@echo ""
+	@echo -e "$(GREEN)[Step 1/4] Checking code formatting...$(NC)"
+	@$(MAKE) check-fmt
+	@echo ""
+	@echo -e "$(GREEN)[Step 2/4] Running golangci-lint...$(NC)"
+	@$(MAKE) lint-ci
+	@echo ""
+	@echo -e "$(GREEN)[Step 3/4] Checking go mod tidy...$(NC)"
+	@$(MAKE) check-mod-tidy
+	@echo ""
+	@echo -e "$(GREEN)[Step 4/4] Running tests...$(NC)"
+	@$(MAKE) test-ci
+	@echo ""
+	@echo -e "$(GREEN)========================================$(NC)"
+	@echo -e "$(GREEN)✅ All CI checks passed successfully!$(NC)"
+	@echo -e "$(GREEN)========================================$(NC)"
 
 ci-fast: ## Fast CI checks (minimal security, parallel execution) - 5-7 seconds
 	@echo -e "$(GREEN)Running fast CI checks...$(NC)"
