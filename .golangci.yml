@@ -10,6 +10,8 @@
 
 # Based on https://gist.github.com/maratori/47a4d00457a92aa426dbd48a18776322
 
+version: "2"
+
 issues:
   # PRでは新しく変更されたコードのみチェック（段階的導入）
   new-from-rev: HEAD~1
