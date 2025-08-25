@@ -7,7 +7,7 @@ toolchain go1.24.6
 require (
 	github.com/cockroachdb/errors v1.12.0
 	github.com/rs/zerolog v1.34.0
-	github.com/stretchr/testify v1.8.4
+	github.com/stretchr/testify v1.11.0
 	gonum.org/v1/gonum v0.16.0
 	gonum.org/v1/plot v0.16.0
 )
