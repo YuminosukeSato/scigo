@@ -55,7 +55,7 @@ jobs:
         
     - name: Set up Go
       if: steps.check.outputs.should_release == 'true'
-      uses: actions/setup-go@v5
+      uses: actions/setup-go@v6
       with:
         go-version: '1.24'
         
